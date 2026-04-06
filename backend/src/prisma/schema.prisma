@@ -1,0 +1,435 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ──────────────────────────────────────
+// USERS (single table: free | member | admin | sub_admin)
+// ──────────────────────────────────────
+
+model User {
+  id            String   @id @default(uuid()) @db.Uuid
+  email         String   @unique @db.VarChar(255)
+  password_hash String   @db.VarChar(255)
+  name          String   @db.VarChar(100)
+  role          String   @default("free") @db.VarChar(20)
+  coins_balance Int      @default(0)
+  fcm_token     String?  @db.VarChar(500)
+  is_blocked    Boolean  @default(false)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  sub_admin_access   SubAdminAccess[]
+  memberships        UserMembership[]
+  coin_transactions  CoinTransaction[]
+  watch_history      WatchHistory[]
+  episode_access     EpisodeAccess[]
+  daily_checkins     DailyCheckin[]
+  bookmarks          Bookmark[]
+  playlists          Playlist[]
+  notifications      NotificationLog[]
+  payments           PaymentTransaction[]
+  ratings            Rating[]
+  activity_logs      AdminActivityLog[]
+
+  @@map("users")
+}
+
+model SubAdminAccess {
+  id         String   @id @default(uuid()) @db.Uuid
+  user_id    String   @db.Uuid
+  section    String   @db.VarChar(50)
+  created_at DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, section])
+  @@map("sub_admin_access")
+}
+
+// ──────────────────────────────────────
+// MEMBERSHIPS & PAYMENTS
+// ──────────────────────────────────────
+
+model MembershipPlan {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @db.VarChar(50)
+  duration  String   @db.VarChar(20)
+  price     Decimal  @db.Decimal(10, 2)
+  currency  String   @default("INR") @db.VarChar(10)
+  is_active Boolean  @default(true)
+  created_at DateTime @default(now())
+
+  memberships UserMembership[]
+
+  @@map("membership_plans")
+}
+
+model UserMembership {
+  id            String    @id @default(uuid()) @db.Uuid
+  user_id       String    @db.Uuid
+  plan_id       String    @db.Uuid
+  payment_id    String?   @db.Uuid
+  start_date    DateTime
+  end_date      DateTime
+  status        String    @default("active") @db.VarChar(20)
+  cancel_reason String?   @db.VarChar(255)
+  created_at    DateTime  @default(now())
+
+  user    User               @relation(fields: [user_id], references: [id])
+  plan    MembershipPlan     @relation(fields: [plan_id], references: [id])
+  payment PaymentTransaction? @relation(fields: [payment_id], references: [id])
+
+  @@index([user_id, status, end_date], name: "idx_um_user_status")
+  @@map("user_memberships")
+}
+
+model PaymentTransaction {
+  id              String   @id @default(uuid()) @db.Uuid
+  user_id         String   @db.Uuid
+  type            String   @db.VarChar(20)
+  amount          Decimal  @db.Decimal(10, 2)
+  currency        String   @default("INR") @db.VarChar(10)
+  gateway         String   @default("nationlink") @db.VarChar(30)
+  gateway_ref     String?  @db.VarChar(255)
+  status          String   @default("pending") @db.VarChar(20)
+  webhook_payload String?  @db.Text
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  user        User             @relation(fields: [user_id], references: [id])
+  memberships UserMembership[]
+
+  @@map("payment_transactions")
+}
+
+// ──────────────────────────────────────
+// CONTENT: CATEGORIES, TAGS, SHOWS, EPISODES
+// ──────────────────────────────────────
+
+model Category {
+  id            String   @id @default(uuid()) @db.Uuid
+  name          String   @db.VarChar(100)
+  display_order Int      @default(0)
+  is_active     Boolean  @default(true)
+  created_by    String?  @db.Uuid
+  created_at    DateTime @default(now())
+
+  shows Show[]
+
+  @@map("categories")
+}
+
+model Tag {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique @db.VarChar(50)
+  is_trending Boolean  @default(false)
+  created_at  DateTime @default(now())
+
+  show_tags ShowTag[]
+
+  @@map("tags")
+}
+
+model Show {
+  id                  String   @id @default(uuid()) @db.Uuid
+  category_id         String   @db.Uuid
+  title               String   @db.VarChar(255)
+  synopsis            String?  @db.Text
+  thumbnail_url       String?  @db.VarChar(500)
+  banner_url          String?  @db.VarChar(500)
+  view_count          Int      @default(0)
+  rating_avg          Float    @default(0)
+  rating_count        Int      @default(0)
+  is_featured_for_you Boolean  @default(false)
+  is_active           Boolean  @default(true)
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+
+  category         Category         @relation(fields: [category_id], references: [id])
+  episodes         Episode[]
+  show_tags        ShowTag[]
+  banners          Banner[]
+  bookmarks        Bookmark[]
+  playlist_items   PlaylistItem[]
+  collection_shows CollectionShow[]
+  ratings          Rating[]
+
+  @@index([category_id, is_active], name: "idx_shows_category")
+  @@index([is_featured_for_you, is_active], name: "idx_shows_featured")
+  @@map("shows")
+}
+
+model ShowTag {
+  show_id String @db.Uuid
+  tag_id  String @db.Uuid
+
+  show Show @relation(fields: [show_id], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tag_id], references: [id], onDelete: Cascade)
+
+  @@id([show_id, tag_id])
+  @@map("show_tags")
+}
+
+model Episode {
+  id             String   @id @default(uuid()) @db.Uuid
+  show_id        String   @db.Uuid
+  episode_num    Int
+  title          String   @db.VarChar(255)
+  is_free        Boolean  @default(false)
+  coin_cost      Int      @default(0)
+  hls_master_url String?  @db.VarChar(500)
+  duration_sec   Int      @default(0)
+  status         String   @default("processing") @db.VarChar(20)
+  total_profiles Int      @default(4)
+  completed_profiles Int  @default(0)
+  created_at     DateTime @default(now())
+
+  show           Show           @relation(fields: [show_id], references: [id], onDelete: Cascade)
+  watch_history  WatchHistory[]
+  episode_access EpisodeAccess[]
+
+  @@index([show_id, episode_num], name: "idx_episodes_show")
+  @@map("episodes")
+}
+
+// ──────────────────────────────────────
+// USER ACTIVITY: WATCH, UNLOCK, COINS
+// ──────────────────────────────────────
+
+model WatchHistory {
+  id           String   @id @default(uuid()) @db.Uuid
+  user_id      String   @db.Uuid
+  episode_id   String   @db.Uuid
+  progress_sec Int      @default(0)
+  last_watched DateTime @default(now())
+
+  user    User    @relation(fields: [user_id], references: [id])
+  episode Episode @relation(fields: [episode_id], references: [id])
+
+  @@unique([user_id, episode_id], name: "idx_wh_user_ep")
+  @@index([user_id, last_watched(sort: Desc)], name: "idx_wh_user_last")
+  @@map("watch_history")
+}
+
+model EpisodeAccess {
+  id          String   @id @default(uuid()) @db.Uuid
+  user_id     String   @db.Uuid
+  episode_id  String   @db.Uuid
+  coins_spent Int
+  unlocked_at DateTime @default(now())
+
+  user    User    @relation(fields: [user_id], references: [id])
+  episode Episode @relation(fields: [episode_id], references: [id])
+
+  @@unique([user_id, episode_id], name: "idx_ea_user_ep")
+  @@map("episode_access")
+}
+
+model CoinTransaction {
+  id         String   @id @default(uuid()) @db.Uuid
+  user_id    String   @db.Uuid
+  type       String   @db.VarChar(10)
+  amount     Int
+  reason     String   @db.VarChar(30)
+  ref_id     String?  @db.VarChar(100)
+  created_at DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id])
+
+  @@index([user_id, created_at(sort: Desc)], name: "idx_ct_user_created")
+  @@map("coin_transactions")
+}
+
+model DailyCheckin {
+  id            String   @id @default(uuid()) @db.Uuid
+  user_id       String   @db.Uuid
+  checkin_date  DateTime @db.Date
+  coins_awarded Int
+  streak_day    Int
+  created_at    DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id])
+
+  @@unique([user_id, checkin_date], name: "idx_dc_user_date")
+  @@map("daily_checkins")
+}
+
+// ──────────────────────────────────────
+// BANNERS, COLLECTIONS, BOOKMARKS, PLAYLISTS
+// ──────────────────────────────────────
+
+model Banner {
+  id            String    @id @default(uuid()) @db.Uuid
+  show_id       String?   @db.Uuid
+  image_url     String    @db.VarChar(500)
+  title         String?   @db.VarChar(255)
+  link_type     String    @default("show") @db.VarChar(20)
+  display_order Int       @default(0)
+  is_active     Boolean   @default(true)
+  starts_at     DateTime?
+  ends_at       DateTime?
+
+  show Show? @relation(fields: [show_id], references: [id])
+
+  @@index([is_active, starts_at, ends_at], name: "idx_banners_active")
+  @@map("banners")
+}
+
+model Collection {
+  id              String   @id @default(uuid()) @db.Uuid
+  title           String   @db.VarChar(255)
+  subtitle        String?  @db.VarChar(255)
+  cover_image_url String?  @db.VarChar(500)
+  display_order   Int      @default(0)
+  is_active       Boolean  @default(true)
+  created_by      String?  @db.Uuid
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  collection_shows CollectionShow[]
+
+  @@index([is_active, display_order], name: "idx_collections_order")
+  @@map("collections")
+}
+
+model CollectionShow {
+  id            String @id @default(uuid()) @db.Uuid
+  collection_id String @db.Uuid
+  show_id       String @db.Uuid
+  display_order Int    @default(0)
+
+  collection Collection @relation(fields: [collection_id], references: [id], onDelete: Cascade)
+  show       Show       @relation(fields: [show_id], references: [id], onDelete: Cascade)
+
+  @@map("collection_shows")
+}
+
+model Bookmark {
+  id         String   @id @default(uuid()) @db.Uuid
+  user_id    String   @db.Uuid
+  show_id    String   @db.Uuid
+  created_at DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id])
+  show Show @relation(fields: [show_id], references: [id])
+
+  @@unique([user_id, show_id], name: "idx_bm_user_show")
+  @@map("bookmarks")
+}
+
+model Playlist {
+  id         String   @id @default(uuid()) @db.Uuid
+  user_id    String   @db.Uuid
+  name       String   @db.VarChar(100)
+  is_public  Boolean  @default(false)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  user  User           @relation(fields: [user_id], references: [id])
+  items PlaylistItem[]
+
+  @@map("playlists")
+}
+
+model PlaylistItem {
+  id            String   @id @default(uuid()) @db.Uuid
+  playlist_id   String   @db.Uuid
+  show_id       String   @db.Uuid
+  display_order Int      @default(0)
+  added_at      DateTime @default(now())
+
+  playlist Playlist @relation(fields: [playlist_id], references: [id], onDelete: Cascade)
+  show     Show     @relation(fields: [show_id], references: [id])
+
+  @@map("playlist_items")
+}
+
+// ──────────────────────────────────────
+// RATINGS
+// ──────────────────────────────────────
+
+model Rating {
+  id         String   @id @default(uuid()) @db.Uuid
+  user_id    String   @db.Uuid
+  show_id    String   @db.Uuid
+  score      Int
+  created_at DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id])
+  show Show @relation(fields: [show_id], references: [id])
+
+  @@unique([user_id, show_id])
+  @@map("ratings")
+}
+
+// ──────────────────────────────────────
+// NOTIFICATIONS
+// ──────────────────────────────────────
+
+model NotificationLog {
+  id        String    @id @default(uuid()) @db.Uuid
+  user_id   String?   @db.Uuid
+  title     String    @db.VarChar(255)
+  body      String    @db.Text
+  type      String    @db.VarChar(20)
+  trigger   String    @db.VarChar(30)
+  is_read   Boolean   @default(false)
+  sent_at   DateTime  @default(now())
+  read_at   DateTime?
+
+  user User? @relation(fields: [user_id], references: [id])
+
+  @@map("notification_log")
+}
+
+// ──────────────────────────────────────
+// ADMIN ACTIVITY LOG
+// ──────────────────────────────────────
+
+model AdminActivityLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  user_id     String   @db.Uuid
+  action      String   @db.VarChar(100)
+  entity_type String?  @db.VarChar(50)
+  entity_id   String?  @db.VarChar(100)
+  details     String?  @db.Text
+  created_at  DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id])
+
+  @@map("admin_activity_log")
+}
+
+// ──────────────────────────────────────
+// SETTINGS (key-value for coin rules, app config)
+// ──────────────────────────────────────
+
+model Setting {
+  key        String   @id @db.VarChar(100)
+  value      String   @db.VarChar(500)
+  updated_at DateTime @updatedAt
+
+  @@map("settings")
+}
+
+// ──────────────────────────────────────
+// CMS PAGES
+// ──────────────────────────────────────
+
+model CmsPage {
+  id         String   @id @default(uuid()) @db.Uuid
+  name       String   @db.VarChar(100)
+  slug       String   @unique @db.VarChar(100)
+  content    String?  @db.Text
+  status     String   @default("draft") @db.VarChar(20)
+  version    Int      @default(1)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("cms_pages")
+}
