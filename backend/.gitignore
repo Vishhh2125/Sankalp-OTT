@@ -1,13 +1,29 @@
+# Dependencies
 node_modules/
-dist/
-.env
-.env.local
-.env.test
-*.log
-uploads/*
-!uploads/.gitkeep
-coverage/
 
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Build output
+dist/
+build/
+coverage/
 
 # Logs and database
 logs/
@@ -22,4 +38,3 @@ prisma/migrations/
 Thumbs.db
 .vscode/
 .idea/
-
