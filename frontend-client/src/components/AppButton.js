@@ -1,6 +1,8 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
+import { theme } from '../constants/theme';
+
 export default function AppButton({
   title,
   onPress,
@@ -39,10 +41,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   primary: {
-    backgroundColor: '#2563EB',
+    backgroundColor: theme.crimson,
   },
   secondary: {
-    backgroundColor: '#111827',
+    backgroundColor: theme.border,
   },
   disabled: {
     opacity: 0.6,
@@ -51,7 +53,7 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   },
   text: {
-    color: '#FFFFFF',
+    color: theme.white,
     fontWeight: '600',
   },
   primaryText: {},
