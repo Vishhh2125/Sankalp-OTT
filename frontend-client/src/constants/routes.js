@@ -4,6 +4,7 @@ export const ROUTES = {
   MAIN_TABS: 'MainTabs',
   HOME: 'Home',
   FOR_YOU: 'ForYou',
-  MEMBERSHIP: 'Membership',
+  MEMBERSHIP: 'MembershipScreen',
+  MY_LIST: 'MyList',
   PROFILE: 'Profile',
 };

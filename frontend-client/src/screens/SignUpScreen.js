@@ -28,8 +28,7 @@ function getPasswordStrength(password) {
 }
 
 export default function SignUpScreen({ navigation }) {
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -39,7 +38,7 @@ export default function SignUpScreen({ navigation }) {
   return (
     <ScrollView
       contentContainerStyle={styles.container}
-      keyboardShouldPersistTaps="handled"
+      keyboardShouldPersistTaps={true}
     >
       {/* Logo */}
       <View style={styles.logoRow}>
@@ -63,29 +62,15 @@ export default function SignUpScreen({ navigation }) {
         </View>
       </View>
 
-      {/* Name Row */}
-      <View style={styles.nameRow}>
-        <View style={styles.nameField}>
-          <Text style={styles.label}>FIRST NAME</Text>
-          <TextInput
-            value={firstName}
-            onChangeText={setFirstName}
-            placeholder="Priya"
-            style={styles.input}
-            placeholderTextColor={theme.darkGray}
-          />
-        </View>
-        <View style={styles.nameField}>
-          <Text style={styles.label}>LAST NAME</Text>
-          <TextInput
-            value={lastName}
-            onChangeText={setLastName}
-            placeholder="Sharma"
-            style={styles.input}
-            placeholderTextColor={theme.darkGray}
-          />
-        </View>
-      </View>
+      {/* Name */}
+      <Text style={styles.label}>YOUR NAME</Text>
+      <TextInput
+        value={fullName}
+        onChangeText={setFullName}
+        placeholder="Priya Sharma"
+        style={styles.input}
+        placeholderTextColor={theme.darkGray}
+      />
 
       {/* Email */}
       <Text style={styles.label}>EMAIL</Text>
@@ -248,14 +233,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
   },
-  nameRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  nameField: {
-    flex: 1,
-  },
+  // (nameRow/nameField removed - using single full name field)
   label: {
     fontSize: 12,
     fontWeight: '700',

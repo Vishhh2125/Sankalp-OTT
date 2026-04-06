@@ -4,8 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 
 import ReelsScreen from '../screens/ReelsScreen';
 import ForYouScreen from '../screens/ForYouScreen';
-import MembershipScreen from '../screens/MembershipScreen';
-import ProfileScreen from '../screens/ProfileScreen';
+import MyListScreen from '../screens/MyListScreen';
+import ProfileStackNavigator from './ProfileStackNavigator';
 import { ROUTES } from '../constants/routes';
 import { theme } from '../constants/theme';
 
@@ -14,7 +14,7 @@ const Tab = createBottomTabNavigator();
 const TAB_ICONS = {
   [ROUTES.HOME]: { active: 'home', inactive: 'home-outline' },
   [ROUTES.FOR_YOU]: { active: 'play-circle', inactive: 'play-circle-outline' },
-  [ROUTES.MEMBERSHIP]: { active: 'card', inactive: 'card-outline' },
+  [ROUTES.MY_LIST]: { active: 'bookmark', inactive: 'bookmark-outline' },
   [ROUTES.PROFILE]: { active: 'person-circle', inactive: 'person-circle-outline' },
 };
 
@@ -56,13 +56,13 @@ export default function BottomTabNavigator() {
         options={{ tabBarLabel: 'For You' }}
       />
       <Tab.Screen
-        name={ROUTES.MEMBERSHIP}
-        component={MembershipScreen}
-        options={{ tabBarLabel: 'Membership' }}
+        name={ROUTES.MY_LIST}
+        component={MyListScreen}
+        options={{ tabBarLabel: 'My List' }}
       />
       <Tab.Screen
         name={ROUTES.PROFILE}
-        component={ProfileScreen}
+        component={ProfileStackNavigator}
         options={{ tabBarLabel: 'Profile' }}
       />
     </Tab.Navigator>

@@ -14,7 +14,7 @@ import { ROUTES } from '../constants/routes';
 const FEATURE_ICONS = [
   { icon: 'play-circle-outline', label: '8K+ series' },
   { icon: 'time-outline', label: 'Daily points' },
-  { icon: 'download-outline', label: 'Download' },
+  // Removed Download icon from here
   { icon: 'videocam-outline', label: '1080p quality' },
 ];
 
@@ -24,11 +24,11 @@ const MENU_ITEMS = [
   { icon: 'gift-outline', label: 'Earn Rewards', badge: '+70' },
   { icon: 'heart-outline', label: 'Gifts', right: null },
   { icon: 'time-outline', label: 'History', right: null },
-  { icon: 'download-outline', label: 'Download', right: null },
+  // Removed Download item from here
 ];
 
 const SETTINGS_ITEMS = [
-  { icon: 'language-outline', label: 'Language', right: 'English' },
+  // Removed Language item from here
   { icon: 'help-circle-outline', label: 'Help & feedback', right: null },
 ];
 
@@ -59,6 +59,10 @@ function MenuItem({ icon, label, right, badge, onPress }) {
 }
 
 export default function ProfileScreen({ navigation }) {
+  function goToMembership() {
+    navigation.navigate(ROUTES.MEMBERSHIP);
+  }
+
   return (
     <ScrollView
       style={styles.screen}
@@ -102,7 +106,10 @@ export default function ProfileScreen({ navigation }) {
               Enjoy these exclusive benefits:
             </Text>
           </View>
-          <Pressable style={styles.joinSmallBtn}>
+          <Pressable
+            style={styles.joinSmallBtn}
+            onPress={goToMembership}
+          >
             <Text style={styles.joinSmallText}>Join</Text>
           </Pressable>
         </View>
@@ -118,6 +125,7 @@ export default function ProfileScreen({ navigation }) {
 
       {/* Main Menu */}
       <View style={styles.menuCard}>
+        <MenuItem icon="star-outline" label="Membership" onPress={goToMembership} />
         {MENU_ITEMS.map((item) => (
           <MenuItem key={item.label} {...item} />
         ))}
@@ -139,6 +147,7 @@ export default function ProfileScreen({ navigation }) {
     </ScrollView>
   );
 }
+
 
 const styles = StyleSheet.create({
   screen: {
