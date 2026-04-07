@@ -1,0 +1,17 @@
+export const theme = {
+  deepBlack: '#0D0010',
+  black: '#000000',
+  surface: '#1A0020',
+  surfaceLight: '#220030',
+  border: '#3A0040',
+  crimson: '#FF2D55',
+  blush: '#FF6584',
+  white: '#FFFFFF',
+  gray: '#8E8E93',
+  darkGray: '#636366',
+  lightGray: '#AEAEB2',
+  gold: '#FFD60A',
+  orange: '#FF9500',
+  green: '#34C759',
+  red: '#FF3B30',
+};

@@ -1,3 +1,6 @@
+// This is your Prisma schema file.
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,33 +11,50 @@ datasource db {
 }
 
 // ──────────────────────────────────────
-// USERS (single table: free | member | admin | sub_admin)
+// ENUMS (from main)
+// ──────────────────────────────────────
+
+enum Role {
+  ADMIN
+  SUB_ADMIN
+  USER
+}
+
+enum Plan {
+  FREE
+  MEMBER
+}
+
+// ──────────────────────────────────────
+// USERS
 // ──────────────────────────────────────
 
 model User {
-  id            String   @id @default(uuid()) @db.Uuid
-  email         String   @unique @db.VarChar(255)
-  password_hash String   @db.VarChar(255)
-  name          String   @db.VarChar(100)
-  role          String   @default("free") @db.VarChar(20)
-  coins_balance Int      @default(0)
-  fcm_token     String?  @db.VarChar(500)
-  is_blocked    Boolean  @default(false)
-  created_at    DateTime @default(now())
-  updated_at    DateTime @updatedAt
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique @db.VarChar(255)
+  password     String   @db.VarChar(255)
+  name         String   @db.VarChar(100)
+  role         Role     @default(USER)
+  plan         Plan?
+  coins        Int?     @default(0)
+  refreshToken String?
+  fcm_token    String?  @db.VarChar(500)
+  isBlocked    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  sub_admin_access   SubAdminAccess[]
-  memberships        UserMembership[]
-  coin_transactions  CoinTransaction[]
-  watch_history      WatchHistory[]
-  episode_access     EpisodeAccess[]
-  daily_checkins     DailyCheckin[]
-  bookmarks          Bookmark[]
-  playlists          Playlist[]
-  notifications      NotificationLog[]
-  payments           PaymentTransaction[]
-  ratings            Rating[]
-  activity_logs      AdminActivityLog[]
+  sub_admin_access  SubAdminAccess[]
+  memberships       UserMembership[]
+  coin_transactions CoinTransaction[]
+  watch_history     WatchHistory[]
+  episode_access    EpisodeAccess[]
+  daily_checkins    DailyCheckin[]
+  bookmarks         Bookmark[]
+  playlists         Playlist[]
+  notifications     NotificationLog[]
+  payments          PaymentTransaction[]
+  ratings           Rating[]
+  activity_logs     AdminActivityLog[]
 
   @@map("users")
 }
@@ -56,12 +76,12 @@ model SubAdminAccess {
 // ──────────────────────────────────────
 
 model MembershipPlan {
-  id        String   @id @default(uuid()) @db.Uuid
-  name      String   @db.VarChar(50)
-  duration  String   @db.VarChar(20)
-  price     Decimal  @db.Decimal(10, 2)
-  currency  String   @default("INR") @db.VarChar(10)
-  is_active Boolean  @default(true)
+  id         String   @id @default(uuid()) @db.Uuid
+  name       String   @db.VarChar(50)
+  duration   String   @db.VarChar(20)
+  price      Decimal  @db.Decimal(10, 2)
+  currency   String   @default("INR") @db.VarChar(10)
+  is_active  Boolean  @default(true)
   created_at DateTime @default(now())
 
   memberships UserMembership[]
@@ -80,8 +100,8 @@ model UserMembership {
   cancel_reason String?   @db.VarChar(255)
   created_at    DateTime  @default(now())
 
-  user    User               @relation(fields: [user_id], references: [id])
-  plan    MembershipPlan     @relation(fields: [plan_id], references: [id])
+  user    User                @relation(fields: [user_id], references: [id])
+  plan    MembershipPlan      @relation(fields: [plan_id], references: [id])
   payment PaymentTransaction? @relation(fields: [payment_id], references: [id])
 
   @@index([user_id, status, end_date], name: "idx_um_user_status")
@@ -176,20 +196,20 @@ model ShowTag {
 }
 
 model Episode {
-  id             String   @id @default(uuid()) @db.Uuid
-  show_id        String   @db.Uuid
-  episode_num    Int
-  title          String   @db.VarChar(255)
-  is_free        Boolean  @default(false)
-  coin_cost      Int      @default(0)
-  hls_master_url String?  @db.VarChar(500)
-  duration_sec   Int      @default(0)
-  status         String   @default("processing") @db.VarChar(20)
-  total_profiles Int      @default(4)
-  completed_profiles Int  @default(0)
-  created_at     DateTime @default(now())
+  id                 String   @id @default(uuid()) @db.Uuid
+  show_id            String   @db.Uuid
+  episode_num        Int
+  title              String   @db.VarChar(255)
+  is_free            Boolean  @default(false)
+  coin_cost          Int      @default(0)
+  hls_master_url     String?  @db.VarChar(500)
+  duration_sec       Int      @default(0)
+  status             String   @default("processing") @db.VarChar(20)
+  total_profiles     Int      @default(4)
+  completed_profiles Int      @default(0)
+  created_at         DateTime @default(now())
 
-  show           Show           @relation(fields: [show_id], references: [id], onDelete: Cascade)
+  show           Show            @relation(fields: [show_id], references: [id], onDelete: Cascade)
   watch_history  WatchHistory[]
   episode_access EpisodeAccess[]
 
@@ -246,12 +266,12 @@ model CoinTransaction {
 }
 
 model DailyCheckin {
-  id            String   @id @default(uuid()) @db.Uuid
-  user_id       String   @db.Uuid
-  checkin_date  DateTime @db.Date
+  id           String   @id @default(uuid()) @db.Uuid
+  user_id      String   @db.Uuid
+  checkin_date DateTime @db.Date
   coins_awarded Int
-  streak_day    Int
-  created_at    DateTime @default(now())
+  streak_day   Int
+  created_at   DateTime @default(now())
 
   user User @relation(fields: [user_id], references: [id])
 
@@ -372,15 +392,15 @@ model Rating {
 // ──────────────────────────────────────
 
 model NotificationLog {
-  id        String    @id @default(uuid()) @db.Uuid
-  user_id   String?   @db.Uuid
-  title     String    @db.VarChar(255)
-  body      String    @db.Text
-  type      String    @db.VarChar(20)
-  trigger   String    @db.VarChar(30)
-  is_read   Boolean   @default(false)
-  sent_at   DateTime  @default(now())
-  read_at   DateTime?
+  id      String    @id @default(uuid()) @db.Uuid
+  user_id String?   @db.Uuid
+  title   String    @db.VarChar(255)
+  body    String    @db.Text
+  type    String    @db.VarChar(20)
+  trigger String    @db.VarChar(30)
+  is_read Boolean   @default(false)
+  sent_at DateTime  @default(now())
+  read_at DateTime?
 
   user User? @relation(fields: [user_id], references: [id])
 

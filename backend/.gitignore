@@ -7,3 +7,19 @@ dist/
 uploads/*
 !uploads/.gitkeep
 coverage/
+
+
+# Logs and database
+logs/
+*.sql
+*.sqlite
+
+# Prisma
+prisma/migrations/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+

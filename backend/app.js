@@ -1,71 +1,135 @@
+/**
+ * Express Application Setup
+ * Production-grade Express configuration with middleware and routes
+ */
+
 import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
-import morgan from 'morgan';
+import { createRequire } from 'node:module';
+import logger from './config/logger.js';
+import { checkDatabaseHealth } from './config/db.js';
 import { errorHandler } from './middleware/error.middleware.js';
+import authRouter from './modules/auth/auth.routes.js';
+
+// added from admin_ui_v2 (non-conflicting)
 import contentRouter from './modules/content/content.router.js';
 import feedRouter from './modules/content/feed.router.js';
 import mediaRouter from './modules/media/media.router.js';
+import helmet from 'helmet';
+
+import morgan from 'morgan';
+import cookieParser from 'cookie-parser';
+import cors from 'cors';
+
+const require = createRequire(import.meta.url);
 
 const app = express();
 
-// ── Global middleware ──
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      workerSrc:  ["'self'", "blob:"],
-      mediaSrc: ["'self'", "blob:", "http://localhost:9000", "http://127.0.0.1:9000"],
-      connectSrc: ["'self'", "http://localhost:*", "http://127.0.0.1:*","https://cdn.jsdelivr.net"],
-      imgSrc: ["'self'", "data:", "blob:", "http://localhost:9000"],
-    },
-  },
-}));
-app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:8081', 'http://localhost:19006'],
-  credentials: true,
-}));
-// Configure body parsers with higher limits for file uploads
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
-app.use(morgan('dev'));
+// ============= MIDDLEWARE =============
 
-// Serve web reels player
+// MAIN priority
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(morgan("dev"));
+app.use(cookieParser());
+app.use(cors());
+
+// added (safe, no conflict)
+app.use(helmet());
+
+// Request logging middleware (MAIN)
+app.use((req, res, next) => {
+  const startTime = Date.now();
+  const requestId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+  logger.debug(`[${requestId}] ${req.method} ${req.path}`);
+
+  res.on('finish', () => {
+    const duration = Date.now() - startTime;
+    logger.info(`[${requestId}] ${req.method} ${req.path} ${res.statusCode} - ${duration}ms`);
+  });
+
+  next();
+});
+
+// Serve static player (from admin_ui_v2)
 app.use('/player', express.static('public'));
 
-// ── Health check ──
-app.get('/api/health', (req, res) => {
+// ============= ROUTES =============
+
+// MAIN health (kept)
+app.get('/health', async (req, res) => {
+  try {
+    const dbHealth = await checkDatabaseHealth();
+
+    if (dbHealth.status === 'healthy') {
+      return res.status(200).json({
+        success: true,
+        status: 'OK',
+        timestamp: new Date().toISOString(),
+        database: dbHealth,
+        environment: process.env.NODE_ENV,
+      });
+    } else {
+      return res.status(503).json({
+        success: false,
+        status: 'SERVICE_UNAVAILABLE',
+        timestamp: new Date().toISOString(),
+        database: dbHealth,
+      });
+    }
+  } catch (error) {
+    logger.error('Health check error', { error: error.message });
+    return res.status(500).json({
+      success: false,
+      status: 'INTERNAL_ERROR',
+      timestamp: new Date().toISOString(),
+      error: error.message,
+    });
+  }
+});
+
+// MAIN info
+app.get('/info', (req, res) => {
+  const { version } = require('./package.json');
+
   res.json({
-    status: 'ok',
+    name: process.env.APP_NAME || 'OTT Backend',
+    version,
+    environment: process.env.NODE_ENV,
     timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
   });
 });
 
-// ── Routes ──
-// app.use('/api/auth', authRouter);
-// app.use('/api/users', usersRouter);
-app.use('/api/content', contentRouter);
-app.use('/api/feed', feedRouter);
-// app.use('/api/home', homeRouter);
-// app.use('/api/coins', coinsRouter);
-// app.use('/api/payments', paymentsRouter);
-app.use('/api/media', mediaRouter);
-// app.use('/api/notifications', notificationsRouter);
-// app.use('/api/search', searchRouter);
-// app.use('/api/banners', bannersRouter);
-// app.use('/api/playlists', playlistsRouter);
-// app.use('/api/ratings', ratingsRouter);
-// app.use('/api/admin', adminRouter);
-
-// ── 404 handler ──
-app.use((req, res) => {
-  res.status(404).json({ error: `Route ${req.method} ${req.path} not found` });
+// test route (MAIN)
+app.get("/test", (req, res) => {
+  res.send("API is working");
 });
 
-// ── Global error handler (must be last) ──
+// ============= API ROUTES =============
+
+// MAIN
+app.use('/api/v1/auth', authRouter);
+
+// added from admin_ui_v2
+app.use('/api/content', contentRouter);
+app.use('/api/feed', feedRouter);
+app.use('/api/media', mediaRouter);
+
+// ============= 404 HANDLER =============
+
+// MAIN format
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    error: {
+      message: 'Route not found',
+      path: req.path,
+      method: req.method,
+    },
+  });
+});
+
+// ============= ERROR HANDLER =============
 app.use(errorHandler);
 
 export default app;
