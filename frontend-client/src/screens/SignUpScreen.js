@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -8,9 +8,12 @@ import {
   Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useDispatch, useSelector } from 'react-redux';
 
 import { theme } from '../constants/theme';
 import { ROUTES } from '../constants/routes';
+import { clearRegisterState, registerUser } from '../redux/slices/authSlice';
+import { API_BASE_URL } from '../constants/config';
 
 function getPasswordStrength(password) {
   if (!password) return { level: 0, label: '', color: theme.border };
@@ -32,8 +35,35 @@ export default function SignUpScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [localError, setLocalError] = useState('');
+
+  const dispatch = useDispatch();
+  const registerStatus = useSelector((state) => state.auth.register.status);
+  const registerError = useSelector((state) => state.auth.register.error);
 
   const strength = useMemo(() => getPasswordStrength(password), [password]);
+
+  useEffect(() => {
+    // After successful registration, send user to Login (manual login flow).
+    if (registerStatus === 'succeeded') {
+      navigation.navigate(ROUTES.LOGIN);
+      dispatch(clearRegisterState());
+    }
+  }, [dispatch, navigation, registerStatus]);
+
+  function handleCreateAccount() {
+    const name = fullName.trim();
+    const nextEmail = email.trim();
+
+    if (!name) return setLocalError('Please enter your name.');
+    if (!nextEmail) return setLocalError('Please enter your email.');
+    if (!/^\S+@\S+\.\S+$/.test(nextEmail))
+      return setLocalError('Please enter a valid email address.');
+    if (!password) return setLocalError('Please enter your password.');
+
+    setLocalError('');
+    dispatch(registerUser({ name, email: nextEmail, password }));
+  }
 
   return (
     <ScrollView
@@ -54,19 +84,14 @@ export default function SignUpScreen({ navigation }) {
       <Text style={styles.title}>Join the drama</Text>
       <Text style={styles.subtitle}>Create your free account</Text>
 
-      {/* Photo Upload */}
-      <View style={styles.photoContainer}>
-        <View style={styles.photoCircle}>
-          <Ionicons name="add" size={28} color={theme.crimson} />
-          <Text style={styles.photoText}>Photo</Text>
-        </View>
-      </View>
-
       {/* Name */}
       <Text style={styles.label}>YOUR NAME</Text>
       <TextInput
         value={fullName}
-        onChangeText={setFullName}
+        onChangeText={(t) => {
+          setFullName(t);
+          if (localError) setLocalError('');
+        }}
         placeholder="Priya Sharma"
         style={styles.input}
         placeholderTextColor={theme.darkGray}
@@ -76,7 +101,10 @@ export default function SignUpScreen({ navigation }) {
       <Text style={styles.label}>EMAIL</Text>
       <TextInput
         value={email}
-        onChangeText={setEmail}
+        onChangeText={(t) => {
+          setEmail(t);
+          if (localError) setLocalError('');
+        }}
         placeholder="priya@example.com"
         style={[styles.input, email.length > 0 && styles.inputActive]}
         placeholderTextColor={theme.darkGray}
@@ -89,7 +117,10 @@ export default function SignUpScreen({ navigation }) {
       <View style={styles.passwordWrap}>
         <TextInput
           value={password}
-          onChangeText={setPassword}
+          onChangeText={(t) => {
+            setPassword(t);
+            if (localError) setLocalError('');
+          }}
           placeholder="Min. 8 characters"
           style={[styles.input, styles.passwordInput]}
           placeholderTextColor={theme.darkGray}
@@ -143,10 +174,23 @@ export default function SignUpScreen({ navigation }) {
           styles.actionBtn,
           pressed && styles.actionBtnPressed,
         ]}
-        onPress={() => navigation.navigate(ROUTES.LOGIN)}
+        onPress={handleCreateAccount}
+        disabled={registerStatus === 'loading'}
       >
-        <Text style={styles.actionBtnText}>Create account</Text>
+        <Text style={styles.actionBtnText}>
+          {registerStatus === 'loading' ? 'Creating...' : 'Create account'}
+        </Text>
       </Pressable>
+
+      {!!localError && <Text style={styles.errorText}>{localError}</Text>}
+
+      {!!registerError && (
+        <Text style={styles.errorText}>
+          {String(registerError).includes('Network Error')
+            ? `Network Error: cannot reach backend.\nCurrent API_BASE_URL: ${API_BASE_URL}\n\nTips:\n- If backend is on your laptop, keep phone + laptop on same Wi-Fi.\n- If needed, set EXPO_PUBLIC_API_BASE_URL to your laptop IP (example: http://192.168.x.x:5000/api/v1).`
+            : registerError}
+        </Text>
+      )}
 
       {/* Guest Account Button */}
       <Pressable
@@ -308,6 +352,14 @@ const styles = StyleSheet.create({
     color: theme.white,
     fontSize: 17,
     fontWeight: '700',
+  },
+  errorText: {
+    marginTop: 12,
+    color: theme.crimson,
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 18,
   },
   guestBtn: {
     backgroundColor: 'transparent',

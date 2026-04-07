@@ -64,7 +64,7 @@ function ReelItem({ item }) {
       </View>
 
       {/* 2. UI LAYER */}
-      <View style={[styles.uiOverlay, { paddingBottom: insets.bottom + 45 }]}>
+      <View style={[styles.uiOverlay, { paddingBottom: insets.bottom + 78 }]}>
 
         {/* RIGHT SIDE BUTTONS: Positioned above the text level */}
         <View style={styles.sideActionsColumn}>

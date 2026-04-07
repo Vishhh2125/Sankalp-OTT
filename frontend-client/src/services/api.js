@@ -3,10 +3,10 @@ import axios from 'axios';
 import { API_BASE_URL, REQUEST_TIMEOUT_MS } from '../constants/config';
 
 export const api = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: REQUEST_TIMEOUT_MS,
+  baseURL: "http://172.31.56.30:5000/api/v1",
   headers: {
     'Content-Type': 'application/json',
+    'x-client-type': 'mobile',
   },
 });
 
