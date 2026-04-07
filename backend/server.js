@@ -23,11 +23,11 @@ let server;
  */
 async function startServer() {
   try {
-    // 1. Validate environment variables
+    // MAIN priority
     logger.info('Starting server initialization...');
     validateEnvironment();
 
-    // 2. Initialize database
+    // DB init (MAIN)
     await initializeDatabase();
 
     // 3. Start HTTP server
@@ -37,9 +37,13 @@ async function startServer() {
       logger.info(`✓ Health check available at http://localhost:${PORT}/health`);
     });
 
-    // Set server timeout
+    // MAIN timeouts
     server.keepAliveTimeout = 65000;
     server.headersTimeout = 66000;
+
+    // ➕ Added from admin_ui_v2 (non-conflicting)
+    server.requestTimeout = 30 * 60 * 1000; // 30 min
+    server.timeout = 30 * 60 * 1000;
 
     setupGracefulShutdown();
 
@@ -60,13 +64,12 @@ function setupGracefulShutdown() {
   const gracefulShutdown = async (signal) => {
     logger.info(`\nReceived ${signal}, starting graceful shutdown...`);
 
-    // Stop accepting new requests
     if (server) {
       server.close(async () => {
         logger.info('HTTP server closed');
 
-        // Disconnect database
         try {
+          // MAIN DB disconnect
           await disconnectDatabase();
           logger.info('✓ Graceful shutdown completed successfully');
           process.exit(0);
@@ -78,7 +81,6 @@ function setupGracefulShutdown() {
         }
       });
 
-      // Force shutdown after 30 seconds
       setTimeout(() => {
         logger.error('Forced shutdown - graceful shutdown timeout exceeded');
         process.exit(1);
@@ -86,11 +88,9 @@ function setupGracefulShutdown() {
     }
   };
 
-  // Handle termination signals
   process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
   process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
-  // Handle uncaught exceptions
   process.on('uncaughtException', (error) => {
     logger.error('Uncaught Exception', {
       message: error.message,
@@ -99,7 +99,6 @@ function setupGracefulShutdown() {
     process.exit(1);
   });
 
-  // Handle unhandled promise rejections
   process.on('unhandledRejection', (reason, promise) => {
     logger.error('Unhandled Promise Rejection', {
       reason,

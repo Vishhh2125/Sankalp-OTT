@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ott-postgres
+    environment:
+      POSTGRES_USER: ottdev
+      POSTGRES_PASSWORD: ottdev123
+      POSTGRES_DB: ott_dev
+    ports:
+      - '5432:5432'
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: ott-redis
+    command: redis-server --maxmemory 1gb --maxmemory-policy noeviction
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    container_name: ott-minio
+    command: server /data --console-address ':9001'
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+      # Add this line below to allow your frontend to connect
+      MINIO_API_CORS_ALLOW_ORIGIN: "http://localhost:3000"
+    volumes:
+      - minio_data:/data
+    restart: unless-stopped
+
+  meilisearch:
+    image: getmeili/meilisearch:latest
+    container_name: ott-meilisearch
+    ports:
+      - '7700:7700'
+    environment:
+      MEILI_MASTER_KEY: devmasterkey123
+    volumes:
+      - meili_data:/meili_data
+    restart: unless-stopped
+
+volumes:
+  pg_data:
+  redis_data:
+  minio_data:
+  meili_data:

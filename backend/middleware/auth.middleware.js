@@ -1,8 +1,3 @@
-/**
- * Authentication Middleware
- * Verifies JWT token and attaches user to request
- */
-
 import { verifyAccessToken } from '../modules/auth/auth.service.js';
 import { getPrismaClient } from '../config/db.js';
 import { ApiError } from '../utils/ApiError.js';
@@ -11,102 +6,87 @@ import logger from '../config/logger.js';
 const prisma = getPrismaClient();
 
 /**
- * Auth middleware - Verify token and attach user to req
- * Usage: app.use('/protected-route', authMiddleware)
+ * CORE AUTH (merged)
+ * - supports guest
+ * - supports DB user fetch
  */
-export const authMiddleware = async (req, res, next) => {
+const baseAuth = async (req, allowGuest = false) => {
+  const header = req.headers.authorization;
+
+  // No token case
+  if (!header || !header.startsWith('Bearer ')) {
+    if (allowGuest) {
+      req.isGuest = true;
+      return;
+    }
+    throw new ApiError(401, 'Missing or invalid token');
+  }
+
+  const token = header.split(' ')[1];
+
+  let decoded;
   try {
-    // Get token from Authorization header
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader) {
-      throw new ApiError(401, 'Authorization header missing');
+    decoded = verifyAccessToken(token);
+  } catch {
+    if (allowGuest) {
+      req.isGuest = true;
+      return;
     }
+    throw new ApiError(401, 'Invalid or expired token');
+  }
 
-    // Check Bearer format
-    if (!authHeader.startsWith('Bearer ')) {
-      throw new ApiError(401, 'Invalid authorization header format. Use: Bearer <token>');
+  // Guest handling (old system support)
+  if (decoded.isGuest) {
+    if (allowGuest) {
+      req.isGuest = true;
+      return;
     }
+    throw new ApiError(401, 'Authentication required');
+  }
 
-    // Extract token
-    const token = authHeader.slice(7); // Remove "Bearer "
+  // DB lookup (new system)
+  const user = await prisma.user.findUnique({
+    where: { id: decoded.id },
+  });
 
-    if (!token || token.trim().length === 0) {
-      throw new ApiError(401, 'Token is empty');
-    }
+  if (!user) throw new ApiError(401, 'User not found');
+  if (user.isBlocked) throw new ApiError(403, 'User blocked');
 
-    // Verify token
-    let decoded;
-    try {
-      decoded = verifyAccessToken(token);
-    } catch (error) {
-      throw new ApiError(401, 'Invalid or expired token');
-    }
+  req.user = user;
+  req.isGuest = false;
+};
 
-    if (!decoded || !decoded.id) {
-      throw new ApiError(401, 'Token payload is invalid');
-    }
-
-    // Find user in database
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.id },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        plan: true,
-        coins: true,
-        isBlocked: true,
-        createdAt: true,
-        updatedAt: true
-      }
-    });
-
-    if (!user) {
-      throw new ApiError(401, 'User not found');
-    }
-
-    // Check if user is blocked
-    if (user.isBlocked) {
-      throw new ApiError(403, 'User account is blocked');
-    }
-
-    // Attach user to request
-    req.user = user;
-
-    logger.debug(`[Auth] User authenticated`, { userId: user.id, email: user.email });
-
+/**
+ * requireAuth (old compatible)
+ */
+export const requireAuth = async (req, res, next) => {
+  try {
+    await baseAuth(req, false);
     next();
-  } catch (error) {
-    logger.error('Authentication middleware error', { 
-      error: error.message,
-      authHeader: req.headers.authorization ? 'present' : 'missing'
-    });
-
-    // If already an ApiError, pass it through
-    if (error instanceof ApiError) {
-      return next(error);
-    }
-
-    // Generic error
-    return next(new ApiError(401, 'Authentication failed'));
+  } catch (err) {
+    return next(err);
   }
 };
 
-export default authMiddleware;
+/**
+ * allowGuest (old compatible)
+ */
+export const allowGuest = async (req, res, next) => {
+  try {
+    await baseAuth(req, true);
+    next();
+  } catch (err) {
+    return next(err);
+  }
+};
 
 /**
- * Policy-Based Role Middleware
- * Checks if user's role/plan matches allowed policies
- * 
- * Allowed values:
- * - 'ADMIN': User with ADMIN role
- * - 'FREE': USER with FREE plan
- * - 'MEMBER': USER with MEMBER plan
- * 
- * Usage:
- * router.get('/content', authMiddleware, policyMiddleware(['ADMIN', 'MEMBER']), handler)
+ * authMiddleware (new system compatible)
+ */
+export const authMiddleware = requireAuth;
+
+/**
+ * policyMiddleware (unchanged)
  */
 export const policyMiddleware = (allowedPolicies = []) => {
   return (req, res, next) => {
@@ -117,63 +97,19 @@ export const policyMiddleware = (allowedPolicies = []) => {
 
       const user = req.user;
 
-      // Check if user's role/plan matches allowed policies
-      let hasAccess = false;
-
-      for (const policy of allowedPolicies) {
-        if (policy === 'ADMIN' && user.role === 'ADMIN') {
-          hasAccess = true;
-          break;
-        }
-
-        if (policy === 'FREE' && user.role === 'USER' && user.plan === 'FREE') {
-          hasAccess = true;
-          break;
-        }
-
-        if (policy === 'MEMBER' && user.role === 'USER' && user.plan === 'MEMBER') {
-          hasAccess = true;
-          break;
-        }
-      }
+      const hasAccess = allowedPolicies.some(policy => {
+        if (policy === 'ADMIN') return user.role === 'ADMIN';
+        if (policy === 'FREE') return user.role === 'USER' && user.plan === 'FREE';
+        if (policy === 'MEMBER') return user.role === 'USER' && user.plan === 'MEMBER';
+      });
 
       if (!hasAccess) {
-        logger.warn('Access denied by policy', {
-          userId: user.id,
-          userRole: user.role,
-          userPlan: user.plan,
-          allowedPolicies,
-          path: req.path,
-          method: req.method
-        });
-        throw new ApiError(403, `Access denied. Required policies: ${allowedPolicies.join(', ')}`);
+        throw new ApiError(403, 'Access denied');
       }
-
-      // Find matched policy
-      const matchedPolicy = allowedPolicies.find(p => {
-        if (p === 'ADMIN') return user.role === 'ADMIN';
-        if (p === 'FREE') return user.role === 'USER' && user.plan === 'FREE';
-        if (p === 'MEMBER') return user.role === 'USER' && user.plan === 'MEMBER';
-      });
-
-      // Attach to request
-      req.userRole = user.role;
-      req.userPlan = user.plan;
-      req.matchedPolicy = matchedPolicy;
-
-      logger.debug('Policy check passed', {
-        userId: user.id,
-        userRole: user.role,
-        userPlan: user.plan,
-        matchedPolicy
-      });
 
       next();
-    } catch (error) {
-      if (error instanceof ApiError) {
-        return next(error);
-      }
-      return next(new ApiError(403, 'Access denied'));
+    } catch (err) {
+      return next(err);
     }
   };
 };

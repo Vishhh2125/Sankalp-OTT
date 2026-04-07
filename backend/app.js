@@ -9,6 +9,13 @@ import logger from './config/logger.js';
 import { checkDatabaseHealth } from './config/db.js';
 import { errorHandler } from './middleware/error.middleware.js';
 import authRouter from './modules/auth/auth.routes.js';
+
+// added from admin_ui_v2 (non-conflicting)
+import contentRouter from './modules/content/content.router.js';
+import feedRouter from './modules/content/feed.router.js';
+import mediaRouter from './modules/media/media.router.js';
+import helmet from 'helmet';
+
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
@@ -19,14 +26,17 @@ const app = express();
 
 // ============= MIDDLEWARE =============
 
-// Body parser middleware
+// MAIN priority
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
 app.use(cookieParser());
 app.use(cors());
 
-// Request logging middleware (production-grade)
+// added (safe, no conflict)
+app.use(helmet());
+
+// Request logging middleware (MAIN)
 app.use((req, res, next) => {
   const startTime = Date.now();
   const requestId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -41,12 +51,12 @@ app.use((req, res, next) => {
   next();
 });
 
+// Serve static player (from admin_ui_v2)
+app.use('/player', express.static('public'));
+
 // ============= ROUTES =============
 
-/**
- * Health check endpoint
- * GET /health
- */
+// MAIN health (kept)
 app.get('/health', async (req, res) => {
   try {
     const dbHealth = await checkDatabaseHealth();
@@ -78,10 +88,7 @@ app.get('/health', async (req, res) => {
   }
 });
 
-/**
- * Application info endpoint
- * GET /info
- */
+// MAIN info
 app.get('/info', (req, res) => {
   const { version } = require('./package.json');
 
@@ -93,16 +100,24 @@ app.get('/info', (req, res) => {
   });
 });
 
+// test route (MAIN)
+app.get("/test", (req, res) => {
+  res.send("API is working");
+});
+
 // ============= API ROUTES =============
 
-/**
- * API v1 Routes
- */
+// MAIN
 app.use('/api/v1/auth', authRouter);
 
-/**
- * 404 handler
- */
+// added from admin_ui_v2
+app.use('/api/content', contentRouter);
+app.use('/api/feed', feedRouter);
+app.use('/api/media', mediaRouter);
+
+// ============= 404 HANDLER =============
+
+// MAIN format
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -114,11 +129,7 @@ app.use((req, res) => {
   });
 });
 
-app.get("/test", (req, res) => {
-  res.send("API is working");
-});
-
-// Error handling middleware (must be after routes)
+// ============= ERROR HANDLER =============
 app.use(errorHandler);
 
 export default app;
