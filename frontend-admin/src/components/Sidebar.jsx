@@ -1,3 +1,5 @@
+import { useDispatch, useSelector } from 'react-redux'
+import { setActivePage, selectActivePage } from '../store/navigationSlice.js'
 import { NAV_CONFIG } from '../config/nav.js'
 
 const NAV_ICONS = {
@@ -90,7 +92,9 @@ function NavIcon({ id }) {
   )
 }
 
-export default function Sidebar({ active, onNavigate }) {
+export default function Sidebar() {
+  const dispatch   = useDispatch()
+  const active     = useSelector(selectActivePage)
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
@@ -109,7 +113,7 @@ export default function Sidebar({ active, onNavigate }) {
               <div
                 key={item.id}
                 className={`nav-item${active === item.id ? ' active' : ''}`}
-                onClick={() => onNavigate(item.id)}
+                onClick={() => dispatch(setActivePage(item.id))}
               >
                 <NavIcon id={item.id} />
                 {item.label}

@@ -1,8 +1,11 @@
 import { useState } from 'react'
+import { useDispatch } from 'react-redux'
 import { LogIn, AlertCircle } from 'lucide-react'
 import { authApi } from '../services/api.js'
+import { loginSuccess } from '../store/authSlice.js'
 
-export default function Login({ onLoginSuccess }) {
+export default function Login() {
+  const dispatch = useDispatch()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -23,11 +26,11 @@ export default function Login({ onLoginSuccess }) {
       const response = await authApi.login(email, password)
       const { data } = response.data
 
-      // Store auth data
+      // Write to localStorage FIRST so axios interceptor picks it up immediately
       localStorage.setItem('admin_token', data.accessToken)
       localStorage.setItem('admin_user', JSON.stringify(data.user))
-
-      onLoginSuccess()
+      // Then update Redux state
+      dispatch(loginSuccess({ token: data.accessToken, user: data.user }))
     } catch (err) {
       const message = err.response?.data?.message || 'Login failed. Please check credentials.'
       setError(message)

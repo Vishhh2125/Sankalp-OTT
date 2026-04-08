@@ -1,8 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useSelector } from 'react-redux'
 import './index.css'
 
-import Layout from './components/Layout.jsx'
-import Login from './pages/Login.jsx'
+import { selectIsAuthenticated } from './store/authSlice'
+import { selectActivePage }      from './store/navigationSlice'
+
+import Layout        from './components/Layout.jsx'
+import Login         from './pages/Login.jsx'
 
 import Dashboard     from './pages/Dashboard.jsx'
 import Users         from './pages/Users.jsx'
@@ -32,35 +35,16 @@ const ROUTES = {
 }
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [active, setActive] = useState('dashboard')
-  const Page = ROUTES[active] || Dashboard
-
-  // Check if user is already logged in
-  useEffect(() => {
-    const token = localStorage.getItem('admin_token')
-    if (token) {
-      setIsAuthenticated(true)
-    }
-  }, [])
-
-  const handleLoginSuccess = () => {
-    setIsAuthenticated(true)
-    setActive('dashboard')
-  }
-
-  const handleLogout = () => {
-    localStorage.removeItem('admin_token')
-    localStorage.removeItem('admin_user')
-    setIsAuthenticated(false)
-  }
+  const isAuthenticated = useSelector(selectIsAuthenticated)
+  const activePage      = useSelector(selectActivePage)
+  const Page            = ROUTES[activePage] || Dashboard
 
   if (!isAuthenticated) {
-    return <Login onLoginSuccess={handleLoginSuccess} />
+    return <Login />
   }
 
   return (
-    <Layout active={active} onNavigate={setActive} onLogout={handleLogout}>
+    <Layout>
       <Page />
     </Layout>
   )

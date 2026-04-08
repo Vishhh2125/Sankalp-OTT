@@ -1,13 +1,17 @@
 import Sidebar from './Sidebar.jsx'
-import Topbar from './Topbar.jsx'
+import Topbar  from './Topbar.jsx'
+import { useSelector } from 'react-redux'
+import { selectActivePage } from '../store/navigationSlice'
 
-export default function Layout({ active, onNavigate, onLogout, children }) {
+export default function Layout({ children }) {
+  const activePage = useSelector(selectActivePage)
+
   return (
     <div className="app">
-      <Sidebar active={active} onNavigate={onNavigate} />
+      <Sidebar />
       <div className="main">
-        <Topbar active={active} onLogout={onLogout} />
-        <main className="content" key={active}>
+        <Topbar />
+        <main className="content" key={activePage}>
           {children}
         </main>
       </div>

@@ -1,17 +1,26 @@
 import { useState } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import { LogOut } from 'lucide-react'
 import { PAGE_META } from '../config/nav.js'
+import { logout, selectUser } from '../store/authSlice.js'
+import { selectActivePage } from '../store/navigationSlice.js'
 
-export default function Topbar({ active, onLogout }) {
+export default function Topbar() {
+  const dispatch   = useDispatch()
+  const adminUser  = useSelector(selectUser) || {}
+  const active     = useSelector(selectActivePage)
   const [showMenu, setShowMenu] = useState(false)
-  const adminUser = JSON.parse(localStorage.getItem('admin_user') || '{}')
-  const userInitials = adminUser.name ? adminUser.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'AD'
+
+  const userInitials = adminUser.name
+    ? adminUser.name.split(' ').map(n => n[0]).join('').toUpperCase()
+    : 'AD'
   const meta = PAGE_META[active] || { title: active, subtitle: '' }
 
   const handleLogout = () => {
-    if (onLogout) {
-      onLogout()
-    }
+    // Clear localStorage first so axios interceptor sees no token immediately
+    localStorage.removeItem('admin_token')
+    localStorage.removeItem('admin_user')
+    dispatch(logout())
     setShowMenu(false)
   }
 

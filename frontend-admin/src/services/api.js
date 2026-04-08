@@ -29,6 +29,21 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Auto-logout on 401 — token expired or invalid
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('admin_token');
+      localStorage.removeItem('admin_user');
+      // Trigger a full page reload — Redux store resets,
+      // authSlice sees no token, login screen appears
+      window.location.href = '/';
+    }
+    return Promise.reject(error);
+  }
+);
+
 // ── Auth ──
 export const authApi = {
   login: (email, password) => 
