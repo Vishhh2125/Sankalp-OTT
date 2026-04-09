@@ -1,4 +1,4 @@
-import { verifyAccessToken } from '../utils/jwt.js';
+import { verifyAccessToken } from '../modules/auth/auth.service.js';
 import { prisma } from '../prisma/client.js';
 import config from '../config/index.js';
 
