@@ -1,9 +1,9 @@
-import bcrypt from 'bcrypt';
 import {
   generateAccessToken,
   generateRefreshToken,
   hashRefreshToken,
   loginUser,
+  logoutUserService,
   registerAdmin,
   registerUser,
   verifyRefreshToken,
@@ -244,4 +244,47 @@ export const refreshToken = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(new ApiResponse(200, responseData, 'Token refreshed successfully'));
+});
+
+
+/**
+ * Logout user controller
+ * Middleware already verified token and attached req.user
+ * Just pass userId to logout service
+ */
+export const logout = asyncHandler(async (req, res) => {
+  const clientTypeHeader = req.headers['x-client-type'];
+
+  // Validate client type
+  const clientTypeValidation = validateClientType(clientTypeHeader);
+  if (!clientTypeValidation.isValid) {
+    throw new ApiError(400, clientTypeValidation.error);
+  }
+
+  const clientType = clientTypeValidation.value; // 'web' | 'mobile'
+
+  // Get userId from already-authenticated req.user (middleware verified it)
+  const userId = req.user.id;
+
+  // Call logout service to handle business logic
+  const user = await logoutUserService(userId);
+
+  logger.info('Logout controller: User logged out successfully', {
+    userId: userId,
+    email: user.email,
+    clientType,
+  });
+
+  // ✅ Clear refresh token cookie for web clients
+  if (clientType === 'web') {
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+    });
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, null, 'Logout successful'));
 });
