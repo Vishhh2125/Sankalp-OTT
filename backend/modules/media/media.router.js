@@ -8,7 +8,7 @@ import { allowGuest } from '../../middleware/auth.middleware.js';
 const router = express.Router();
 
 // Configure multer for large video file uploads (up to 5GB)
-const upload = multer({
+const uploadVideo = multer({
   dest: os.tmpdir(),
   limits: {
     fileSize: 5 * 1024 * 1024 * 1024, // 5GB
@@ -20,8 +20,22 @@ const upload = multer({
   }),
 });
 
+// Configure multer for image uploads (up to 10MB)
+const uploadImage = multer({
+  dest: os.tmpdir(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB
+    files: 1,
+  },
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, os.tmpdir()),
+    filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname),
+  }),
+});
+
 // Admin uploads
-router.post('/upload/video', devAdmin('Dramas'), upload.single('video'), ctrl.uploadVideo);
+router.post('/upload/video', devAdmin('Dramas'), uploadVideo.single('video'), ctrl.uploadVideo);
+router.post('/upload/image', devAdmin('Dramas'), uploadImage.single('image'), ctrl.uploadImage);
 router.post('/upload-url/video', devAdmin('Dramas'), ctrl.getVideoUploadUrl);
 router.post('/upload-url/image', devAdmin('Dramas'), ctrl.getImageUploadUrl);
 router.post('/confirm/video', devAdmin('Dramas'), ctrl.confirmVideoUpload);
