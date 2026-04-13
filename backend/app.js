@@ -31,11 +31,16 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
 app.use(cookieParser());
+// Build CORS origins list for both admin and app frontends
+const corsOrigins = process.env.NODE_ENV === 'production'
+  ? [process.env.FRONTEND_ADMIN_URL, process.env.FRONTEND_APP_URL].filter(Boolean)
+  : ['http://localhost:5173', 'http://localhost:8081', 'http://localhost:19006', process.env.FRONTEND_ADMIN_URL, process.env.FRONTEND_APP_URL].filter(Boolean);
+
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? process.env.FRONTEND_URL 
-    : 'http://localhost:5173',
+  origin: corsOrigins,
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-client-type'],
 }));
 
 // added (safe, no conflict)

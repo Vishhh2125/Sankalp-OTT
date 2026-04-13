@@ -80,7 +80,7 @@ export const showsApi = {
   update: (id, data) => api.put(`/content/shows/${id}`, data),
   delete: (id) => api.delete(`/content/shows/${id}`),
   togglePublish: (id) => api.patch(`/content/shows/${id}/publish`),
-  toggleFeatured: (id) => api.patch(`/content/shows/${id}/feature`),
+  updateFeedPosition: (id, position) => api.patch(`/content/shows/${id}/feed-position`, { feed_position: position }),
 };
 
 // ── Episodes ──
@@ -101,6 +101,17 @@ export const mediaApi = {
     api.post('/media/confirm/video', { episode_id: episodeId }),
   confirmImage: (type, entityId, objectName) =>
     api.post('/media/confirm/image', { type, entity_id: entityId, object_name: objectName }),
+  // Upload a file directly to MinIO using a presigned PUT URL
+  uploadToMinio: (presignedUrl, file) =>
+    fetch(presignedUrl, {
+      method: 'PUT',
+      body: file,
+      headers: { 'Content-Type': file.type || 'application/octet-stream' },
+    }).then((res) => {
+      if (!res.ok) throw new Error(`MinIO upload failed: ${res.status} ${res.statusText}`);
+      return res;
+    }),
+
   uploadVideoFile: (showId, episodeId, file, onProgress) => {
     const formData = new FormData();
     formData.append('show_id', showId);

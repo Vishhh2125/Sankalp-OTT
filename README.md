@@ -161,5 +161,15 @@ npm run worker
 ## To clear jobs 
 node -e "const { Queue } = require('bullmq'); const q = new Queue('transcode',{connection:{host:'127.0.0.1',port:6379}}); q.obliterate({force:true}).then(()=>{console.log('cleared'); process.exit();});"
 
-##to change shcema
-npx prisma migrate dev --name <change>
+## to change shcema
+npx prisma migrate dev --name add_feed_position
+npx prisma migrate deploy
+
+## to view the db
+npx prisma studio
+
+## test for you
+http://localhost:3000/api/feed/for-you
+
+## example
+http://localhost:3000/api/media/hls/feba0bad-8f32-455c-80bc-71dc60eecf46/bd710e6b-778f-48cd-a511-82e62e82f7cd/master.m3u8

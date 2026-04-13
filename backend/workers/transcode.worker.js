@@ -8,7 +8,6 @@ import minioClient from '../config/minio.js';
 import config from '../config/index.js';
 import { prisma } from '../prisma/client.js';
 import { createMasterPlaylist } from '../master.js';
-import { getQualityFolderPath } from '../utils/minio-paths.js';
 
 const BUCKET = config.minio.bucket;
 const TEMP_DIR = path.join(os.tmpdir(), 'ott-transcode');
@@ -52,57 +51,59 @@ async function uploadToMinio(localPath, objectName, contentType) {
 function runFfmpeg(args) {
   return new Promise((resolve, reject) => {
     const proc = spawn('ffmpeg', args);
+    let stderr = '';
+    proc.stderr.on('data', (d) => { stderr += d.toString(); });
     proc.on('close', (code) => {
       if (code === 0) resolve();
-      else reject(new Error(`FFmpeg failed ${code}`));
+      else {
+        console.error('[FFmpeg stderr tail]:', stderr.slice(-500));
+        reject(new Error(`FFmpeg failed with code ${code}`));
+      }
     });
+    proc.on('error', (err) => reject(new Error(`FFmpeg spawn failed: ${err.message}`)));
   });
 }
 
 // ---------- MAIN JOB ----------
 
 async function processJob(job) {
-  const { episodeId, objectName, profile } = job.data;
+  const { episodeId, objectName, showId, profile } = job.data;
 
   const p = PROFILES.find(x => x.name === profile);
   if (!p) throw new Error('Invalid profile');
 
-  // Fetch episode to get showId
-  const episode = await prisma.episode.findUnique({
-    where: { id: episodeId },
-    select: { id: true, show_id: true, total_profiles: true, status: true },
-  });
-
-  if (!episode) throw new Error('Episode not found');
-
-  const showId = episode.show_id;
-
   const workDir = path.join(TEMP_DIR, episodeId);
   const inputPath = path.join(workDir, 'input.mp4');
 
+  // MinIO base path per document: dramas/{showId}/episodes/{episodeId}/{profile}/
+  const minioBasePath = `dramas/${showId}/episodes/${episodeId}/${p.name}`;
+
   try {
-    console.log(`[Worker] 📹 Starting transcoding for ${profile}...`);
-    
+    console.log(`[Worker] Starting ${profile} for episode ${episodeId}`);
+
     if (!fs.existsSync(workDir)) fs.mkdirSync(workDir, { recursive: true });
 
-    // Download once
+    // Download raw video (only once — subsequent profiles reuse the cached file)
     if (!fs.existsSync(inputPath)) {
-      console.log(`[Worker] ⬇️  Downloading video from MinIO...`);
+      console.log(`[Worker] Downloading video from MinIO...`);
       await downloadFromMinio(objectName, inputPath);
-      console.log(`[Worker] ✅ Video downloaded`);
+      const sizeMB = (fs.statSync(inputPath).size / 1024 / 1024).toFixed(1);
+      console.log(`[Worker] Downloaded: ${sizeMB} MB`);
     }
 
-    const hlsDir = path.join(workDir, p.name);
-    if (!fs.existsSync(hlsDir)) fs.mkdirSync(hlsDir);
+    // Create profile-specific output directory
+    const profileDir = path.join(workDir, p.name);
+    if (!fs.existsSync(profileDir)) fs.mkdirSync(profileDir, { recursive: true });
 
-    const playlistPath = path.join(hlsDir, `index.m3u8`);
-    const segmentPattern = path.join(hlsDir, `seg_%03d.ts`);
+    // Output: {workDir}/{profile}/index.m3u8 and {workDir}/{profile}/seg_000.ts
+    const playlistPath = path.join(profileDir, 'index.m3u8');
+    const segmentPattern = path.join(profileDir, 'seg_%03d.ts');
 
     const args = [
       '-i', inputPath,
       '-vf', `scale=${p.width}:${p.height}:force_original_aspect_ratio=decrease,pad=${p.width}:${p.height}:(ow-iw)/2:(oh-ih)/2`,
       '-c:v', 'libx264', '-preset', 'medium', '-b:v', p.bitrate,
-      '-c:a', 'aac', '-b:a', p.audio,
+      '-c:a', 'aac', '-b:a', p.audio, '-ac', '2',
       '-f', 'hls',
       '-hls_time', String(HLS_TIME),
       '-hls_playlist_type', 'vod',
@@ -110,50 +111,55 @@ async function processJob(job) {
       '-y', playlistPath,
     ];
 
-    console.log(`[Worker] 🎬 FFmpeg encoding ${profile} - bitrate ${p.bitrate}...`);
+    console.log(`[Worker] FFmpeg encoding ${profile} (${p.width}x${p.height} @ ${p.bitrate})...`);
     await runFfmpeg(args);
-    console.log(`[Worker] ✅ FFmpeg encoding complete for ${profile}`);
+    console.log(`[Worker] ${profile} encoding complete`);
 
-    // Upload files
-    const files = fs.readdirSync(hlsDir).filter(f => f.startsWith('seg_') || f.endsWith('.m3u8'));
-    console.log(`[Worker] 📤 Uploading ${files.length} files for ${profile}...`);
+    // Upload all files from profile directory to MinIO
+    // Uploads to: dramas/{showId}/episodes/{episodeId}/{profile}/index.m3u8
+    //             dramas/{showId}/episodes/{episodeId}/{profile}/seg_000.ts
+    const files = fs.readdirSync(profileDir);
+    console.log(`[Worker] Uploading ${files.length} files for ${profile}...`);
 
     for (const file of files) {
-      const localFile = path.join(hlsDir, file);
-      const minioPath = getQualityFolderPath(showId, episodeId, p.name) + '/' + file;
+      const localFile = path.join(profileDir, file);
+      const minioPath = `${minioBasePath}/${file}`;
       const ct = file.endsWith('.m3u8')
         ? 'application/vnd.apple.mpegurl'
         : 'video/mp2t';
-
       await uploadToMinio(localFile, minioPath, ct);
     }
-    console.log(`[Worker] ✅ All files uploaded for ${profile}`);
+    console.log(`[Worker] ${profile} uploaded to MinIO at ${minioBasePath}/`);
 
-    // Update DB
-    const updatedEpisode = await prisma.episode.update({
+    // Update DB — increment completed profiles
+    const episode = await prisma.episode.update({
       where: { id: episodeId },
       data: {
         completed_profiles: { increment: 1 },
       },
     });
 
-    // Final step
+    console.log(`[Worker] ${profile} done. Progress: ${episode.completed_profiles}/${episode.total_profiles}`);
+
+    // When all 4 profiles are done, create the master playlist
     if (
-      updatedEpisode.completed_profiles >= updatedEpisode.total_profiles &&
-      updatedEpisode.status !== 'ready'
+      episode.completed_profiles >= episode.total_profiles &&
+      episode.status !== 'ready'
     ) {
-      await createMasterPlaylist(showId, episodeId);
+      console.log(`[Worker] All profiles complete — creating master playlist...`);
+      await createMasterPlaylist(episodeId);
+
+      // Cleanup temp directory (all profiles done)
+      if (fs.existsSync(workDir)) {
+        fs.rmSync(workDir, { recursive: true, force: true });
+        console.log(`[Worker] Temp files cleaned up`);
+      }
     }
 
-    return { episodeId, profile };
+    return { episodeId, profile, files: files.length };
 
   } catch (err) {
-    console.error(`[Worker] ❌ Error processing ${profile}:`, {
-      profile,
-      episodeId,
-      error: err.message,
-      stack: err.stack
-    });
+    console.error(`[Worker] FAILED ${profile} for ${episodeId}:`, err.message);
     throw err;
   }
 }
@@ -162,11 +168,11 @@ async function processJob(job) {
 
 const worker = new Worker('transcode-queue', processJob, {
   connection: redis,
-  concurrency: 2, // 2 parallel tasks - prevents 1080p timeout
-  lockDuration: 30 * 60 * 1000, // 30 minutes - long enough for transcoding
-  lockRenewTime: 5 * 60 * 1000, // Renew lock every 5 minutes
-  maxStalledCount: 2, // Allow 2 stall attempts before failing
-  stalledInterval: 30 * 1000, // Check for stalled jobs every 30 seconds
+  concurrency: 2,
+  lockDuration: 30 * 60 * 1000,
+  lockRenewTime: 5 * 60 * 1000,
+  maxStalledCount: 2,
+  stalledInterval: 30 * 1000,
 });
 
 console.log('[Worker] Transcode worker starting...');
@@ -176,23 +182,21 @@ worker.on('ready', () => {
 });
 
 worker.on('completed', (job, result) => {
-  console.log(`[Worker] ✅ Job ${job.id} completed:`, result);
+  console.log(`[Worker] Job ${job.id} completed:`, result);
 });
 
 worker.on('failed', (job, err) => {
-  console.error(`[Worker] ❌ Job ${job.id} FAILED:`, {
+  console.error(`[Worker] Job ${job.id} FAILED:`, {
     profile: job.data?.profile,
     episode: job.data?.episodeId,
     error: err.message,
-    stack: err.stack
   });
 });
 
 worker.on('stalled', (jobId) => {
-  console.error(`[Worker] ⚠️  Job ${jobId} STALLED - potentially hung process`);
+  console.error(`[Worker] Job ${jobId} STALLED`);
 });
 
 worker.on('error', (err) => {
-  console.error('[Worker] ⚠️  Worker error:', err.message);
+  console.error('[Worker] Worker error:', err.message);
 });
-

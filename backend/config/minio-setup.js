@@ -13,7 +13,7 @@ async function setupMinioBuckets() {
       console.log(`MinIO bucket "${bucket}" created`);
     }
 
-    // Set bucket policy to allow read access for public content (thumbnails, banners)
+    // Public read access for thumbnails, banners (inside dramas/ folder)
     const policy = {
       Version: '2012-10-17',
       Statement: [
@@ -22,20 +22,18 @@ async function setupMinioBuckets() {
           Principal: { AWS: ['*'] },
           Action: ['s3:GetObject'],
           Resource: [
-            `arn:aws:s3:::${bucket}/thumbnails/*`,
-            `arn:aws:s3:::${bucket}/banners/*`,
-            `arn:aws:s3:::${bucket}/collections/*`,
+            `arn:aws:s3:::${bucket}/dramas/*/thumbnail.jpg`,
+            `arn:aws:s3:::${bucket}/dramas/*/banner.jpg`,
           ],
         },
       ],
     };
 
     await minioClient.setBucketPolicy(bucket, JSON.stringify(policy));
-    console.log('MinIO bucket policy set (public read for thumbnails/banners/collections)');
+    console.log('MinIO bucket policy set (public read for thumbnails/banners)');
 
     console.log('\nMinIO setup complete!');
     console.log(`  Console: http://localhost:9001 (minioadmin / minioadmin123)`);
-    console.log(`  API: http://localhost:9000`);
     console.log(`  Bucket: ${bucket}`);
   } catch (err) {
     console.error('MinIO setup failed:', err.message);
@@ -43,4 +41,4 @@ async function setupMinioBuckets() {
   }
 }
 
-await setupMinioBuckets();
+setupMinioBuckets();

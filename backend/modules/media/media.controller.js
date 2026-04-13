@@ -25,16 +25,6 @@ async function getImageUploadUrl(req, res, next) {
   } catch (e) { next(e); }
 }
 
-async function uploadImage(req, res, next) {
-  try {
-    if (!req.file) throw new Error('No image file provided');
-    const { type, entity_id } = req.body;
-    if (!type || !entity_id) throw new Error('type and entity_id are required');
-    const result = await mediaService.uploadImageFile(type, entity_id, req.file);
-    res.json(result);
-  } catch (e) { next(e); }
-}
-
 async function confirmVideoUpload(req, res, next) {
   try {
     const result = await mediaService.confirmVideoUpload(req.body.episode_id);
@@ -64,14 +54,14 @@ async function getTranscodeStatus(req, res, next) {
   } catch (e) { next(e); }
 }
 
-// Proxy HLS segments — generates presigned URLs for .m3u8 and .ts files
-// This solves the CORS/auth issue: the player fetches from our API, we redirect to MinIO
-
+// HLS Proxy — serves .m3u8 and .ts files from MinIO
+// New path structure: dramas/{showId}/episodes/{episodeId}/...
+// Route: /api/media/hls/:showId/:episodeId/*
 async function hlsProxy(req, res, next) {
   try {
-    const { episodeId } = req.params;
-    const filename = req.params[0];
-    const objectName = `hls/${episodeId}/${filename}`;
+    const { showId, episodeId } = req.params;
+    const filename = req.params[0]; // everything after /hls/:showId/:episodeId/
+    const objectName = `dramas/${showId}/episodes/${episodeId}/${filename}`;
 
     const presignedUrl = await getPresignedGetUrl(objectName, 7200);
 
@@ -81,14 +71,19 @@ async function hlsProxy(req, res, next) {
         let body = '';
         stream.on('data', chunk => body += chunk);
         stream.on('end', async () => {
-          // Rewrite each .ts line to its own presigned URL (direct MinIO)
+          // Rewrite .ts segment references to presigned MinIO URLs (direct download)
           const lines = body.split('\n');
           const rewritten = await Promise.all(lines.map(async (line) => {
             const trimmed = line.trim();
             if (trimmed && !trimmed.startsWith('#') && trimmed.endsWith('.ts')) {
-              // Generate presigned URL directly for each segment
-              const segObject = `hls/${episodeId}/${trimmed}`;
+              // Get the directory of the current .m3u8 to resolve relative paths
+              const dir = filename.includes('/') ? filename.substring(0, filename.lastIndexOf('/') + 1) : '';
+              const segObject = `dramas/${showId}/episodes/${episodeId}/${dir}${trimmed}`;
               return await getPresignedGetUrl(segObject, 7200);
+            }
+            if (trimmed && !trimmed.startsWith('#') && trimmed.endsWith('.m3u8')) {
+              // Rewrite sub-playlist references to go through our proxy
+              return `/api/media/hls/${showId}/${episodeId}/${trimmed}`;
             }
             return line;
           }));
@@ -100,15 +95,13 @@ async function hlsProxy(req, res, next) {
       }).on('error', next);
 
     } else {
-      // .ts files: redirect directly to MinIO presigned URL
-      // Browser downloads straight from MinIO — no Express bottleneck
+      // .ts segments: 302 redirect to MinIO presigned URL (bypasses Express)
       res.redirect(302, presignedUrl);
     }
-
   } catch (e) { next(e); }
 }
 
 export {
-  getVideoUploadUrl, uploadVideo, getImageUploadUrl, uploadImage, confirmVideoUpload,
+  getVideoUploadUrl, uploadVideo, getImageUploadUrl, confirmVideoUpload,
   confirmImageUpload, getPlayUrl, getTranscodeStatus, hlsProxy,
 };

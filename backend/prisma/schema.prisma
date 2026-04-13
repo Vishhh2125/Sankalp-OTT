@@ -25,6 +25,11 @@ enum Plan {
   MEMBER
 }
 
+enum MembershipStatus {
+  ACTIVE
+  EXPIRED
+}
+
 // ──────────────────────────────────────
 // USERS
 // ──────────────────────────────────────
@@ -90,15 +95,14 @@ model MembershipPlan {
 }
 
 model UserMembership {
-  id            String    @id @default(uuid()) @db.Uuid
-  user_id       String    @db.Uuid
-  plan_id       String    @db.Uuid
-  payment_id    String?   @db.Uuid
-  start_date    DateTime
-  end_date      DateTime
-  status        String    @default("active") @db.VarChar(20)
-  cancel_reason String?   @db.VarChar(255)
-  created_at    DateTime  @default(now())
+  id         String             @id @default(uuid()) @db.Uuid
+  user_id    String             @db.Uuid
+  plan_id    String             @db.Uuid
+  payment_id String?            @db.Uuid
+  start_date DateTime
+  end_date   DateTime
+  status     MembershipStatus   @default(ACTIVE)
+  created_at DateTime           @default(now())
 
   user    User                @relation(fields: [user_id], references: [id])
   plan    MembershipPlan      @relation(fields: [plan_id], references: [id])
@@ -165,10 +169,10 @@ model Show {
   view_count          Int      @default(0)
   rating_avg          Float    @default(0)
   rating_count        Int      @default(0)
-  is_featured_for_you Boolean  @default(false)
+  feed_position       Int      @default(0)
   is_active           Boolean  @default(true)
   created_at          DateTime @default(now())
-  updated_at          DateTime @updatedAt
+  
 
   category         Category         @relation(fields: [category_id], references: [id])
   episodes         Episode[]
@@ -180,8 +184,7 @@ model Show {
   ratings          Rating[]
 
   @@index([category_id, is_active], name: "idx_shows_category")
-  @@index([is_featured_for_you, is_active], name: "idx_shows_featured")
-  @@map("shows")
+  @@index([feed_position, is_active], name: "idx_shows_feed_position")
 }
 
 model ShowTag {

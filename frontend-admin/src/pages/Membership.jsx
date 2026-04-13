@@ -4,9 +4,9 @@ import Modal, { FormGroup, ModalSection } from '../components/ui/Modal.jsx'
 import { Toggle, ConfirmDialog } from '../components/ui/Controls.jsx'
 
 const initPlans = [
-  { id:1, name:'Weekly',  price:49,  currency:'₹', period:'week',   earlyAccess:false, allContent:true,  active:true,  featured:false, subs:3210, color:'var(--green)' },
-  { id:2, name:'Monthly', price:149, currency:'₹', period:'month',  earlyAccess:true,  allContent:true,  active:true,  featured:true,  subs:6540, color:'var(--accent2)' },
-  { id:3, name:'Annual',  price:999, currency:'₹', period:'year',  earlyAccess:true,  allContent:true,  active:true,  featured:false, subs:2090, color:'var(--amber)' },
+  { id:1, name:'Weekly',  price:49,  currency:'₹', period:'week',   active:true,  subs:3210, color:'var(--green)' },
+  { id:2, name:'Monthly', price:149, currency:'₹', period:'month',  active:true,  subs:6540, color:'var(--accent2)' },
+  { id:3, name:'Annual',  price:999, currency:'₹', period:'year',  active:true,  subs:2090, color:'var(--amber)' },
 ]
 
 const initHistory = [
@@ -18,14 +18,9 @@ const initHistory = [
   { id:'TX006', user:'Ravi V',     plan:'Weekly',  amount:'₹49',  gateway:'Nation Link', date:'Mar 20, 2025',status:'Refunded',txnId:'NL-2025-006' },
 ]
 
-const initCancellations = [
-  { user:'Ravi V',   plan:'Weekly',  date:'Mar 21, 2025', reason:'Too expensive' },
-  { user:'Suresh R', plan:'Weekly',  date:'Mar 29, 2025', reason:'Not enough content' },
-]
-
 function PlanModal({ open, onClose, onSave, initial }) {
   const isEdit = !!initial?.id
-  const [form, setForm] = useState(initial || { name:'', price:'', currency:'₹', period:'month', earlyAccess:false, allContent:true, active:true, featured:false, color:'var(--accent2)' })
+  const [form, setForm] = useState(initial || { name:'', price:'', currency:'₹', period:'month', active:true, color:'var(--accent2)' })
   const upd = (k,v) => setForm(p=>({...p,[k]:v}))
   if(!open) return null
   return (
@@ -49,33 +44,11 @@ function PlanModal({ open, onClose, onSave, initial }) {
         </div>
       </ModalSection>
 
-      <ModalSection title="Benefits (coins, content, perks)">
-
-        {[
-          
-          { key:'allContent',  label:'All premium content',  desc:'Unlock all paid dramas and episodes' },
-        ].map(b => (
-          <label key={b.key} style={{ display:'flex', alignItems:'center', gap:12, cursor:'pointer', marginBottom:12 }}>
-            <Toggle on={form[b.key]} onChange={v=>upd(b.key,v)}/>
-            <div>
-              <div style={{ fontSize:13, fontWeight:500 }}>{b.label}</div>
-              <div style={{ fontSize:11, color:'var(--text3)' }}>{b.desc}</div>
-            </div>
-          </label>
-        ))}
-      </ModalSection>
-
       <ModalSection title="Visibility">
-        <div style={{ display:'flex', gap:20 }}>
-          <label style={{ display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}>
-            <Toggle on={form.active} onChange={v=>upd('active',v)}/>
-            <span style={{ fontSize:13 }}>Active (show to users)</span>
-          </label>
-          <label style={{ display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}>
-            <Toggle on={form.featured} onChange={v=>upd('featured',v)}/>
-            <span style={{ fontSize:13 }}>Featured (most popular)</span>
-          </label>
-        </div>
+        <label style={{ display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}>
+          <Toggle on={form.active} onChange={v=>upd('active',v)}/>
+          <span style={{ fontSize:13 }}>Active (show to users)</span>
+        </label>
       </ModalSection>
     </Modal>
   )
@@ -103,7 +76,6 @@ function RefundModal({ open, onClose, txn }) {
 export default function Membership() {
   const [plans, setPlans] = useState(initPlans)
   const [history] = useState(initHistory)
-  const [cancellations] = useState(initCancellations)
   const [tab, setTab] = useState('plans')
   const [modal, setModal] = useState(null)
   const [selected, setSelected] = useState(null)
@@ -116,12 +88,11 @@ export default function Membership() {
   return (
     <div className="page-enter">
       {/* Stats */}
-      <div className="metrics-grid" style={{ gridTemplateColumns:'repeat(4,1fr)', marginBottom:16 }}>
+      <div className="metrics-grid" style={{ gridTemplateColumns:'repeat(3,1fr)', marginBottom:16 }}>
         {[
           { label:'Total Subscribers', value:plans.reduce((a,p)=>a+p.subs,0).toLocaleString(), sub:'across all plans' },
           { label:'Monthly Revenue', value:'₹4,21,380', sub:'this month' },
           { label:'Active Plans', value:plans.filter(p=>p.active).length, sub:`of ${plans.length} plans` },
-          { label:'Cancellation Rate', value:'3.2%', sub:'this month' },
         ].map(m => (
           <div className="metric-card" key={m.label}>
             <div className="metric-label">{m.label}</div>
@@ -133,14 +104,14 @@ export default function Membership() {
 
       {/* Tabs */}
       <div style={{ display:'flex', gap:0, marginBottom:18, borderBottom:'1px solid var(--border)' }}>
-        {['plans','history','cancellations','gateway'].map(t => (
+        {['plans','history','gateway'].map(t => (
           <button key={t} onClick={() => setTab(t)} style={{
             padding:'8px 16px', background:'none', border:'none', cursor:'pointer',
             fontSize:12, fontWeight:tab===t?600:400,
             color:tab===t?'var(--accent2)':'var(--text3)',
             borderBottom:tab===t?'2px solid var(--accent)':'2px solid transparent',
             textTransform:'capitalize', marginBottom:-1,
-          }}>{t==='history'?'Subscription history':t==='cancellations'?'Cancellations':t==='gateway'?'Gateway logs':t}</button>
+          }}>{t==='history'?'Subscription history':t==='gateway'?'Gateway logs':t}</button>
         ))}
       </div>
 
@@ -152,17 +123,9 @@ export default function Membership() {
           </div>
           <div className="grid3">
             {plans.map(p => (
-              <div key={p.id} className={`plan-card${p.featured?' featured':''}`}>
-                {p.featured && <div className="plan-featured-badge">Most popular</div>}
+              <div key={p.id} className="plan-card">
                 <div className="plan-name">{p.name} plan</div>
                 <div className="plan-price">{p.currency}{p.price}<span>/{p.period}</span></div>
-                <div style={{ marginBottom:12 }}>
-                  {[
-                    p.allContent && '✓ All premium content',
-                    
-                    
-                  ].filter(Boolean).map(b => <div key={b} style={{ fontSize:12, color:'var(--text2)', marginBottom:3 }}>{b}</div>)}
-                </div>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
                   <span className={`badge ${p.active?'badge-green':'badge-red'}`}>{p.active?'Active':'Inactive'}</span>
                   <Toggle on={p.active} onChange={() => toggleActive(p.id)}/>
@@ -204,30 +167,6 @@ export default function Membership() {
                         {h.status==='Success' && <button className="btn btn-ghost btn-sm" onClick={() => { setSelected(h); setModal('refund') }}>Refund</button>}
                       </div>
                     </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Cancellations tab */}
-      {tab==='cancellations' && (
-        <div className="card" style={{ padding:0 }}>
-          <div style={{ padding:'12px 18px', borderBottom:'1px solid var(--border)' }}>
-            <div className="card-title" style={{ marginBottom:0 }}>Cancelled subscriptions</div>
-          </div>
-          <div className="table-wrap">
-            <table>
-              <thead><tr><th>User</th><th>Plan</th><th>Cancelled on</th><th>Reason</th></tr></thead>
-              <tbody>
-                {cancellations.map((c,i) => (
-                  <tr key={i}>
-                    <td style={{ fontWeight:500 }}>{c.user}</td>
-                    <td><span className="badge badge-red">{c.plan}</span></td>
-                    <td style={{ color:'var(--text3)', fontSize:12 }}>{c.date}</td>
-                    <td style={{ color:'var(--text2)' }}>{c.reason}</td>
                   </tr>
                 ))}
               </tbody>

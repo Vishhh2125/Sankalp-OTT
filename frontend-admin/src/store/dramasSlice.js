@@ -131,41 +131,34 @@ export const createDrama = createAsyncThunk(
         synopsis:            formData.synopsis || '',
         category_id:         cat.id,
         tag_ids:             tagIds,
-        is_featured_for_you: formData.is_featured_for_you || false,
-        is_active:           formData.status === 'Published',
+        feed_position: parseInt(formData.feed_position) || 0,
+        is_active: true,
       })
 
       const show = showRes.data
       console.log('Show created:', show.id)
 
-      // Upload thumbnail if provided
       if (formData.thumbnailFile) {
         try {
           console.log('Uploading thumbnail for show:', show.id)
-          
-          // Create FormData and upload through backend
-          const thumbFormData = new FormData()
-          thumbFormData.append('image', formData.thumbnailFile)
-          thumbFormData.append('type', 'thumbnail')
-          thumbFormData.append('entity_id', show.id)
-          
-          const uploadRes = await fetch('http://localhost:3000/api/media/upload/image', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
-            },
-            body: thumbFormData
-          })
-          
-          if (!uploadRes.ok) {
-            const err = await uploadRes.json()
-            throw new Error(err.error || err.message || `Upload failed: ${uploadRes.status}`)
-          }
-          
-          console.log('Thumbnail uploaded successfully for show:', show.id)
+          const { data: urlData } = await mediaApi.getImageUploadUrl('thumbnail', show.id)
+          await mediaApi.uploadToMinio(urlData.upload_url, formData.thumbnailFile)
+          await mediaApi.confirmImage('thumbnail', show.id, urlData.object_name)
+          console.log('Thumbnail uploaded successfully')
         } catch (thumbErr) {
           console.error('Thumbnail upload failed:', thumbErr)
-          throw new Error(`Thumbnail upload failed: ${thumbErr.message}`)
+        }
+      }
+
+      if (formData.bannerFile) {
+        try {
+          console.log('Uploading banner for show:', show.id)
+          const { data: urlData } = await mediaApi.getImageUploadUrl('banner', show.id)
+          await mediaApi.uploadToMinio(urlData.upload_url, formData.bannerFile)
+          await mediaApi.confirmImage('banner', show.id, urlData.object_name)
+          console.log('Banner uploaded successfully')
+        } catch (bannerErr) {
+          console.error('Banner upload failed:', bannerErr)
         }
       }
 
@@ -196,38 +189,31 @@ export const updateDrama = createAsyncThunk(
         synopsis:            formData.synopsis || '',
         category_id:         cat?.id,
         tag_ids:             tagIds,
-        is_featured_for_you: formData.is_featured_for_you || false,
-        is_active:           formData.status === 'Published',
+        feed_position: parseInt(formData.feed_position) || 0,
+        is_active: true,
       })
 
-      // Upload thumbnail if provided
       if (formData.thumbnailFile) {
         try {
           console.log('Uploading thumbnail for show:', id)
-          
-          // Create FormData and upload through backend
-          const thumbFormData = new FormData()
-          thumbFormData.append('image', formData.thumbnailFile)
-          thumbFormData.append('type', 'thumbnail')
-          thumbFormData.append('entity_id', id)
-          
-          const uploadRes = await fetch('http://localhost:3000/api/media/upload/image', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
-            },
-            body: thumbFormData
-          })
-          
-          if (!uploadRes.ok) {
-            const err = await uploadRes.json()
-            throw new Error(err.error || err.message || `Upload failed: ${uploadRes.status}`)
-          }
-          
-          console.log('Thumbnail uploaded successfully for show:', id)
+          const { data: urlData } = await mediaApi.getImageUploadUrl('thumbnail', id)
+          await mediaApi.uploadToMinio(urlData.upload_url, formData.thumbnailFile)
+          await mediaApi.confirmImage('thumbnail', id, urlData.object_name)
+          console.log('Thumbnail uploaded successfully')
         } catch (thumbErr) {
           console.error('Thumbnail upload failed:', thumbErr)
-          throw new Error(`Thumbnail upload failed: ${thumbErr.message}`)
+        }
+      }
+
+      if (formData.bannerFile) {
+        try {
+          console.log('Uploading banner for show:', id)
+          const { data: urlData } = await mediaApi.getImageUploadUrl('banner', id)
+          await mediaApi.uploadToMinio(urlData.upload_url, formData.bannerFile)
+          await mediaApi.confirmImage('banner', id, urlData.object_name)
+          console.log('Banner uploaded successfully')
+        } catch (bannerErr) {
+          console.error('Banner upload failed:', bannerErr)
         }
       }
 

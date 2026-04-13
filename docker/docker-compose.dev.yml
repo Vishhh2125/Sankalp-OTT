@@ -35,7 +35,7 @@ services:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin123
       # Add this line below to allow your frontend to connect
-      MINIO_API_CORS_ALLOW_ORIGIN: "http://localhost:3000"
+      MINIO_API_CORS_ALLOW_ORIGIN: "http://localhost:5173,http://localhost:3000"
     volumes:
       - minio_data:/data
     restart: unless-stopped

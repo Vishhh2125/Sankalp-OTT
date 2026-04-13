@@ -54,8 +54,11 @@ async function deleteShow(req, res, next) {
 async function togglePublish(req, res, next) {
   try { res.json(await service.toggleShowPublish(req.params.id)); } catch (e) { next(e); }
 }
-async function toggleFeatured(req, res, next) {
-  try { res.json(await service.toggleShowFeatured(req.params.id)); } catch (e) { next(e); }
+async function updateFeedPosition(req, res, next) {
+  try {
+    const position = parseInt(req.body.feed_position) || 0;
+    res.json(await service.updateFeedPosition(req.params.id, position));
+  } catch (e) { next(e); }
 }
 
 // ── Episodes ──
@@ -75,6 +78,6 @@ async function deleteEpisode(req, res, next) {
 export {
   getCategories, createCategory, updateCategory, deleteCategory,
   getTags, createTag, updateTag, deleteTag,
-  getShows, getShow, createShow, updateShow, deleteShow, togglePublish, toggleFeatured,
+  getShows, getShow, createShow, updateShow, deleteShow, togglePublish, updateFeedPosition,
   getEpisodes, createEpisode, updateEpisode, deleteEpisode,
 };

@@ -70,7 +70,7 @@ const ALL_TAGS = ['Romance', 'CEO', 'Revenge', 'Comedy', 'School', 'Thriller', '
 const ALL_CATEGORIES = ['Popular', 'New', 'Rankings', 'Anime', 'VIP']
 
 const tagColor = { Romance:'badge-pink', Trending:'badge-amber', CEO:'badge-blue', Revenge:'badge-red', Comedy:'badge-green', School:'badge-blue', Thriller:'badge-red', Action:'badge-amber', Billionaire:'badge-purple', 'Strong Heroine':'badge-pink', 'Hidden Identity':'badge-blue', Fantasy:'badge-purple' }
-const emptyDrama = { title:'', synopsis:'', category:'Popular', status:'Draft', tags:[], episodes:[], reminders:false, is_featured_for_you:false }
+const emptyDrama = { title:'', synopsis:'', category:'Popular', status:'Published', tags:[], episodes:[], feed_position:0 }
 const emptyEp = { title:'', duration:'', is_free:true, coin_cost:0, videoFile:null, uploadProgress:0 }
 
 function DramaModal({ open, onClose, onSave, initial, initialStep = 0, autoAddEp = false }) {
@@ -218,27 +218,20 @@ function DramaModal({ open, onClose, onSave, initial, initialStep = 0, autoAddEp
             </div>
           </ModalSection>
           <ModalSection title="Options">
-            <label style={{ display:'flex', alignItems:'center', gap:12, cursor:'pointer', marginBottom:14 }}>
-              <Toggle on={form.is_featured_for_you} onChange={v => upd('is_featured_for_you', v)}/>
-              <div>
-                <div style={{ fontSize:13, fontWeight:500 }}>Feature in For You feed</div>
-                <div style={{ fontSize:11, color:'var(--text3)' }}>Pin this drama's Episode 1 to the For You reels feed</div>
+            <FormGroup label="For You feed position">
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <input className="input" type="number" min="0" style={{ width:80 }}
+                  placeholder="0" value={form.feed_position || ''}
+                  onChange={e => upd('feed_position', parseInt(e.target.value) || 0)} />
+                <div style={{ fontSize:11, color:'var(--text3)' }}>
+                  {form.feed_position > 0 
+                    ? `Position ${form.feed_position} in For You feed`
+                    : 'Set 1, 2, 3… to show in For You feed. 0 = not featured.'}
+                </div>
               </div>
-            </label>
-            <label style={{ display:'flex', alignItems:'center', gap:12, cursor:'pointer', marginBottom:14 }}>
-              <Toggle on={form.reminders} onChange={v => upd('reminders', v)}/>
-              <div>
-                <div style={{ fontSize:13, fontWeight:500 }}>Episode reminders</div>
-                <div style={{ fontSize:11, color:'var(--text3)' }}>Notify users when new episodes are released</div>
-              </div>
-            </label>
-            <label style={{ display:'flex', alignItems:'center', gap:12, cursor:'pointer' }}>
-              <Toggle on={form.status==='Published'} onChange={v => upd('status', v?'Published':'Draft')}/>
-              <div>
-                <div style={{ fontSize:13, fontWeight:500 }}>Publish immediately</div>
-                <div style={{ fontSize:11, color:'var(--text3)' }}>Make this drama visible on the platform</div>
-              </div>
-            </label>
+            </FormGroup>
+
+
           </ModalSection>
         </>
       )}
@@ -378,8 +371,7 @@ function DramaModal({ open, onClose, onSave, initial, initialStep = 0, autoAddEp
             <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
               <span className="badge badge-blue">{form.category}</span>
               <span className={`badge ${form.status==='Published'?'badge-green':'badge-amber'}`}>{form.status}</span>
-              {form.is_featured_for_you && <span className="badge badge-pink">★ For You</span>}
-              {form.reminders && <span className="badge badge-blue">🔔 Reminders</span>}
+              {form.feed_position > 0 && <span className="badge badge-pink">★ For You #{form.feed_position}</span>}
             </div>
             {(form.thumbnailPreview || form.bannerPreview) && (
               <div style={{ display:'flex', gap:10, marginTop:12 }}>
@@ -561,7 +553,7 @@ export default function Dramas() {
                       <div>
                         <div style={{ fontWeight:500, fontSize:13 }}>{d.title}</div>
                         <div style={{ fontSize:11, color:'var(--text3)', fontFamily:'var(--mono)' }}>{d.id}</div>
-                        {d.is_featured_for_you && <div style={{ fontSize:10, color:'var(--accent2)' }}>★ Featured in For You</div>}
+                        {d.feed_position > 0 && <div style={{ fontSize:10, color:'var(--accent2)' }}>★ For You #{d.feed_position}</div>}
                       </div>
                     </div>
                   </td>

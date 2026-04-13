@@ -117,7 +117,7 @@ async function getAllShows({ category_id, status, search, page = 1, limit = 50 }
     view_count: s.view_count,
     rating_avg: s.rating_avg,
     rating_count: s.rating_count,
-    is_featured_for_you: s.is_featured_for_you,
+    feed_position: s.feed_position,
     thumbnail_url: s.thumbnail_url,
     banner_url: s.banner_url,
     episode_count: s._count.episodes,
@@ -156,12 +156,21 @@ async function createShow(data, adminId) {
   // Map status string to is_active boolean
   const is_active = showData.is_active !== undefined ? showData.is_active : false;
 
+  // If creating with a feed position, shift existing positions down
+  const feedPos = showData.feed_position || 0;
+  if (feedPos > 0) {
+    await prisma.show.updateMany({
+      where: { feed_position: { gte: feedPos } },
+      data: { feed_position: { increment: 1 } },
+    });
+  }
+
   const show = await prisma.show.create({
     data: {
       title: showData.title,
       synopsis: showData.synopsis || null,
       category_id: showData.category_id,
-      is_featured_for_you: showData.is_featured_for_you || false,
+      feed_position: showData.feed_position || 0,
       is_active,
       thumbnail_url: showData.thumbnail_url || null,
       banner_url: showData.banner_url || null,
@@ -192,6 +201,40 @@ async function updateShow(id, data) {
     });
   }
 
+  // If feed_position is being changed, run auto-shift logic
+  if (showData.feed_position !== undefined && showData.feed_position !== existing.feed_position) {
+    const newPos = showData.feed_position;
+    const oldPos = existing.feed_position;
+
+    if (newPos === 0 && oldPos > 0) {
+      // Removing from feed: shift others up to fill the gap
+      await prisma.show.updateMany({
+        where: { feed_position: { gt: oldPos }, id: { not: id } },
+        data: { feed_position: { decrement: 1 } },
+      });
+    } else if (newPos > 0) {
+      if (oldPos === 0) {
+        // New entry into feed: shift everything at newPos and below DOWN
+        await prisma.show.updateMany({
+          where: { feed_position: { gte: newPos }, id: { not: id } },
+          data: { feed_position: { increment: 1 } },
+        });
+      } else if (newPos < oldPos) {
+        // Moving UP (e.g. 5 to 2): shift positions 2-4 DOWN
+        await prisma.show.updateMany({
+          where: { feed_position: { gte: newPos, lt: oldPos }, id: { not: id } },
+          data: { feed_position: { increment: 1 } },
+        });
+      } else if (newPos > oldPos) {
+        // Moving DOWN (e.g. 2 to 5): shift positions 3-5 UP
+        await prisma.show.updateMany({
+          where: { feed_position: { gt: oldPos, lte: newPos }, id: { not: id } },
+          data: { feed_position: { decrement: 1 } },
+        });
+      }
+    }
+  }
+
   const show = await prisma.show.update({
     where: { id },
     data: showData,
@@ -220,12 +263,57 @@ async function toggleShowPublish(id) {
   });
 }
 
-async function toggleShowFeatured(id) {
+async function updateFeedPosition(id, newPosition) {
   const show = await prisma.show.findUnique({ where: { id } });
   if (!show) throw new AppError('Show not found', 404);
+
+  const oldPosition = show.feed_position;
+
+  // If setting to 0 (removing from feed), shift others up to fill the gap
+  if (newPosition === 0 && oldPosition > 0) {
+    await prisma.show.updateMany({
+      where: { feed_position: { gt: oldPosition } },
+      data: { feed_position: { decrement: 1 } },
+    });
+  }
+
+  // If inserting into a position (newPosition > 0)
+  if (newPosition > 0) {
+    if (oldPosition === 0 || oldPosition === null) {
+      // New entry: shift everything at newPosition and below DOWN by 1
+      await prisma.show.updateMany({
+        where: { feed_position: { gte: newPosition }, id: { not: id } },
+        data: { feed_position: { increment: 1 } },
+      });
+    } else if (newPosition < oldPosition) {
+      // Moving UP (e.g. from position 5 to position 2): shift positions 2-4 DOWN by 1
+      await prisma.show.updateMany({
+        where: {
+          feed_position: { gte: newPosition, lt: oldPosition },
+          id: { not: id },
+        },
+        data: { feed_position: { increment: 1 } },
+      });
+    } else if (newPosition > oldPosition) {
+      // Moving DOWN (e.g. from position 2 to position 5): shift positions 3-5 UP by 1
+      await prisma.show.updateMany({
+        where: {
+          feed_position: { gt: oldPosition, lte: newPosition },
+          id: { not: id },
+        },
+        data: { feed_position: { decrement: 1 } },
+      });
+    }
+    // If same position, no shift needed
+  }
+
   return prisma.show.update({
     where: { id },
-    data: { is_featured_for_you: !show.is_featured_for_you },
+    data: { feed_position: newPosition },
+    include: {
+      category: { select: { id: true, name: true } },
+      show_tags: { include: { tag: { select: { id: true, name: true } } } },
+    },
   });
 }
 
@@ -298,6 +386,6 @@ async function deleteEpisode(id) {
 export {
   getAllCategories, getCategoryById, createCategory, updateCategory, deleteCategory,
   getAllTags, createTag, updateTag, deleteTag,
-  getAllShows, getShowById, createShow, updateShow, deleteShow, toggleShowPublish, toggleShowFeatured,
+  getAllShows, getShowById, createShow, updateShow, deleteShow, toggleShowPublish, updateFeedPosition,
   getEpisodesByShow, createEpisode, updateEpisode, deleteEpisode,
 };

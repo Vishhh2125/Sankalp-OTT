@@ -30,7 +30,7 @@ router.post('/shows', devAdmin('Dramas'), validate(createShowSchema), ctrl.creat
 router.put('/shows/:id', devAdmin('Dramas'), validate(updateShowSchema), ctrl.updateShow);
 router.delete('/shows/:id', devAdmin('Dramas'), ctrl.deleteShow);
 router.patch('/shows/:id/publish', devAdmin('Dramas'), ctrl.togglePublish);
-router.patch('/shows/:id/feature', devAdmin('Dramas'), ctrl.toggleFeatured);
+router.patch('/shows/:id/feed-position', devAdmin('Dramas'), ctrl.updateFeedPosition);
 
 // ── Episodes ──
 router.get('/shows/:showId/episodes', ctrl.getEpisodes);
@@ -73,7 +73,6 @@ router.post('/shows', requireAdmin('Dramas'), validate(createShowSchema), ctrl.c
 router.put('/shows/:id', requireAdmin('Dramas'), validate(updateShowSchema), ctrl.updateShow);
 router.delete('/shows/:id', requireAdmin('Dramas'), ctrl.deleteShow);
 router.patch('/shows/:id/publish', requireAdmin('Dramas'), ctrl.togglePublish);
-router.patch('/shows/:id/feature', requireAdmin('Dramas'), ctrl.toggleFeatured);
 
 // ── Episodes ──
 router.get('/shows/:showId/episodes', ctrl.getEpisodes);
