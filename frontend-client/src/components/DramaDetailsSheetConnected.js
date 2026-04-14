@@ -166,7 +166,7 @@ export default function DramaDetailsSheetConnected({
           <View style={styles.topRow}>
             <View style={styles.posterRow}>
               {posterSource ? (
-                <Image source={posterSource} style={styles.poster} />
+                <Image source={posterSource} style={styles.poster} resizeMode="cover" />
               ) : (
                 <View style={[styles.poster, styles.posterFallback]} />
               )}

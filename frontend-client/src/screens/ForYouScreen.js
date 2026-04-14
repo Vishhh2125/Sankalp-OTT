@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 
 import DramaDetailsSheetConnected from '../components/DramaDetailsSheetConnected';
@@ -20,6 +20,7 @@ import {
   shortVideoTheme,
 } from '../components/shortVideoPlayer';
 import { API_BASE_URL } from '../constants/config';
+import { ROUTES } from '../constants/routes';
 import {
   clearShowMode,
   fetchForYouFeed,
@@ -32,11 +33,15 @@ import {
   selectShowModeError,
   selectShowModeLoading,
 } from '../redux/slices/reelsSlice';
+import {
+  initShowPlayer,
+} from '../redux/slices/showPlayerSlice';
 
 const DETAILS_PAGE_SIZE = 30;
 
 export default function ForYouScreen() {
   const dispatch = useDispatch();
+  const navigation = useNavigation();
   const items = useSelector(selectForYouItems);
   const loading = useSelector(selectForYouLoading);
   const hasMore = useSelector(selectForYouHasMore);
@@ -95,10 +100,32 @@ export default function ForYouScreen() {
   }, [dispatch, selectedDrama]);
 
   const handleCloseSheet = useCallback(() => {
-    setSheetVisible(false);
     setSelectedDrama(null);
     dispatch(clearShowMode());
   }, [dispatch]);
+
+  // Tapping an episode in the detail sheet opens the single-drama reel player
+  const handleEpisodePress = useCallback((episode) => {
+    if (!selectedDrama || !showMode) return;
+
+    // Don't open the player for episodes that are still processing
+    if (episode.status !== 'ready' && !episode.is_locked) return;
+
+    dispatch(
+      initShowPlayer({
+        showId: showMode.show_id,
+        showTitle: showMode.show_title,
+        thumbnailUrl: showMode.thumbnail_url,
+        totalEpisodes: showMode.total_episodes,
+        // Seed the player with the episodes already loaded in the sheet
+        seedEpisodes: showMode.episodes || [],
+        startEpisodeNum: episode.episode_num,
+        streamBase: API_BASE_URL,
+      })
+    );
+
+    navigation.navigate(ROUTES.SHOW_PLAYER);
+  }, [dispatch, navigation, selectedDrama, showMode]);
 
   const handleRefresh = useCallback(() => {
     dispatch(fetchForYouFeed({ offset: 0, refresh: true }));
@@ -172,6 +199,7 @@ export default function ForYouScreen() {
         initialTab={sheetInitialTab}
         onRangeChange={handleRangeChange}
         onClose={handleCloseSheet}
+        onEpisodePress={handleEpisodePress}
       />
     </View>
   );
@@ -192,4 +220,3 @@ const styles = StyleSheet.create({
   },
   retryText: { color: '#fff', fontSize: 14, fontWeight: '600' },
 });
-

@@ -101,17 +101,37 @@ async function confirmVideoUpload(episodeId) {
   return { episode_id: episodeId, status: 'processing', profiles_queued: 4 };
 }
 
-// Confirm image upload — save URL to database
+// Confirm image upload — save URL to database (using API proxy instead of direct MinIO)
 async function confirmImageUpload(type, entityId, objectName) {
-  const publicUrl = getPublicUrl(objectName);
+  // Store API proxy URL instead of direct MinIO URL so mobile clients can fetch through the backend
+  const apiProxyUrl = `/api/media/image/${type}/${entityId}`;
 
   if (type === 'thumbnail') {
-    return prisma.show.update({ where: { id: entityId }, data: { thumbnail_url: publicUrl } });
+    return prisma.show.update({ where: { id: entityId }, data: { thumbnail_url: apiProxyUrl } });
   } else if (type === 'banner') {
-    return prisma.show.update({ where: { id: entityId }, data: { banner_url: publicUrl } });
+    return prisma.show.update({ where: { id: entityId }, data: { banner_url: apiProxyUrl } });
   }
 
-  return { updated: true, url: publicUrl };
+  return { updated: true, url: apiProxyUrl };
+}
+
+// Get presigned URL for image proxy endpoint
+async function getImageProxy(type, entityId) {
+  let objectName;
+  const ext = 'jpg';
+
+  if (type === 'thumbnail') {
+    objectName = `dramas/${entityId}/thumbnail.${ext}`;
+  } else if (type === 'banner') {
+    objectName = `dramas/${entityId}/banner.${ext}`;
+  } else if (type === 'collection') {
+    objectName = `collections/${entityId}/cover.${ext}`;
+  } else {
+    throw new AppError('Invalid image type', 400);
+  }
+
+  const presignedUrl = await getPresignedGetUrl(objectName, 7200);
+  return { presigned_url: presignedUrl };
 }
 
 // Get presigned streaming URL for an episode
@@ -167,6 +187,7 @@ export {
   getImageUploadUrl,
   confirmVideoUpload,
   confirmImageUpload,
+  getImageProxy,
   getPlayUrl,
   getTranscodeStatus,
 };

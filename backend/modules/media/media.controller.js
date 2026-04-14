@@ -54,6 +54,14 @@ async function getTranscodeStatus(req, res, next) {
   } catch (e) { next(e); }
 }
 
+// Image proxy — serves thumbnails/banners from MinIO to clients that can't reach localhost
+async function getImage(req, res, next) {
+  try {
+    const result = await mediaService.getImageProxy(req.params.type, req.params.entityId);
+    res.redirect(302, result.presigned_url);
+  } catch (e) { next(e); }
+}
+
 // HLS Proxy — serves .m3u8 and .ts files from MinIO
 // New path structure: dramas/{showId}/episodes/{episodeId}/...
 // Route: /api/media/hls/:showId/:episodeId/*
@@ -103,5 +111,5 @@ async function hlsProxy(req, res, next) {
 
 export {
   getVideoUploadUrl, uploadVideo, getImageUploadUrl, confirmVideoUpload,
-  confirmImageUpload, getPlayUrl, getTranscodeStatus, hlsProxy,
+  confirmImageUpload, getPlayUrl, getTranscodeStatus, getImage, hlsProxy,
 };

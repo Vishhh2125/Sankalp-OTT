@@ -141,7 +141,7 @@ export default function DramaDetailsSheet({
           {/* Header */}
           <View style={styles.topRow}>
             <View style={styles.posterRow}>
-              <Image source={item.image} style={styles.poster} />
+              <Image source={item.image} style={styles.poster} resizeMode="cover" />
               <View style={styles.posterMeta}>
                 <Text style={styles.title} numberOfLines={1}>
                   {item.title}
