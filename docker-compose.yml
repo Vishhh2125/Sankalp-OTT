@@ -34,8 +34,8 @@ services:
       - MINIO_SECRET_KEY=minioadmin123
       - MINIO_BUCKET=ott-media
       - MINIO_USE_SSL=false
-      - MINIO_PUBLIC_HOST=http://103.117.51.32:9000
-      - SERVER_ORIGIN=http://103.117.51.32:8080
+      - MINIO_PUBLIC_HOST=http://192.168.1.15:9000
+      - SERVER_ORIGIN=http://192.168.1.15:8080
     depends_on:
       - postgres
       - redis
@@ -58,8 +58,8 @@ services:
       - MINIO_SECRET_KEY=minioadmin123
       - MINIO_BUCKET=ott-media
       - MINIO_USE_SSL=false
-      - MINIO_PUBLIC_HOST=http://103.117.51.32:9000
-      - SERVER_ORIGIN=http://103.117.51.32:8080
+      - MINIO_PUBLIC_HOST=http://192.168.1.15:9000
+      - SERVER_ORIGIN=http://192.168.1.15:8080
     depends_on:
       - postgres
       - redis
@@ -95,7 +95,7 @@ services:
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin123
-      MINIO_API_CORS_ALLOW_ORIGIN: "http://103.117.51.32,http://103.117.51.32:8080,http://localhost,http://localhost:80"
+      MINIO_API_CORS_ALLOW_ORIGIN: "http://192.168.1.15,http://192.168.1.15:8080,http://localhost,http://localhost:80,http://localhost:8080"
     volumes:
       - minio_data:/data
     restart: unless-stopped

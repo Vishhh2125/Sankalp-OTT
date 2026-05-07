@@ -15,10 +15,10 @@ const TEMP_DIR = path.join(os.tmpdir(), 'ott-transcode');
 if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR, { recursive: true });
 
 const PROFILES = [
-  { name: '360p', width: 640, height: 360, bitrate: '800k', audio: '96k' },
-  { name: '480p', width: 854, height: 480, bitrate: '1400k', audio: '128k' },
-  { name: '720p', width: 1280, height: 720, bitrate: '2800k', audio: '128k' },
-  { name: '1080p', width: 1920, height: 1080, bitrate: '5000k', audio: '192k' },
+  { name: '360p', width: 360, height: 640, bitrate: '800k', audio: '96k' },
+  { name: '480p', width: 480, height: 854, bitrate: '1400k', audio: '128k' },
+  { name: '720p', width: 720, height: 1280, bitrate: '2800k', audio: '128k' },
+  { name: '1080p', width: 1080, height: 1920, bitrate: '5000k', audio: '192k' },
 ];
 
 const HLS_TIME = 6;
