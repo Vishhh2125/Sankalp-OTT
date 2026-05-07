@@ -23,7 +23,8 @@ setFeedStore(store);
 export default function App() {
   return (
     <Provider store={store}>
-      <StatusBar style="auto" />
+      {/* "light" keeps status bar text/icons white on the dark app background */}
+      <StatusBar style="light" />
       <RootStackNavigator />
     </Provider>
   );

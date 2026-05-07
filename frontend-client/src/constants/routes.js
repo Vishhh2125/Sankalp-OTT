@@ -8,4 +8,5 @@ export const ROUTES = {
   MY_LIST: 'MyList',
   MY_WALLET: 'MyWallet',
   PROFILE: 'Profile',
+  SHOW_PLAYER: 'ShowPlayer',
 };

@@ -1,7 +1,7 @@
 import minioClient from './minio.js';
 import config from './index.js';
 
-async function setupMinioBuckets() {
+export async function setupMinioBuckets() {
   const bucket = config.minio.bucket;
 
   try {
@@ -37,8 +37,11 @@ async function setupMinioBuckets() {
     console.log(`  Bucket: ${bucket}`);
   } catch (err) {
     console.error('MinIO setup failed:', err.message);
-    process.exit(1);
+    throw err;
   }
 }
 
-setupMinioBuckets();
+// Support running as standalone script
+if (import.meta.url === `file://${process.argv[1]}`) {
+  setupMinioBuckets();
+}

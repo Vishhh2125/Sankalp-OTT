@@ -27,34 +27,36 @@ const app = express();
 
 // ============= MIDDLEWARE =============
 
-// MAIN priority
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
 app.use(cookieParser());
-// Build CORS origins list for both admin and app frontends
-const corsOrigins = process.env.NODE_ENV === 'production'
-  ? [process.env.FRONTEND_ADMIN_URL, process.env.FRONTEND_APP_URL].filter(Boolean)
-  : ['http://localhost:5173', 'http://localhost:8081', 'http://localhost:19006', process.env.FRONTEND_ADMIN_URL, process.env.FRONTEND_APP_URL].filter(Boolean);
+
+// CORS: reads SERVER_ORIGIN from env so it works for any machine IP without code changes.
+// Always also allows localhost so local dev never breaks.
+const SERVER_ORIGIN = process.env.SERVER_ORIGIN || 'http://localhost';
 
 app.use(cors({
   origin: [
+    SERVER_ORIGIN,
+    `${SERVER_ORIGIN}:80`,
+    `${SERVER_ORIGIN}:5173`,
+    `${SERVER_ORIGIN}:3000`,
+    'http://localhost',
+    'http://localhost:80',
     'http://localhost:5173',
     'http://localhost:3000',
     'http://127.0.0.1:5173',
     'http://127.0.0.1:3000',
-    'http://10.52.219.61:8081',
-    'http://10.52.219.61:3000',
-  ],
+  ].filter(Boolean),
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-client-type'],
 }));
 
-// added (safe, no conflict)
 app.use(helmet());
 
-// Request logging middleware (MAIN)
+// Request logging middleware
 app.use((req, res, next) => {
   const startTime = Date.now();
   const requestId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -69,12 +71,11 @@ app.use((req, res, next) => {
   next();
 });
 
-// Serve static player (from admin_ui_v2)
+// Serve static player
 app.use('/player', express.static('public'));
 
 // ============= ROUTES =============
 
-// MAIN health (kept)
 app.get('/health', async (req, res) => {
   try {
     const dbHealth = await checkDatabaseHealth();
@@ -106,7 +107,6 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// MAIN info
 app.get('/info', (req, res) => {
   const { version } = require('./package.json');
 
@@ -118,24 +118,19 @@ app.get('/info', (req, res) => {
   });
 });
 
-// test route (MAIN)
 app.get("/test", (req, res) => {
   res.send("API is working");
 });
 
 // ============= API ROUTES =============
 
-// MAIN
 app.use('/api/v1/auth', authRouter);
-
-// added from admin_ui_v2
 app.use('/api/content', contentRouter);
 app.use('/api/feed', feedRouter);
 app.use('/api/media', mediaRouter);
 
 // ============= 404 HANDLER =============
 
-// MAIN format
 app.use((req, res) => {
   res.status(404).json(
     new ApiResponse(404, null, 'Route not found')

@@ -4,38 +4,58 @@
     "slug": "7K",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/iconn.png",
+    "icon": "./assets/logo.png",
     "userInterfaceStyle": "light",
+
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.samyak_8505.x7K"
     },
+
     "android": {
+      "package": "com.samyak_8505.x7K",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/logo.png",
         "backgroundColor": "#ffffff"
       },
-      "usesCleartextTraffic": true,
-      "package": "com.samyak_8505.x7K"
+      "permissions": [
+        "INTERNET"
+      ]
     },
+
     "web": {
       "favicon": "./assets/favicon.png"
     },
+
     "plugins": [
+      "expo-dev-client",
       "expo-secure-store",
       [
-        "expo-video",
+        "react-native-video",
         {
           "supportsBackgroundPlayback": true,
           "supportsPictureInPicture": true
         }
       ],
-      "expo-build-properties"
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          },
+          "ios": {
+            "deploymentTarget": "15.1"
+          }
+        }
+      ]
     ],
+
     "extra": {
       "eas": {
         "projectId": "7b621b6c-0a23-411c-bf10-5b72fba2f608"

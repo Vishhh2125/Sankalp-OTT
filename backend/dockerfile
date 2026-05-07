@@ -1,0 +1,21 @@
+FROM node:18-slim
+
+# Install required dependencies
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    openssl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci --only=production
+
+COPY prisma ./prisma
+RUN npx prisma generate
+
+COPY . .
+
+EXPOSE 3000
+
+CMD ["node", "server.js"]

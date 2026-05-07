@@ -67,13 +67,12 @@ function VideoDropzone({ file, onFileChange, uploadProgress }) {
 }
 
 const ALL_TAGS = ['Romance', 'CEO', 'Revenge', 'Comedy', 'School', 'Thriller', 'Trending', 'Action', 'Fantasy', 'Slice of Life', 'Strong Heroine', 'Werewolf', 'Hidden Identity', 'Billionaire', 'Family Bonds', 'Forced Love']
-const ALL_CATEGORIES = ['Popular', 'New', 'Rankings', 'Anime', 'VIP']
 
 const tagColor = { Romance:'badge-pink', Trending:'badge-amber', CEO:'badge-blue', Revenge:'badge-red', Comedy:'badge-green', School:'badge-blue', Thriller:'badge-red', Action:'badge-amber', Billionaire:'badge-purple', 'Strong Heroine':'badge-pink', 'Hidden Identity':'badge-blue', Fantasy:'badge-purple' }
-const emptyDrama = { title:'', synopsis:'', category:'Popular', status:'Published', tags:[], episodes:[], feed_position:0 }
+const emptyDrama = { title:'', synopsis:'', category:'', status:'Published', tags:[], episodes:[], feed_position:0 }
 const emptyEp = { title:'', duration:'', is_free:true, coin_cost:0, videoFile:null, uploadProgress:0 }
 
-function DramaModal({ open, onClose, onSave, initial, initialStep = 0, autoAddEp = false }) {
+function DramaModal({ open, onClose, onSave, initial, initialStep = 0, autoAddEp = false, categories = [] }) {
   const isEdit = !!initial?.id
   const [step, setStep] = useState(initialStep)
   const [form, setForm] = useState(() => initial || emptyDrama)
@@ -86,7 +85,12 @@ function DramaModal({ open, onClose, onSave, initial, initialStep = 0, autoAddEp
   // Reset form when modal opens with new data
   useEffect(() => {
     if (open) {
-      setForm(initial || emptyDrama)
+      const firstCategoryName = categories?.[0]?.name || ''
+      const base = initial || emptyDrama
+      setForm({
+        ...base,
+        category: base.category || firstCategoryName,
+      })
       setEpisodes(initial?.episodes || [])
       setStep(initialStep)
       setAddingEp(autoAddEp)
@@ -189,7 +193,7 @@ function DramaModal({ open, onClose, onSave, initial, initialStep = 0, autoAddEp
             </FormGroup>
             <FormGroup label="Category (navbar section)">
               <select className="select" style={{ width:'100%' }} value={form.category} onChange={e => upd('category', e.target.value)}>
-                {ALL_CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                {categories.map(c => <option key={c.id}>{c.name}</option>)}
               </select>
             </FormGroup>
           </ModalSection>
@@ -598,8 +602,8 @@ export default function Dramas() {
         </div>
       </div>
 
-      <DramaModal open={modal==='add'} onClose={() => setModal(null)} onSave={saveDrama} initial={null}/>
-      <DramaModal open={modal==='edit'} onClose={() => setModal(null)} onSave={saveDrama} initial={selected}/>
+      <DramaModal open={modal==='add'} onClose={() => setModal(null)} onSave={saveDrama} initial={null} categories={categories}/>
+      <DramaModal open={modal==='edit'} onClose={() => setModal(null)} onSave={saveDrama} initial={selected} categories={categories}/>
       <DramaModal open={modal==='add-ep'} onClose={() => setModal(null)} onSave={async (data) => {
         try {
           await updateDrama(selected.id, data)
@@ -610,7 +614,7 @@ export default function Dramas() {
           const msg = errData?.details ? errData.details.map(d => `${d.field}: ${d.message}`).join('\n') : errData?.error || err.message
           alert('Failed: ' + msg)
         }
-      }} initial={selected} initialStep={2} autoAddEp={true}/>
+      }} initial={selected} initialStep={2} autoAddEp={true} categories={categories}/>
       <StatsModal open={modal==='stats'} onClose={() => setModal(null)} drama={selected}/>
       <ConfirmDialog open={modal==='delete'} title="Delete Drama" danger
         message={`Permanently delete "${selected?.title}"? This will remove all episodes. This cannot be undone.`}

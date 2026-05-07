@@ -14,6 +14,18 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { formatCount } from './shortVideoPlayer/utils';
 import { theme } from '../constants/theme';
+import { API_BASE_URL } from '../constants/config';
+
+// Debug log for thumbnails
+const debugThumbnail = (source, details_tn, item_tn, details_id, item_id) => {
+  console.log('[DramaDetailsSheet-thumbnail]', {
+    posterSource: source,
+    detailsThumbnailUrl: details_tn,
+    itemThumbnailUrl: item_tn,
+    detailsShowId: details_id,
+    itemShowId: item_id,
+  });
+};
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SHEET_HEIGHT = Math.round(SCREEN_HEIGHT * 0.9);
@@ -78,7 +90,7 @@ function EpisodeCell({ episode, isCurrentEpisode, onPress }) {
   );
 }
 
-export default function DramaDetailsSheet({
+export default function DramaDetailsSheetConnected({
   visible,
   item,
   details = null,
@@ -89,6 +101,7 @@ export default function DramaDetailsSheet({
   onRangeChange,
   onEpisodePress,
 }) {
+  // All hooks must be called unconditionally, before any returns
   const [tab, setTab] = useState(initialTab);
   const [activeRangeStart, setActiveRangeStart] = useState(1);
   const scrollRef = useRef(null);
@@ -101,31 +114,73 @@ export default function DramaDetailsSheet({
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   }, [visible, initialTab, item]);
 
-  const synopsisText =
-    item?.synopsis ||
-    'In a world where loyalty clashes with temptation, a rebellious heir and his alluring new stepsister navigate dangerous power struggles, family betrayals, and a forbidden romance—risking everything to protect their secrets and each other.';
+  // Move useMemo BEFORE the early return
+  const posterSource = useMemo(() => {
+    if (!item) return null;
 
-  const tags = item?.tags || ['Rebellious', 'Forbidden Love', 'Step-Siblings', 'Modern'];
+    // Helper to resolve thumbnail URLs to absolute URLs
+    const resolveThumbnailUrl = (url) => {
+      if (!url) return null;
+      if (url.startsWith('http')) return url; // already absolute
+      return `${API_BASE_URL}${url}`; // make it absolute
+    };
 
-  const allEpisodes = useMemo(() => {
-    const max = item?.episodeCount || 57;
-    const list = [];
-    for (let i = 1; i <= max; i++) list.push(i);
-    return list;
-  }, [item]);
+    if (details?.show_id === item.show_id && details?.thumbnail_url) {
+      const resolved = resolveThumbnailUrl(details.thumbnail_url);
+      debugThumbnail({ uri: resolved }, details?.thumbnail_url, item?.thumbnail_url, details?.show_id, item?.show_id);
+      return { uri: resolved };
+    }
+    if (item.thumbnail_url) {
+      const resolved = resolveThumbnailUrl(item.thumbnail_url);
+      debugThumbnail({ uri: resolved }, details?.thumbnail_url, item?.thumbnail_url, details?.show_id, item?.show_id);
+      return { uri: resolved };
+    }
+    if (item.image) {
+      debugThumbnail(item.image, details?.thumbnail_url, item?.thumbnail_url, details?.show_id, item?.show_id);
+      return item.image;
+    }
+    debugThumbnail(null, details?.thumbnail_url, item?.thumbnail_url, details?.show_id, item?.show_id);
+    return null;
+  }, [details?.thumbnail_url, item?.thumbnail_url, item?.image, item?.show_id, details?.show_id]);
 
-  const scrollToRange = (rangeKey) => {
-    setRange(rangeKey);
-    if (rangeKey === '1-30') {
-      scrollRef.current?.scrollTo({ y: 0, animated: true });
-    } else {
-      // 30 episodes / 6 columns = 5 full rows.
-      // Each row is approx 65px (cell height + gap)
-      scrollRef.current?.scrollTo({ y: 320, animated: true }); 
+  // Now safe to return early if no item
+  if (!item) return null;
+
+  const showDetails = details?.show_id === item.show_id ? details : null;
+  const title = showDetails?.show_title || item.show_title || item.title || 'Untitled drama';
+  const synopsisText = showDetails?.synopsis || item.synopsis || 'Synopsis not available yet.';
+  const tags = showDetails?.tags || item.tags || [];
+  const totalEpisodes = showDetails?.total_episodes || item.total_episodes || item.episodeCount || 0;
+  const ranges = buildRanges(totalEpisodes);
+  const currentEpisode = item.episode_num || 1;
+  const currentEpisodes = showDetails?.episodes || [];
+
+  const viewCountValue = showDetails?.view_count ?? item.view_count ?? null;
+  const ratingAvg = showDetails?.rating_avg ?? item.rating_avg ?? null;
+  const ratingCount = showDetails?.rating_count ?? item.rating_count ?? null;
+
+  const viewsLabel = item.views
+    ? `${item.views} Views`
+    : viewCountValue !== null
+      ? `${formatCount(viewCountValue)} Views`
+      : null;
+
+  const ratingLabel = ratingAvg !== null && ratingCount !== null
+    ? `${Number(ratingAvg).toFixed(1)}(${formatCount(ratingCount)})`
+    : null;
+
+  const handleRangePress = (rangeStart) => {
+    setActiveRangeStart(rangeStart);
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+
+    if (rangeStart !== activeRangeStart) {
+      onRangeChange && onRangeChange(rangeStart);
     }
   };
 
-  if (!item) return null;
+  const handleRetry = () => {
+    onRangeChange && onRangeChange(activeRangeStart);
+  };
 
   return (
     <Modal
@@ -138,18 +193,29 @@ export default function DramaDetailsSheet({
         <Pressable style={styles.backdrop} onPress={onClose} />
 
         <View style={styles.sheet}>
-          {/* Header */}
           <View style={styles.topRow}>
             <View style={styles.posterRow}>
-              <Image source={item.image} style={styles.poster} resizeMode="cover" />
+              {posterSource ? (
+                <Image
+                  source={posterSource}
+                  style={styles.poster}
+                  resizeMode="cover"
+                  onLoad={() => console.log('[Image-onLoad] Poster loaded successfully')}
+                  onError={(err) => console.log('[Image-onError] Failed to load poster:', err.error)}
+                />
+              ) : (
+                <View style={[styles.poster, styles.posterFallback]} />
+              )}
               <View style={styles.posterMeta}>
                 <Text style={styles.title} numberOfLines={1}>
-                  {item.title}
+                  {title}
                 </Text>
-                <Text style={styles.metaText}>{item.views} Views</Text>
+                {viewsLabel ? (
+                  <Text style={styles.metaText}>{viewsLabel}</Text>
+                ) : null}
                 <View style={styles.ratingRow}>
                   <Ionicons name="star" size={14} color={theme.gold} />
-                  <Text style={styles.metaText}>4.8(20.1K)</Text>
+                  <Text style={styles.metaText}>{ratingLabel || 'Rate this drama'}</Text>
                   <Text style={styles.metaLink}>Rate {'>'}</Text>
                 </View>
               </View>
@@ -159,7 +225,6 @@ export default function DramaDetailsSheet({
             </Pressable>
           </View>
 
-          {/* Tabs */}
           <View style={styles.tabsRow}>
             <Pressable onPress={() => setTab('synopsis')} style={styles.tabBtn}>
               <Text style={[styles.tabText, tab === 'synopsis' && styles.tabTextActive]}>
@@ -175,7 +240,7 @@ export default function DramaDetailsSheet({
             </Pressable>
           </View>
 
-          <ScrollView 
+          <ScrollView
             ref={scrollRef}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.content}
@@ -184,36 +249,61 @@ export default function DramaDetailsSheet({
               <View>
                 <Text style={styles.sectionTitle}>Synopsis</Text>
                 <Text style={styles.synopsis}>{synopsisText}</Text>
-                <View style={styles.tagsRow}>
-                  {tags.map((t) => (
-                    <Tag key={t} label={t} />
-                  ))}
-                </View>
+                {tags.length > 0 ? (
+                  <View style={styles.tagsRow}>
+                    {tags.map((tag) => (
+                      <Tag key={tag} label={tag} />
+                    ))}
+                  </View>
+                ) : null}
               </View>
             ) : (
               <View>
-                <View style={styles.rangeRow}>
-                  <Pressable onPress={() => scrollToRange('1-30')}>
-                    <Text style={[styles.rangeText, range === '1-30' && styles.rangeTextActive]}>
-                      1-30
-                    </Text>
-                    {range === '1-30' && <View style={styles.rangeUnderline} />}
-                  </Pressable>
-                  <Pressable onPress={() => scrollToRange('31-57')}>
-                    <Text style={[styles.rangeText, range === '31-57' && styles.rangeTextActive]}>
-                      31-57
-                    </Text>
-                    {range === '31-57' && <View style={styles.rangeUnderline} />}
-                  </Pressable>
-                </View>
+                {ranges.length > 0 ? (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.rangeRow}
+                  >
+                    {ranges.map((range) => (
+                      <Pressable key={range.key} onPress={() => handleRangePress(range.start)}>
+                        <Text style={[styles.rangeText, activeRangeStart === range.start && styles.rangeTextActive]}>
+                          {range.label}
+                        </Text>
+                        {activeRangeStart === range.start && <View style={styles.rangeUnderline} />}
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                ) : null}
 
-                <View style={styles.episodesGrid}>
-                  {allEpisodes.map((n) => {
-                    const unlockedUntil = item?.unlockedUntil ?? 2;
-                    const locked = n > unlockedUntil;
-                    return <EpisodeCell key={n} number={n} locked={locked} />;
-                  })}
-                </View>
+                {loading ? (
+                  <View style={styles.stateBlock}>
+                    <ActivityIndicator size="small" color={theme.white} />
+                    <Text style={styles.stateText}>Loading episodes...</Text>
+                  </View>
+                ) : error ? (
+                  <View style={styles.stateBlock}>
+                    <Text style={styles.stateText}>{error}</Text>
+                    <Pressable style={styles.retryButton} onPress={handleRetry}>
+                      <Text style={styles.retryButtonText}>Try again</Text>
+                    </Pressable>
+                  </View>
+                ) : currentEpisodes.length > 0 ? (
+                  <View style={styles.episodesGrid}>
+                    {currentEpisodes.map((episode) => (
+                      <EpisodeCell
+                        key={episode.episode_id}
+                        episode={episode}
+                        isCurrentEpisode={episode.episode_num === currentEpisode}
+                        onPress={onEpisodePress}
+                      />
+                    ))}
+                  </View>
+                ) : (
+                  <View style={styles.stateBlock}>
+                    <Text style={styles.stateText}>No episodes available yet.</Text>
+                  </View>
+                )}
               </View>
             )}
           </ScrollView>
@@ -239,7 +329,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     borderWidth: 1,
     borderColor: theme.border,
-    paddingHorizontal: 16, // Reduced slightly for more grid space
+    paddingHorizontal: 16,
     paddingTop: 16,
   },
   topRow: {
@@ -258,6 +348,10 @@ const styles = StyleSheet.create({
     height: 58,
     borderRadius: 8,
     backgroundColor: theme.surface,
+  },
+  posterFallback: {
+    borderWidth: 1,
+    borderColor: theme.border,
   },
   posterMeta: {
     flex: 1,
@@ -347,7 +441,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   rangeRow: {
-    flexDirection: 'row',
     gap: 24,
     marginBottom: 16,
   },
@@ -368,10 +461,10 @@ const styles = StyleSheet.create({
   episodesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: EPISODE_GAP, // Very thin margin
+    gap: EPISODE_GAP,
   },
   episodeCell: {
-    width: '15.2%', // Fits exactly 6 per row with 6px gaps
+    width: '15.2%',
     aspectRatio: 1,
     borderRadius: 8,
     backgroundColor: theme.surface,
@@ -379,16 +472,52 @@ const styles = StyleSheet.create({
     borderColor: theme.border,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 2, // Vertical gap
+    marginBottom: 2,
+  },
+  episodeCellLocked: {
+    backgroundColor: '#23002A',
+  },
+  episodeCellActive: {
+    borderColor: theme.crimson,
+    shadowColor: theme.crimson,
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+  },
+  episodeCellPending: {
+    opacity: 0.65,
   },
   episodeNumber: {
     color: theme.white,
     fontWeight: '900',
-    fontSize: 16, // Bigger text
+    fontSize: 16,
   },
   lockIcon: {
     position: 'absolute',
     top: 4,
     right: 4,
+  },
+  stateBlock: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
+    gap: 12,
+  },
+  stateText: {
+    color: theme.gray,
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  retryButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  retryButtonText: {
+    color: theme.white,
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

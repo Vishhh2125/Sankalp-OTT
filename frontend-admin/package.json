@@ -12,6 +12,8 @@
   "dependencies": {
     "@reduxjs/toolkit": "^2.11.2",
     "axios": "^1.7.0",
+    "eas": "^0.1.0",
+    "expo": "^55.0.15",
     "lucide-react": "^1.7.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",

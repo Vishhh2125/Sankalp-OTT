@@ -1,6 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import ReelsScreen from '../screens/ReelsScreen';
 import ForYouScreen from '../screens/ForYouScreen';
@@ -19,6 +20,9 @@ const TAB_ICONS = {
 };
 
 export default function BottomTabNavigator() {
+  // Get the bottom safe area inset (home indicator / gesture bar height)
+  const insets = useSafeAreaInsets();
+
   return (
     <Tab.Navigator
       initialRouteName={ROUTES.HOME}
@@ -30,8 +34,9 @@ export default function BottomTabNavigator() {
           backgroundColor: theme.surface,
           borderTopColor: theme.border,
           borderTopWidth: 1,
-          height: 70,
-          paddingBottom: 10,
+          // Fixed inner height + device's safe area bottom inset
+          height: 60 + insets.bottom,
+          paddingBottom: insets.bottom + 6,
           paddingTop: 8,
         },
         tabBarLabelStyle: {

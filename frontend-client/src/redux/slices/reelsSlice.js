@@ -60,7 +60,7 @@ export const fetchForYouFeed = createAsyncThunk(
 // Fetch show episodes (show mode)
 export const fetchShowEpisodes = createAsyncThunk(
   'reels/fetchShowEpisodes',
-  async ({ showId, fromEp = 1, limit = 20 }, { rejectWithValue }) => {
+  async ({ showId, fromEp = 1, limit = 30 }, { rejectWithValue }) => {
     try {
       const response = await feedApi.get(`/api/feed/show/${showId}?from_ep=${fromEp}&limit=${limit}`);
       return response.data;
@@ -124,6 +124,7 @@ const reelsSlice = createSlice({
       .addCase(fetchShowEpisodes.pending, (state) => {
         state.showModeLoading = true;
         state.showModeError = null;
+        state.showMode = null;
       })
       .addCase(fetchShowEpisodes.fulfilled, (state, action) => {
         state.showModeLoading = false;
@@ -146,3 +147,4 @@ export const selectForYouHasMore = (state) => state.reels.forYouHasMore;
 export const selectForYouOffset = (state) => state.reels.forYouOffset;
 export const selectShowMode = (state) => state.reels.showMode;
 export const selectShowModeLoading = (state) => state.reels.showModeLoading;
+export const selectShowModeError = (state) => state.reels.showModeError;

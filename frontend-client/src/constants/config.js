@@ -27,15 +27,15 @@ const DEV_MACHINE_IP = getDevMachineIpFromExpo();
 const DEFAULT_LOCAL_API_BASE_URL = (() => {
   if (Platform.OS === 'android') {
     if (Device.isDevice && DEV_MACHINE_IP) {
-      return `http://${DEV_MACHINE_IP}:3000`;
+      return `http://${DEV_MACHINE_IP}`;
     }
     // Android emulator
-    return 'http://10.0.2.2:3000';
+    return 'http://10.0.2.2';
   }
 
   // iOS / web
   if (Device.isDevice && DEV_MACHINE_IP) {
-    return `http://${DEV_MACHINE_IP}:3000`;
+    return `http://${DEV_MACHINE_IP}`;
   }
   return 'http://localhost:3000';
 })();

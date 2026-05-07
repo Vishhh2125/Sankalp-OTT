@@ -13,6 +13,7 @@ import {
   initializeDatabase,
   disconnectDatabase,
 } from './config/db.js';
+import { setupMinioBuckets } from './config/minio-setup.js';
 
 const PORT =  3000;
 
@@ -29,6 +30,9 @@ async function startServer() {
 
     // DB init (MAIN)
     await initializeDatabase();
+
+    // MinIO setup (MAIN)
+    await setupMinioBuckets();
 
     // 3. Start HTTP server
     server = app.listen(PORT, "0.0.0.0", () => {
