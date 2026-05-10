@@ -15,6 +15,7 @@ import authRouter from './modules/auth/auth.routes.js';
 import contentRouter from './modules/content/content.router.js';
 import feedRouter from './modules/content/feed.router.js';
 import mediaRouter from './modules/media/media.router.js';
+import userRouter from './modules/user/user.router.js'; // NEW
 import helmet from 'helmet';
 
 import morgan from 'morgan';
@@ -128,6 +129,7 @@ app.use('/api/v1/auth', authRouter);
 app.use('/api/content', contentRouter);
 app.use('/api/feed', feedRouter);
 app.use('/api/media', mediaRouter);
+app.use('/api/user', userRouter); // NEW
 
 // ============= 404 HANDLER =============
 

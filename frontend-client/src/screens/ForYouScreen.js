@@ -36,6 +36,7 @@ import {
 import {
   initShowPlayer,
 } from '../redux/slices/showPlayerSlice';
+import { upsertWatchHistory } from '../redux/slices/myListSlice'; // NEW
 
 const DETAILS_PAGE_SIZE = 30;
 
@@ -50,6 +51,7 @@ export default function ForYouScreen() {
   const showModeLoading = useSelector(selectShowModeLoading);
   const showModeError = useSelector(selectShowModeError);
   const isFocused = useIsFocused();
+  const accessToken = useSelector((state) => state.auth?.accessToken); // NEW
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [sheetVisible, setSheetVisible] = useState(false);
@@ -91,7 +93,6 @@ export default function ForYouScreen() {
 
   const handleRangeChange = useCallback((fromEp) => {
     if (!selectedDrama?.show_id) return;
-
     dispatch(fetchShowEpisodes({
       showId: selectedDrama.show_id,
       fromEp,
@@ -104,12 +105,25 @@ export default function ForYouScreen() {
     dispatch(clearShowMode());
   }, [dispatch]);
 
-  // Tapping an episode in the detail sheet opens the single-drama reel player
+  // Tapping an episode in the detail sheet opens the drama player
   const handleEpisodePress = useCallback((episode) => {
     if (!selectedDrama || !showMode) return;
-
-    // Don't open the player for episodes that are still processing
     if (episode.status !== 'ready' && !episode.is_locked) return;
+
+    // ── NEW: record watch history immediately when episode is tapped ──
+    if (accessToken) {
+      dispatch(upsertWatchHistory({
+        episodeId: episode.episode_id,
+        progressSec: 0,
+        showId: showMode.show_id,
+        showTitle: showMode.show_title,
+        thumbnailUrl: showMode.thumbnail_url,
+        category: showMode.category || null,
+        episodeNum: episode.episode_num,
+        durationSec: episode.duration_sec || 0,
+      }));
+    }
+    // ────────────────────────────────────────────────────────────────
 
     dispatch(
       initShowPlayer({
@@ -117,7 +131,6 @@ export default function ForYouScreen() {
         showTitle: showMode.show_title,
         thumbnailUrl: showMode.thumbnail_url,
         totalEpisodes: showMode.total_episodes,
-        // Seed the player with the episodes already loaded in the sheet
         seedEpisodes: showMode.episodes || [],
         startEpisodeNum: episode.episode_num,
         streamBase: API_BASE_URL,
@@ -125,7 +138,7 @@ export default function ForYouScreen() {
     );
 
     navigation.navigate(ROUTES.SHOW_PLAYER);
-  }, [dispatch, navigation, selectedDrama, showMode]);
+  }, [dispatch, navigation, selectedDrama, showMode, accessToken]);
 
   const handleRefresh = useCallback(() => {
     dispatch(fetchForYouFeed({ offset: 0, refresh: true }));

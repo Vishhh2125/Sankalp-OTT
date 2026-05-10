@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -11,11 +11,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
-// ─── Migration: expo-video → react-native-video v6 ───────────────────────────
-// Removed:  import { VideoView } from 'expo-video';
-// Added:    import Video from 'react-native-video';
 import Video from 'react-native-video';
 
 import ProgressBar from './ProgressBar';
@@ -25,6 +22,12 @@ import { shortVideoTheme } from './theme';
 import useShortVideoPlayback from './useShortVideoPlayback';
 import { formatCount } from './utils';
 import { ROUTES } from '../../constants/routes';
+import {
+  toggleBookmark,
+  fetchBookmarks,
+  selectIsBookmarked,
+  selectBookmarksLoaded,
+} from '../../redux/slices/myListSlice';
 
 function DefaultTopOverlay({ top, style }) {
   return (
@@ -43,32 +46,37 @@ export default function ShortVideoReelItem({
   renderTopOverlay,
   streamBase = '',
   itemHeight,
+  onProgressUpdate = null,   // periodic progress callback (from ShowPlayerScreen)
+  initialSeekSec = 0,        // seek position on first frame (from ShowPlayerScreen/MyList)
+  onFirstFrameReady = null,  // called once after seek completes (from ShowPlayerScreen)
 }) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const dispatch = useDispatch();
+
   const accessToken = useSelector((state) => state.auth?.accessToken);
-  
+  const isBookmarked = useSelector(selectIsBookmarked(item.show_id));
+  const bookmarksLoaded = useSelector(selectBookmarksLoaded);
+
+  useEffect(() => {
+    if (accessToken && !bookmarksLoaded) {
+      dispatch(fetchBookmarks());
+    }
+  }, [accessToken, bookmarksLoaded, dispatch]);
+
   let tabBarHeight = 0;
   try {
     tabBarHeight = useBottomTabBarHeight();
   } catch {
     tabBarHeight = 0;
   }
-  const [saved, setSaved] = useState(false);
 
   const isLocked = item.is_locked;
   const streamUrl = !isLocked && item.hls_url ? `${streamBase}${item.hls_url}` : null;
+  
+  // Track if we've already seeked for this item to avoid multiple seeks
+  const hasSeekRef = useRef(false);
 
-  // ─── Migration notes ────────────────────────────────────────────────────────
-  // expo-video returned: { player, firstFrameRendered, setFirstFrameRendered, ... }
-  // react-native-video v6 returns: { videoRef, paused, firstFrameReady, ... }
-  //
-  // Key differences:
-  //  • `player`            → gone; playback is driven by the `paused` prop on <Video>
-  //  • `firstFrameRendered`→ renamed `firstFrameReady`; set via the `onReadyForDisplay` callback
-  //  • `togglePlayback`    → same signature; internally just flips `manuallyPaused`
-  //  • `seekTo`            → same signature; internally calls videoRef.current.seek()
-  // ────────────────────────────────────────────────────────────────────────────
   const {
     videoRef,
     paused,
@@ -78,9 +86,9 @@ export default function ShortVideoReelItem({
     manuallyPaused,
     togglePlayback,
     seekTo,
-    onLoad,
+    onLoad: originalOnLoad,
     onProgress,
-    onReadyForDisplay,
+    onReadyForDisplay: originalOnReadyForDisplay,
     setFirstFrameReady,
   } = useShortVideoPlayback({
     streamUrl,
@@ -89,7 +97,47 @@ export default function ShortVideoReelItem({
     isLocked,
     itemKey: item.episode_id,
     initialDuration: item.duration_sec || 0,
+    onProgressUpdate,
   });
+
+  // Wrap onLoad to seek to initialSeekSec after video metadata is loaded
+  const wrappedOnLoad = useCallback((data) => {
+    originalOnLoad(data);
+    
+    // Seek to initial position immediately after metadata loads
+    // Only seek once per item change to avoid state oscillation
+    if (initialSeekSec > 0 && videoRef.current && !hasSeekRef.current) {
+      hasSeekRef.current = true;
+      videoRef.current.seek(initialSeekSec);
+    }
+  }, [originalOnLoad, initialSeekSec]);
+  
+  // Reset seek flag when item changes
+  useEffect(() => {
+    hasSeekRef.current = false;
+  }, [item.episode_id]);
+
+  // Wrap onReadyForDisplay to call onFirstFrameReady callback
+  const onReadyForDisplay = useCallback(() => {
+    originalOnReadyForDisplay();
+    if (onFirstFrameReady) {
+      onFirstFrameReady();
+    }
+  }, [originalOnReadyForDisplay, onFirstFrameReady]);
+
+  // Bookmark press handler — passes full item data for optimistic local update in Redux
+  const handleBookmarkPress = useCallback(() => {
+    if (!accessToken) {
+      navigation.navigate(ROUTES.LOGIN);
+      return;
+    }
+    dispatch(toggleBookmark({
+      showId: item.show_id,
+      episodeId: item.episode_id,
+      progressSec: Math.floor(currentTime || 0),
+      showData: item, // Pass full show metadata for immediate bookmarks array update
+    }));
+  }, [accessToken, navigation, dispatch, item, currentTime]);
 
   const topOverlay = renderTopOverlay
     ? renderTopOverlay({ insets, item })
@@ -97,7 +145,7 @@ export default function ShortVideoReelItem({
 
   return (
     <View style={[styles.reelContainer, itemHeight ? { height: itemHeight } : null]}>
-      {/* Thumbnail / blurred placeholder – shown until first frame is ready */}
+      {/* Thumbnail / blurred placeholder */}
       {item.thumbnail_url ? (
         <Image
           source={{ uri: item.thumbnail_url }}
@@ -109,22 +157,12 @@ export default function ShortVideoReelItem({
         <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0D0010' }]} />
       )}
 
-      {/* ─── Video player ─────────────────────────────────────────────────────
-          expo-video used a separate <VideoView> bound to an imperative `player`.
-          react-native-video v6 uses a single self-contained <Video> component:
-            • source        – replaces streamUrl passed to useVideoPlayer()
-            • paused        – replaces player.play() / player.pause()
-            • repeat        – replaces instance.loop = true
-            • resizeMode    – replaces contentFit="cover"
-            • controls      – replaces nativeControls={false}  (false = no native UI)
-            • onLoad        – replaces the 'statusChange' event listener
-            • onProgress    – replaces the 'timeUpdate' event listener
-            • onReadyForDisplay – replaces onFirstFrameRender on <VideoView>
-          ─────────────────────────────────────────────────────────────────── */}
+      {/* Video player */}
       {streamUrl && !isLocked ? (
         <TouchableWithoutFeedback onPress={togglePlayback}>
           <View style={StyleSheet.absoluteFill}>
             <Video
+              key={item.episode_id}
               ref={videoRef}
               source={{ uri: streamUrl }}
               style={[StyleSheet.absoluteFill, { opacity: firstFrameReady ? 1 : 0 }]}
@@ -132,11 +170,11 @@ export default function ShortVideoReelItem({
               paused={paused}
               repeat={true}
               controls={false}
-              progressUpdateInterval={500}   // ~matches timeUpdateEventInterval: 0.5
-              onLoad={onLoad}
+              progressUpdateInterval={500}
+              onLoad={wrappedOnLoad}
               onProgress={onProgress}
               onReadyForDisplay={onReadyForDisplay}
-              allowsExternalPlayback={false} // replaces allowsPictureInPicture={false}
+              allowsExternalPlayback={false}
             />
           </View>
         </TouchableWithoutFeedback>
@@ -155,14 +193,10 @@ export default function ShortVideoReelItem({
 
       {/* Locked-content overlay */}
       {isLocked ? (
-        <LockOverlay
-          item={item}
-          accessToken={accessToken}
-          navigation={navigation}
-        />
+        <LockOverlay item={item} accessToken={accessToken} navigation={navigation} />
       ) : null}
 
-      {/* Buffering spinner – shown while video URL exists but first frame not yet ready */}
+      {/* Buffering spinner */}
       {isActive && streamUrl && !isLocked && !firstFrameReady ? (
         <View style={styles.bufferingOverlay}>
           <ActivityIndicator size="large" color={shortVideoTheme.crimson} />
@@ -175,10 +209,10 @@ export default function ShortVideoReelItem({
       >
         <View style={styles.sideActionsColumn}>
           <SideAction
-            icon={saved ? 'bookmark' : 'bookmark-outline'}
+            icon={isBookmarked ? 'bookmark' : 'bookmark-outline'}
             label={item.view_count > 0 ? formatCount(item.view_count) : ''}
-            color={saved ? shortVideoTheme.crimson : '#fff'}
-            onPress={() => setSaved((prev) => !prev)}
+            color={isBookmarked ? shortVideoTheme.crimson : '#fff'}
+            onPress={handleBookmarkPress}
           />
           <SideAction
             icon="list"
@@ -246,43 +280,31 @@ export default function ShortVideoReelItem({
   );
 }
 
-/**
- * LockOverlay component
- * Displays appropriate lock message and navigation based on authentication state and lock reason
- * 
- * Fix: Registered users should see "Unlock with coins" (navigate to Membership)
- *      Unauthenticated users should see "Sign Up" message only
- */
 function LockOverlay({ item, accessToken, navigation }) {
   const isAuthenticated = !!accessToken;
-  
+
   const handlePress = useCallback(() => {
     if (isAuthenticated) {
-      // Authenticated user needs coins/membership → navigate to Membership
       navigation.navigate(ROUTES.MEMBERSHIP);
     } else {
-      // Guest/Unauthenticated user → They can't access AuthNavigator from here
-      // Show alert with guidance (in production, could implement modal auth screen)
       alert('Please sign up or log in to access this content');
     }
   }, [isAuthenticated, navigation]);
-  
-  const lockTitle = isAuthenticated
-    ? `Unlock with ${item.coin_cost || 0} coins`
-    : 'Sign up to watch';
-  
-  const buttonText = isAuthenticated
-    ? 'Get Coins'
-    : 'Sign Up';
-  
+
   return (
     <View style={styles.lockOverlay}>
       <View style={styles.lockIconWrap}>
         <Ionicons name="lock-closed" size={32} color="#fff" />
       </View>
-      <Text style={styles.lockTitle}>{lockTitle}</Text>
+      <Text style={styles.lockTitle}>
+        {isAuthenticated
+          ? `Unlock with ${item.coin_cost || 0} coins`
+          : 'Sign up to watch'}
+      </Text>
       <TouchableOpacity style={styles.lockButton} onPress={handlePress}>
-        <Text style={styles.lockButtonText}>{buttonText}</Text>
+        <Text style={styles.lockButtonText}>
+          {isAuthenticated ? 'Get Coins' : 'Sign Up'}
+        </Text>
       </TouchableOpacity>
     </View>
   );

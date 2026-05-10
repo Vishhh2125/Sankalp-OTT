@@ -27,7 +27,9 @@ import {
   selectShowPlayerLoadedUpTo,
   selectShowPlayerStartIndex,
   selectShowPlayerShowId,
+  selectShowPlayerStartProgressSec,
 } from '../redux/slices/showPlayerSlice';
+import { upsertWatchHistory } from '../redux/slices/myListSlice';
 
 const PLAYER_PAGE_SIZE = 30;
 
@@ -37,8 +39,6 @@ export default function ShowPlayerScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const flatListRef = useRef(null);
 
-  // Use actual rendered height instead of SCREEN_HEIGHT, which can include
-  // the tab bar height on some devices and cause the next video to peek through.
   const [itemHeight, setItemHeight] = useState(SCREEN_HEIGHT);
   const onScreenLayout = useCallback((e) => {
     const h = e.nativeEvent.layout.height;
@@ -51,14 +51,49 @@ export default function ShowPlayerScreen({ navigation }) {
   const loadedUpTo = useSelector(selectShowPlayerLoadedUpTo);
   const startIndex = useSelector(selectShowPlayerStartIndex);
   const showId = useSelector(selectShowPlayerShowId);
+  const startProgressSec = useSelector(selectShowPlayerStartProgressSec);
+  const accessToken = useSelector((state) => state.auth?.accessToken);
 
   const [currentIndex, setCurrentIndex] = useState(startIndex);
   const [initialScrollDone, setInitialScrollDone] = useState(false);
+  const prevStartIndexRef = useRef(startIndex);
 
-  // Scroll to starting episode once the list has rendered
+  // Track whether we've already done the initial seek for the starting episode
+  const hasSeenRef = useRef(false);
+
+  // Helper to dispatch watch history
+  const recordWatchHistory = useCallback((ep, progressSec) => {
+    if (!accessToken || !ep) return;
+    dispatch(upsertWatchHistory({
+      episodeId: ep.episode_id,
+      progressSec,
+      showId: ep.show_id,
+      showTitle: ep.show_title,
+      thumbnailUrl: ep.thumbnail_url,
+      category: ep.category || null,
+      episodeNum: ep.episode_num,
+      durationSec: ep.duration_sec,
+    }));
+  }, [accessToken, dispatch]);
+
+  // Record watch history for starting episode on mount with saved progress
   useEffect(() => {
+    if (episodes.length === 0) return;
+    const ep = episodes[startIndex];
+    recordWatchHistory(ep, startProgressSec || 0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Scroll to starting episode
+  useEffect(() => {
+    // Check if startIndex changed (happens after Redux sorts episodes)
+    const startIndexChanged = prevStartIndexRef.current !== startIndex && startIndex > 0;
+    if (startIndexChanged) {
+      prevStartIndexRef.current = startIndex;
+      setInitialScrollDone(false); // Reset flag to allow scroll
+    }
+
     if (!initialScrollDone && episodes.length > 0 && startIndex > 0) {
-      // Small delay to let FlatList finish first layout
       const timer = setTimeout(() => {
         flatListRef.current?.scrollToIndex({
           index: startIndex,
@@ -78,24 +113,24 @@ export default function ShowPlayerScreen({ navigation }) {
       const newIndex = Math.round(e.nativeEvent.contentOffset.y / itemHeight);
       setCurrentIndex(newIndex);
 
-      // Prefetch next page when nearing the end
+      if (episodes[newIndex]) {
+        recordWatchHistory(episodes[newIndex], 0);
+      }
+
       if (hasMore && newIndex >= episodes.length - DEFAULT_PREFETCH_THRESHOLD) {
         if (!loading && showId) {
-          dispatch(
-            fetchShowPlayerPage({
-              showId,
-              fromEp: loadedUpTo + 1,
-              limit: PLAYER_PAGE_SIZE,
-            })
-          );
+          dispatch(fetchShowPlayerPage({
+            showId,
+            fromEp: loadedUpTo + 1,
+            limit: PLAYER_PAGE_SIZE,
+          }));
         }
       }
     },
-    [dispatch, hasMore, episodes.length, loading, loadedUpTo, showId, itemHeight]
+    [dispatch, hasMore, episodes, loading, loadedUpTo, showId, itemHeight, recordWatchHistory]
   );
 
   const handleScrollToIndexFailed = useCallback((info) => {
-    // Fallback: scroll to the nearest valid index
     setTimeout(() => {
       flatListRef.current?.scrollToIndex({
         index: Math.min(info.index, episodes.length - 1),
@@ -122,7 +157,6 @@ export default function ShowPlayerScreen({ navigation }) {
     <View style={styles.screen} onLayout={onScreenLayout}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-      {/* Back button — floats above the video */}
       <Pressable
         style={[styles.backButton, { top: insets.top + 10 }]}
         onPress={handleClose}
@@ -142,8 +176,24 @@ export default function ShowPlayerScreen({ navigation }) {
             isFocused={isFocused}
             streamBase=""
             itemHeight={itemHeight}
-            // No onOpenDetails / onWatchAll needed inside the player itself
             renderTopOverlay={() => null}
+            // Seek to saved progress on first render of the starting episode
+            initialSeekSec={
+              index === startIndex && !hasSeenRef.current
+                ? startProgressSec || 0
+                : 0
+            }
+            onFirstFrameReady={
+              index === startIndex && !hasSeenRef.current
+                ? () => { hasSeenRef.current = true; }
+                : null
+            }
+            // Progress update for active episode only
+            onProgressUpdate={
+              index === currentIndex && accessToken
+                ? (progressSec) => recordWatchHistory(item, progressSec)
+                : null
+            }
           />
         )}
         pagingEnabled
@@ -154,7 +204,7 @@ export default function ShowPlayerScreen({ navigation }) {
         onMomentumScrollEnd={onMomentumScrollEnd}
         onScrollToIndexFailed={handleScrollToIndexFailed}
         removeClippedSubviews
-        initialNumToRender={2}
+        initialNumToRender={1}
         maxToRenderPerBatch={2}
         windowSize={3}
         getItemLayout={(_, index) => ({
@@ -175,10 +225,7 @@ export default function ShowPlayerScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
+  screen: { flex: 1, backgroundColor: '#000' },
   centered: {
     flex: 1,
     backgroundColor: '#000',

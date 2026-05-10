@@ -20,7 +20,6 @@ feedApi.interceptors.request.use((config) => {
 
 const PLAYER_PAGE_SIZE = 30;
 
-// Load a page of episodes for the drama player
 export const fetchShowPlayerPage = createAsyncThunk(
   'showPlayer/fetchPage',
   async ({ showId, fromEp, limit = PLAYER_PAGE_SIZE }, { rejectWithValue }) => {
@@ -38,38 +37,30 @@ export const fetchShowPlayerPage = createAsyncThunk(
 const showPlayerSlice = createSlice({
   name: 'showPlayer',
   initialState: {
-    // Identity of the show currently loaded in the player
     showId: null,
     showTitle: null,
     thumbnailUrl: null,
     totalEpisodes: 0,
-
-    // The flat list of episode items ready for playback
-    // Each item is shaped like a ForYou feed item so ShortVideoReelItem can render it
     episodes: [],
-
-    // Pagination
-    loadedUpTo: 0,       // highest episode_num we've fetched
+    loadedUpTo: 0,
     hasMore: true,
     loading: false,
     error: null,
-
-    // Which episode index the player should start at
     startIndex: 0,
+    startEpisodeNum: 0, // Track the target episode number across sorts
+    startProgressSec: 0, // NEW — seek position for the starting episode
   },
   reducers: {
-    // Call this before navigating to ShowPlayerScreen.
-    // `seedEpisodes` are the episodes[] already loaded in DramaDetailsSheet (the tapped page).
-    // `startEpisodeNum` is the tapped episode's number.
     initShowPlayer(state, action) {
       const {
         showId,
         showTitle,
         thumbnailUrl,
         totalEpisodes,
-        seedEpisodes = [],  // episode objects from showMode
+        seedEpisodes = [],
         startEpisodeNum = 1,
         streamBase = '',
+        startProgressSec = 0, // NEW
       } = action.payload;
 
       state.showId = showId;
@@ -79,16 +70,17 @@ const showPlayerSlice = createSlice({
       state.hasMore = seedEpisodes.length < totalEpisodes;
       state.loading = false;
       state.error = null;
+      state.startProgressSec = startProgressSec; // NEW
+      state.startEpisodeNum = startEpisodeNum; // Store target episode for use after sorting
 
-      // Map seed episodes to the shape ShortVideoReelItem expects
-      state.episodes = seedEpisodes.map((ep) => mapEpisode(ep, showId, showTitle, thumbnailUrl, streamBase, totalEpisodes));
+      state.episodes = seedEpisodes.map((ep) =>
+        mapEpisode(ep, showId, showTitle, thumbnailUrl, streamBase, totalEpisodes)
+      );
 
-      // Highest episode number already loaded
       state.loadedUpTo = seedEpisodes.length > 0
         ? Math.max(...seedEpisodes.map((e) => e.episode_num))
         : 0;
 
-      // Find the index to start the FlatList at
       const idx = state.episodes.findIndex((e) => e.episode_num === startEpisodeNum);
       state.startIndex = idx >= 0 ? idx : 0;
     },
@@ -104,6 +96,8 @@ const showPlayerSlice = createSlice({
       state.loading = false;
       state.error = null;
       state.startIndex = 0;
+      state.startEpisodeNum = 0;
+      state.startProgressSec = 0; // NEW
     },
   },
   extraReducers: (builder) => {
@@ -115,18 +109,50 @@ const showPlayerSlice = createSlice({
       .addCase(fetchShowPlayerPage.fulfilled, (state, action) => {
         state.loading = false;
         const { data } = action.payload;
-        const streamBase = ''; // populated at init time; pages just append
+        // FIX: must use API_BASE_URL (not '') so the stored hls_url is absolute.
+        // react-native-video requires a full URL; a relative path like
+        // "/api/media/hls/..." silently fails. initShowPlayer already receives
+        // streamBase from callers (ForYou passes API_BASE_URL), but this thunk
+        // was always hardcoding '' which broke MyList navigation and pagination.
+        const streamBase = API_BASE_URL;
 
         const newEps = (data.episodes || []).map((ep) =>
           mapEpisode(ep, state.showId, state.showTitle, state.thumbnailUrl, streamBase, state.totalEpisodes)
         );
 
-        // Deduplicate by episode_id
+        // Build a lookup map of the incoming episodes by ID
+        const newEpsById = new Map(newEps.map((e) => [e.episode_id, e]));
+
+        // FIX: Update existing seed episodes that have hls_url: null with real data
+        // from the API response. This happens when navigating from MyList, where
+        // bookmarks/watch-history entries have no HLS URL and rely on this fetch
+        // to backfill it. The old "skip duplicates" logic silently dropped those
+        // updates, leaving the seed's hls_url as null forever → video never played.
+        state.episodes = state.episodes.map((e) => {
+          if (!e.hls_url && newEpsById.has(e.episode_id)) {
+            // Merge real API data onto the placeholder seed episode
+            return { ...e, ...newEpsById.get(e.episode_id) };
+          }
+          return e;
+        });
+
+        // Append genuinely new episodes (not already in the list)
         const existingIds = new Set(state.episodes.map((e) => e.episode_id));
         const fresh = newEps.filter((e) => !existingIds.has(e.episode_id));
         state.episodes = [...state.episodes, ...fresh];
 
-        if (fresh.length > 0) {
+        // Sort episodes chronologically by episode_num to ensure correct ordering
+        // (e.g., EP1, EP2, EP3) regardless of fetch order
+        state.episodes.sort((a, b) => a.episode_num - b.episode_num);
+
+        // Recalculate startIndex after sorting using the stored startEpisodeNum
+        if (state.startEpisodeNum > 0) {
+          const idx = state.episodes.findIndex((e) => e.episode_num === state.startEpisodeNum);
+          state.startIndex = idx >= 0 ? idx : 0;
+        }
+
+        // Update loadedUpTo whenever episodes changed (including seed updates)
+        if (newEps.length > 0) {
           state.loadedUpTo = Math.max(...state.episodes.map((e) => e.episode_num));
         }
 
@@ -140,35 +166,25 @@ const showPlayerSlice = createSlice({
   },
 });
 
-// Map a show-API episode object to the shape ShortVideoReelItem expects
 function mapEpisode(ep, showId, showTitle, thumbnailUrl, streamBase, totalEpisodes) {
   const hlsUrl = ep.hls_url
     ? (streamBase ? `${streamBase}${ep.hls_url}` : ep.hls_url)
     : null;
 
   return {
-    // Identity
     show_id: showId,
     show_title: showTitle,
     episode_id: ep.episode_id,
     episode_num: ep.episode_num,
-
-    // Media
-    thumbnail_url: thumbnailUrl,   // show-level thumbnail (episode doesn't have its own)
+    thumbnail_url: thumbnailUrl,
     hls_url: hlsUrl,
     duration_sec: ep.duration_sec,
     synopsis: ep.title || null,
-
-    // Lock
     is_locked: ep.is_locked,
     lock_reason: ep.lock_reason,
     is_free: ep.is_free,
     coin_cost: ep.coin_cost,
-
-    // Status
     status: ep.status,
-
-    // Extras the player UI uses
     tags: [],
     view_count: 0,
     total_episodes: totalEpisodes || 0,
@@ -186,3 +202,4 @@ export const selectShowPlayerLoadedUpTo = (state) => state.showPlayer.loadedUpTo
 export const selectShowPlayerStartIndex = (state) => state.showPlayer.startIndex;
 export const selectShowPlayerShowId = (state) => state.showPlayer.showId;
 export const selectShowPlayerTotalEpisodes = (state) => state.showPlayer.totalEpisodes;
+export const selectShowPlayerStartProgressSec = (state) => state.showPlayer.startProgressSec; // NEW
