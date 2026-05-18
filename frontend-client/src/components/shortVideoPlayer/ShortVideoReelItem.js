@@ -56,7 +56,7 @@ export default function ShortVideoReelItem({
   onFirstFrameReady = null,
   showPlaybackSpeedControl = false,
   showOttOverlayControls = false,
-  onReturnToForYouDrama,
+  onReturnToDramaSheet,
 }) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -178,7 +178,7 @@ export default function ShortVideoReelItem({
     if (!firstFrameReady || manuallyPaused || !controlsVisible) return undefined;
     hideControlsTimerRef.current = setTimeout(() => {
       setControlsVisible(false);
-    }, 4000);
+    }, 2000);
     return clearHideControlsTimer;
   }, [
     controlsVisible,
@@ -199,20 +199,20 @@ export default function ShortVideoReelItem({
   }, [showOttOverlayControls, isActive, isLocked, controlsVisible, togglePlayback]);
 
   const handleOpenEpisodesOrReturn = useCallback(() => {
-    if (onReturnToForYouDrama) {
-      onReturnToForYouDrama(item, 'episodes');
+    if (onReturnToDramaSheet) {
+      onReturnToDramaSheet(item, 'episodes');
       return;
     }
     onWatchAll?.(item);
-  }, [item, onReturnToForYouDrama, onWatchAll]);
+  }, [item, onReturnToDramaSheet, onWatchAll]);
 
   const handleTitlePress = useCallback(() => {
-    if (onReturnToForYouDrama) {
-      onReturnToForYouDrama(item, 'synopsis');
+    if (onReturnToDramaSheet) {
+      onReturnToDramaSheet(item, 'synopsis');
       return;
     }
     onOpenDetails?.(item);
-  }, [item, onReturnToForYouDrama, onOpenDetails]);
+  }, [item, onReturnToDramaSheet, onOpenDetails]);
 
   const topOverlay = renderTopOverlay
     ? renderTopOverlay({ insets, item })

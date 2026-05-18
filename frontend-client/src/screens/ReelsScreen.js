@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -21,6 +21,13 @@ import DramaDetailsSheetConnected from '../components/DramaDetailsSheetConnected
 import { ROUTES } from '../constants/routes';
 import { API_BASE_URL } from '../constants/config';
 import { initShowPlayer } from '../redux/slices/showPlayerSlice';
+import {
+  clearHomeDramaSheetSession,
+  selectHomeDramaSheetSession,
+  selectHomeReopenSheetAfterPlayer,
+  setHomeDramaSheetSession,
+  setHomeReopenSheetAfterPlayer,
+} from '../redux/slices/reelsSlice';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COLUMN_WIDTH = (SCREEN_WIDTH - 32) / 3;
@@ -74,7 +81,8 @@ export default function PopularScreen() {
   const [showDetails, setShowDetails] = useState(null);
   const [showDetailsLoading, setShowDetailsLoading] = useState(false);
   const [showDetailsError, setShowDetailsError] = useState(null);
-  const returnFromPlayerRef = useRef(false);
+  const homeSession = useSelector(selectHomeDramaSheetSession);
+  const reopenHomeSheet = useSelector(selectHomeReopenSheetAfterPlayer);
   const [dramaSheetKey, setDramaSheetKey] = useState(0);
 
   // 1. Load Categories
@@ -139,14 +147,19 @@ export default function PopularScreen() {
     return () => { cancelled = true; };
   }, [activeTab, searchQuery]);
 
-  // Re-open drama sheet after returning from full-screen player (do not reset sheet on every tab focus)
+  // Re-open drama sheet after returning from ShowPlayer (back, gesture, title, episodes)
   useFocusEffect(
     useCallback(() => {
-      if (returnFromPlayerRef.current && selected && showDetails) {
-        returnFromPlayerRef.current = false;
-        setSheetVisible(true);
-      }
-    }, [selected, showDetails])
+      if (!reopenHomeSheet || !homeSession?.selectedItem) return;
+      dispatch(setHomeReopenSheetAfterPlayer(false));
+      const { selectedItem, initialTab } = homeSession;
+      setDramaSheetKey((k) => k + 1);
+      setSelected(selectedItem);
+      setSheetInitialTab(initialTab || 'synopsis');
+      setSheetVisible(true);
+      fetchShowDetails(selectedItem.show_id, 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [dispatch, reopenHomeSheet, homeSession])
   );
 
   const fetchShowDetails = async (showId, fromEp = 1) => {
@@ -183,6 +196,7 @@ export default function PopularScreen() {
     setSelected(selectedItem);
     setSheetInitialTab(initialTab);
     setSheetVisible(true);
+    dispatch(setHomeDramaSheetSession({ selectedItem, initialTab }));
     fetchShowDetails(item.id, 1);
   };
 
@@ -195,7 +209,13 @@ export default function PopularScreen() {
     if (!selected || !showDetails) return;
     if (episode.status !== 'ready' && !episode.is_locked) return;
 
-    returnFromPlayerRef.current = true;
+    dispatch(
+      setHomeDramaSheetSession({
+        selectedItem: selected,
+        initialTab: sheetInitialTab,
+      })
+    );
+
     dispatch(
       initShowPlayer({
         showId: showDetails.show_id,
@@ -209,11 +229,12 @@ export default function PopularScreen() {
     );
 
     setSheetVisible(false);
-    navigation.navigate(ROUTES.SHOW_PLAYER);
+    navigation.navigate(ROUTES.SHOW_PLAYER, { fromHome: true });
   };
 
   const handleCloseSheet = () => {
-    returnFromPlayerRef.current = false;
+    dispatch(setHomeReopenSheetAfterPlayer(false));
+    dispatch(clearHomeDramaSheetSession());
     setSheetVisible(false);
     setSelected(null);
     setShowDetails(null);

@@ -88,6 +88,10 @@ const reelsSlice = createSlice({
     /** For You: reopen drama sheet after ShowPlayer closes (back / gesture). */
     forYouDramaSheetSession: null, // { item, initialTab }
     forYouReopenSheetAfterPlayer: false,
+
+    /** Home: reopen drama sheet after ShowPlayer closes (back / gesture). */
+    homeDramaSheetSession: null, // { selectedItem, initialTab }
+    homeReopenSheetAfterPlayer: false,
   },
   reducers: {
     setForYouDramaSheetSession(state, action) {
@@ -98,6 +102,15 @@ const reelsSlice = createSlice({
     },
     setForYouReopenSheetAfterPlayer(state, action) {
       state.forYouReopenSheetAfterPlayer = !!action.payload;
+    },
+    setHomeDramaSheetSession(state, action) {
+      state.homeDramaSheetSession = action.payload;
+    },
+    clearHomeDramaSheetSession(state) {
+      state.homeDramaSheetSession = null;
+    },
+    setHomeReopenSheetAfterPlayer(state, action) {
+      state.homeReopenSheetAfterPlayer = !!action.payload;
     },
     clearShowMode(state) {
       state.showMode = null;
@@ -169,6 +182,9 @@ export const {
   setForYouDramaSheetSession,
   clearForYouDramaSheetSession,
   setForYouReopenSheetAfterPlayer,
+  setHomeDramaSheetSession,
+  clearHomeDramaSheetSession,
+  setHomeReopenSheetAfterPlayer,
 } = reelsSlice.actions;
 export default reelsSlice.reducer;
 
@@ -183,3 +199,6 @@ export const selectShowModeError = (state) => state.reels.showModeError;
 export const selectForYouDramaSheetSession = (state) => state.reels.forYouDramaSheetSession;
 export const selectForYouReopenSheetAfterPlayer = (state) =>
   state.reels.forYouReopenSheetAfterPlayer;
+export const selectHomeDramaSheetSession = (state) => state.reels.homeDramaSheetSession;
+export const selectHomeReopenSheetAfterPlayer = (state) =>
+  state.reels.homeReopenSheetAfterPlayer;
