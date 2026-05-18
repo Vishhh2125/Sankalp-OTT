@@ -90,6 +90,19 @@ const reelsSlice = createSlice({
       state.showMode = null;
       state.showModeError = null;
     },
+    unlockEpisodeInForYou(state, action) {
+      const { episodeId, hls_url } = action.payload;
+      const patchItem = (item) => {
+        if (item.episode_id !== episodeId) return;
+        item.is_locked = false;
+        item.lock_reason = null;
+        if (hls_url) item.hls_url = hls_url;
+      };
+      state.forYouItems.forEach(patchItem);
+      if (state.showMode?.episodes) {
+        state.showMode.episodes.forEach(patchItem);
+      }
+    },
   },
   extraReducers: (builder) => {
     // For You feed
@@ -137,7 +150,7 @@ const reelsSlice = createSlice({
   },
 });
 
-export const { clearShowMode } = reelsSlice.actions;
+export const { clearShowMode, unlockEpisodeInForYou } = reelsSlice.actions;
 export default reelsSlice.reducer;
 
 // Selectors

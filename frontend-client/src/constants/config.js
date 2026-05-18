@@ -24,20 +24,22 @@ const DEV_MACHINE_IP = getDevMachineIpFromExpo();
 // Media routes: /api/media/...
 // So base URL should NOT have /api/v1 — each service adds its own prefix
 
+const BACKEND_PORT = 3000;
+
 const DEFAULT_LOCAL_API_BASE_URL = (() => {
   if (Platform.OS === 'android') {
     if (Device.isDevice && DEV_MACHINE_IP) {
-      return `http://${DEV_MACHINE_IP}`;
+      return `http://${DEV_MACHINE_IP}:${BACKEND_PORT}`;
     }
-    // Android emulator
-    return 'http://10.0.2.2';
+    // Android emulator → host machine localhost
+    return `http://10.0.2.2:${BACKEND_PORT}`;
   }
 
   // iOS / web
   if (Device.isDevice && DEV_MACHINE_IP) {
-    return `http://${DEV_MACHINE_IP}`;
+    return `http://${DEV_MACHINE_IP}:${BACKEND_PORT}`;
   }
-  return 'http://localhost:3000';
+  return `http://localhost:${BACKEND_PORT}`;
 })();
 
 export const API_BASE_URL =

@@ -155,14 +155,21 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  lockTitle: { color: '#fff', fontSize: 16, fontWeight: '600', marginBottom: 12 },
+  lockTitle: { color: '#fff', fontSize: 16, fontWeight: '600', marginBottom: 8 },
+  lockBalance: { color: '#ccc', fontSize: 14, marginBottom: 12 },
+  lockError: { color: '#ff6b6b', fontSize: 13, marginBottom: 10, textAlign: 'center', paddingHorizontal: 24 },
   lockButton: {
     backgroundColor: '#FF2D55',
     paddingHorizontal: 28,
     paddingVertical: 10,
     borderRadius: 20,
+    minWidth: 160,
+    alignItems: 'center',
   },
+  lockButtonDisabled: { opacity: 0.5 },
   lockButtonText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  lockSecondaryButton: { marginTop: 12, paddingVertical: 8 },
+  lockSecondaryText: { color: '#FF2D55', fontSize: 14, fontWeight: '600' },
 
   bufferingOverlay: {
     ...StyleSheet.absoluteFillObject,

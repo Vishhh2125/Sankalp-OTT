@@ -1,6 +1,9 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import axios from 'axios';
 import { API_BASE_URL } from '../../constants/config';
+import { setCoins } from './authSlice';
+import { unlockEpisodeInForYou } from './reelsSlice';
+import * as authService from '../../services/authService';
 
 const feedApi = axios.create({
   baseURL: API_BASE_URL,
@@ -19,6 +22,44 @@ feedApi.interceptors.request.use((config) => {
 });
 
 const PLAYER_PAGE_SIZE = 30;
+
+export const unlockEpisode = createAsyncThunk(
+  'showPlayer/unlockEpisode',
+  async (episodeId, { rejectWithValue, dispatch }) => {
+    try {
+      const res = await feedApi.post(`/api/feed/episodes/${episodeId}/unlock`);
+      const data = res.data?.data;
+      if (!data) {
+        return rejectWithValue({ message: 'Invalid unlock response', status: 500 });
+      }
+
+      if (typeof data.coins === 'number') {
+        dispatch(setCoins(data.coins));
+        await authService.patchUserDataInStore({ coins: data.coins });
+      }
+
+      const patch = {
+        episodeId: data.episode_id || episodeId,
+        hls_url: data.hls_url,
+        show_id: data.show_id,
+      };
+      dispatch(unlockEpisodeLocal(patch));
+      dispatch(unlockEpisodeInForYou(patch));
+
+      return data;
+    } catch (err) {
+      const message =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Failed to unlock episode';
+      return rejectWithValue({
+        message,
+        status: err?.response?.status,
+        coins: err?.response?.data?.data?.coins,
+      });
+    }
+  }
+);
 
 export const fetchShowPlayerPage = createAsyncThunk(
   'showPlayer/fetchPage',
@@ -83,6 +124,19 @@ const showPlayerSlice = createSlice({
 
       const idx = state.episodes.findIndex((e) => e.episode_num === startEpisodeNum);
       state.startIndex = idx >= 0 ? idx : 0;
+    },
+
+    unlockEpisodeLocal(state, action) {
+      const { episodeId, hls_url } = action.payload;
+      const ep = state.episodes.find((e) => e.episode_id === episodeId);
+      if (!ep) return;
+      ep.is_locked = false;
+      ep.lock_reason = null;
+      if (hls_url) {
+        ep.hls_url = hls_url.startsWith('http')
+          ? hls_url
+          : `${API_BASE_URL}${hls_url}`;
+      }
     },
 
     clearShowPlayer(state) {
@@ -191,7 +245,7 @@ function mapEpisode(ep, showId, showTitle, thumbnailUrl, streamBase, totalEpisod
   };
 }
 
-export const { initShowPlayer, clearShowPlayer } = showPlayerSlice.actions;
+export const { initShowPlayer, clearShowPlayer, unlockEpisodeLocal } = showPlayerSlice.actions;
 export default showPlayerSlice.reducer;
 
 // Selectors

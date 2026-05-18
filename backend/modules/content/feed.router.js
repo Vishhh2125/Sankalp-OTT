@@ -1,6 +1,8 @@
 import express from 'express';
 import { prisma } from '../../prisma/client.js';
-import { allowGuest } from '../../middleware/auth.middleware.js';
+import { allowGuest, requireAuth } from '../../middleware/auth.middleware.js';
+import { ApiResponse } from '../../utils/ApiResponse.js';
+import { unlockEpisodeForUser } from '../user/episode-unlock.service.js';
 
 const router = express.Router();
 
@@ -167,6 +169,21 @@ router.get('/show/:showId', allowGuest, async (req, res, next) => {
       has_more: fromEp + limit - 1 < totalEpisodes,
     });
   } catch (e) { next(e); }
+});
+
+// POST /api/feed/episodes/:episodeId/unlock — same logic as /api/user/... (for clients hitting feed base)
+router.post('/episodes/:episodeId/unlock', requireAuth, async (req, res, next) => {
+  try {
+    const result = await unlockEpisodeForUser(req.user.id, req.params.episodeId);
+    if (!result.ok) {
+      return res
+        .status(result.status)
+        .json(new ApiResponse(result.status, result.data, result.message));
+    }
+    return res.json(new ApiResponse(200, result.data, result.message));
+  } catch (e) {
+    next(e);
+  }
 });
 
 export default router;

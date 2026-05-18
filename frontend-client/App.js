@@ -6,6 +6,7 @@ import { store } from './src/redux';
 import { setStore, setAuthActions } from './src/services/api';
 import { setTokens, logout } from './src/redux/slices/authSlice';
 import { setFeedStore } from './src/redux/slices/reelsSlice';
+import { setShowPlayerStore } from './src/redux/slices/showPlayerSlice';
 
 // Pass Redux store to API interceptors (auth + feed)
 setStore(store);
@@ -19,6 +20,7 @@ setAuthActions({
 
 // Pass store to feed slice so it can read state in async thunks
 setFeedStore(store);
+setShowPlayerStore(store);
 
 export default function App() {
   return (

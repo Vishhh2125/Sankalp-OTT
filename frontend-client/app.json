@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "7K",
-    "slug": "7K",
+    "name": "7k",
+    "slug": "7k",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
@@ -58,7 +58,7 @@
 
     "extra": {
       "eas": {
-        "projectId": "7b621b6c-0a23-411c-bf10-5b72fba2f608"
+        "projectId": "5dd61ee9-e865-46d2-bda6-9064e3107aa3"
       }
     }
   }

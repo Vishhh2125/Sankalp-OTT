@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -28,6 +28,7 @@ import {
   selectIsBookmarked,
   selectBookmarksLoaded,
 } from '../../redux/slices/myListSlice';
+import { unlockEpisode } from '../../redux/slices/showPlayerSlice';
 
 function DefaultTopOverlay({ top, style }) {
   return (
@@ -193,7 +194,12 @@ export default function ShortVideoReelItem({
 
       {/* Locked-content overlay */}
       {isLocked ? (
-        <LockOverlay item={item} accessToken={accessToken} navigation={navigation} />
+        <LockOverlay
+          item={item}
+          accessToken={accessToken}
+          navigation={navigation}
+          dispatch={dispatch}
+        />
       ) : null}
 
       {/* Buffering spinner */}
@@ -280,31 +286,99 @@ export default function ShortVideoReelItem({
   );
 }
 
-function LockOverlay({ item, accessToken, navigation }) {
+function LockOverlay({ item, accessToken, navigation, dispatch }) {
   const isAuthenticated = !!accessToken;
+  const coins = useSelector((s) => s.auth?.coins) ?? 0;
+  const coinCost = item.coin_cost || 0;
+  const canUnlock = coins >= coinCost;
+  const isCoinLock =
+    isAuthenticated &&
+    (item.lock_reason === 'coins_or_membership' || !item.lock_reason);
 
-  const handlePress = useCallback(() => {
-    if (isAuthenticated) {
-      navigation.navigate(ROUTES.MEMBERSHIP);
-    } else {
-      alert('Please sign up or log in to access this content');
+  const [unlocking, setUnlocking] = useState(false);
+  const [error, setError] = useState(null);
+
+  const goToLogin = useCallback(() => {
+    navigation.navigate(ROUTES.LOGIN);
+  }, [navigation]);
+
+  const goToWallet = useCallback(() => {
+    navigation.navigate(ROUTES.MAIN_TABS, {
+      screen: ROUTES.PROFILE,
+      params: { screen: ROUTES.MY_WALLET },
+    });
+  }, [navigation]);
+
+  const episodeId = item.episode_id || item.id;
+
+  const handleUnlock = useCallback(async () => {
+    if (!episodeId || unlocking) return;
+    setError(null);
+    setUnlocking(true);
+    try {
+      const result = await dispatch(unlockEpisode(episodeId)).unwrap();
+      if (result?.is_locked) {
+        setError('Could not unlock this episode');
+      }
+    } catch (err) {
+      const msg = err?.message || 'Unlock failed';
+      setError(msg);
+    } finally {
+      setUnlocking(false);
     }
-  }, [isAuthenticated, navigation]);
+  }, [dispatch, episodeId, unlocking]);
+
+  if (!isAuthenticated) {
+    return (
+      <View style={styles.lockOverlay}>
+        <View style={styles.lockIconWrap}>
+          <Ionicons name="lock-closed" size={32} color="#fff" />
+        </View>
+        <Text style={styles.lockTitle}>Sign up to watch</Text>
+        <TouchableOpacity style={styles.lockButton} onPress={goToLogin}>
+          <Text style={styles.lockButtonText}>Sign Up</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (!isCoinLock) {
+    return (
+      <View style={styles.lockOverlay}>
+        <View style={styles.lockIconWrap}>
+          <Ionicons name="lock-closed" size={32} color="#fff" />
+        </View>
+        <Text style={styles.lockTitle}>This episode is locked</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.lockOverlay}>
       <View style={styles.lockIconWrap}>
         <Ionicons name="lock-closed" size={32} color="#fff" />
       </View>
-      <Text style={styles.lockTitle}>
-        {isAuthenticated
-          ? `Unlock with ${item.coin_cost || 0} coins`
-          : 'Sign up to watch'}
-      </Text>
-      <TouchableOpacity style={styles.lockButton} onPress={handlePress}>
-        <Text style={styles.lockButtonText}>
-          {isAuthenticated ? 'Get Coins' : 'Sign Up'}
-        </Text>
+      <Text style={styles.lockTitle}>Unlock · {coinCost} coins</Text>
+      <Text style={styles.lockBalance}>Your coins: {coins}</Text>
+      {error ? <Text style={styles.lockError}>{error}</Text> : null}
+      <TouchableOpacity
+        style={[
+          styles.lockButton,
+          (!canUnlock || unlocking) && styles.lockButtonDisabled,
+        ]}
+        onPress={handleUnlock}
+        disabled={!canUnlock || unlocking}
+      >
+        {unlocking ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.lockButtonText}>
+            {canUnlock ? 'Unlock' : 'Not enough coins'}
+          </Text>
+        )}
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.lockSecondaryButton} onPress={goToWallet}>
+        <Text style={styles.lockSecondaryText}>Get Coins</Text>
       </TouchableOpacity>
     </View>
   );

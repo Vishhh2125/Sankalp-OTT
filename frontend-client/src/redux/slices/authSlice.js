@@ -190,6 +190,9 @@ const authSlice = createSlice({
     setTokens(state, action) {
       state.accessToken = action.payload.accessToken;
     },
+    setCoins(state, action) {
+      state.coins = action.payload;
+    },
     /**
      * Logout reducer (clears auth state)
      * refreshToken is cleared from SecureStore by authService
@@ -294,7 +297,7 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearRegisterState, clearLogoutState, clearLogoutError, setTokens, logout } = authSlice.actions;
+export const { clearRegisterState, clearLogoutState, clearLogoutError, setTokens, setCoins, logout } = authSlice.actions;
 
 export default authSlice.reducer;
 

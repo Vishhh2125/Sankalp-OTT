@@ -92,6 +92,20 @@ export const getUserData = async () => {
 };
 
 /**
+ * Merge partial fields into stored user JSON (e.g. coins after wallet top-up).
+ */
+export const patchUserDataInStore = async (partial) => {
+  try {
+    const existing = await getUserData();
+    if (!existing) return;
+    await saveUserData({ ...existing, ...partial });
+  } catch (error) {
+    console.error('[authService] Error patching user data:', error);
+    throw error;
+  }
+};
+
+/**
  * Clear all tokens from SecureStore
  * @returns {Promise<void>}
  */
