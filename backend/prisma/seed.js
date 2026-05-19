@@ -159,7 +159,85 @@ async function seed() {
 
     console.log(`✓ CMS pages seeded`);
 
-    // ── 7. OPTIONAL: SAMPLE SHOW + EPISODES ──────────────────
+    // ── 7. DEMO USER + WALLET TRANSACTIONS ───────────────────
+    const demoEmail = process.env.DEMO_USER_EMAIL || 'demo@ott.com';
+    const demoPassword = process.env.DEMO_USER_PASSWORD || 'Demo@123';
+    const demoHash = await bcrypt.hash(demoPassword, config.bcryptRounds);
+
+    const demoUser = await prisma.user.upsert({
+      where: { email: demoEmail },
+      update: { coins: 150 },
+      create: {
+        email: demoEmail,
+        password: demoHash,
+        name: 'Demo User',
+        role: 'USER',
+        coins: 150,
+      },
+    });
+
+    const existingTxCount = await prisma.coinTransaction.count({
+      where: { user_id: demoUser.id },
+    });
+
+    if (existingTxCount === 0) {
+      const now = Date.now();
+      const sampleTx = [
+        {
+          user_id: demoUser.id,
+          type: 'credit',
+          amount: 30,
+          reason: 'wallet_topup_simulated',
+          ref_id: 'pack_inr_10_30',
+          title: 'Coin top-up',
+          description: '₹10 → 30 coins',
+          fiat_paise: 1000,
+          status: 'completed',
+          created_at: new Date(now - 5 * 24 * 60 * 60 * 1000),
+        },
+        {
+          user_id: demoUser.id,
+          type: 'debit',
+          amount: 30,
+          reason: 'episode_unlock',
+          ref_id: null,
+          title: 'Episode unlock',
+          description: 'Sample Drama · EP.2',
+          status: 'completed',
+          created_at: new Date(now - 4 * 24 * 60 * 60 * 1000),
+        },
+        {
+          user_id: demoUser.id,
+          type: 'credit',
+          amount: 200,
+          reason: 'wallet_topup_simulated',
+          ref_id: 'pack_inr_50_200',
+          title: 'Coin top-up',
+          description: '₹50 → 200 coins',
+          fiat_paise: 5000,
+          status: 'completed',
+          created_at: new Date(now - 2 * 24 * 60 * 60 * 1000),
+        },
+        {
+          user_id: demoUser.id,
+          type: 'debit',
+          amount: 30,
+          reason: 'episode_unlock',
+          ref_id: null,
+          title: 'Episode unlock',
+          description: 'Sample Drama · EP.3',
+          status: 'completed',
+          created_at: new Date(now - 1 * 24 * 60 * 60 * 1000),
+        },
+      ];
+
+      await prisma.coinTransaction.createMany({ data: sampleTx });
+      console.log(`✓ Demo user wallet transactions seeded → ${demoEmail}`);
+    } else {
+      console.log(`✓ Demo user ready (transactions exist) → ${demoEmail}`);
+    }
+
+    // ── 8. OPTIONAL: SAMPLE SHOW + EPISODES ──────────────────
     const category = await prisma.category.findFirst();
 
     if (category) {

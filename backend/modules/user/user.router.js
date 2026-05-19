@@ -367,6 +367,10 @@ router.post('/wallet/simulate-purchase', requireAuth, async (req, res, next) => 
           amount: pack.coins,
           reason: 'wallet_topup_simulated',
           ref_id: pack.pack_id,
+          title: 'Coin top-up',
+          description: pack.label,
+          fiat_paise: pack.inr_paise,
+          status: 'completed',
         },
       });
 
@@ -379,6 +383,46 @@ router.post('/wallet/simulate-purchase', requireAuth, async (req, res, next) => 
 
     return res.json(
       new ApiResponse(200, result, 'Purchase simulated; coins credited')
+    );
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * GET /api/user/wallet/transactions?limit=50&offset=0
+ * Paginated coin ledger for Transaction History UI.
+ */
+router.get('/wallet/transactions', requireAuth, async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 100);
+    const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+
+    const [items, total] = await Promise.all([
+      prisma.coinTransaction.findMany({
+        where: { user_id: userId },
+        orderBy: { created_at: 'desc' },
+        take: limit,
+        skip: offset,
+        select: {
+          id: true,
+          type: true,
+          amount: true,
+          reason: true,
+          ref_id: true,
+          title: true,
+          description: true,
+          fiat_paise: true,
+          status: true,
+          created_at: true,
+        },
+      }),
+      prisma.coinTransaction.count({ where: { user_id: userId } }),
+    ]);
+
+    return res.json(
+      new ApiResponse(200, { items, total, limit, offset }, 'Transactions fetched')
     );
   } catch (e) {
     next(e);

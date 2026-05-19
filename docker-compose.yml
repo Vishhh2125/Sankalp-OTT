@@ -22,6 +22,7 @@ services:
   backend:
     build: ./backend
     container_name: ott-backend
+    command: ["sh", "-c", "npx prisma generate && node --watch server.js"]
     volumes:
       - ./backend:/app
       - /app/node_modules
@@ -39,8 +40,8 @@ services:
       - MINIO_SECRET_KEY=minioadmin123
       - MINIO_BUCKET=ott-media
       - MINIO_USE_SSL=false
-      - MINIO_PUBLIC_HOST=http://10.22.19.41:9000
-      - SERVER_ORIGIN=http://10.22.19.41:8080
+      - MINIO_PUBLIC_HOST=http://192.168.1.78:9000
+      - SERVER_ORIGIN=http://192.168.1.78:8080
     depends_on:
       - postgres
       - redis
@@ -63,8 +64,8 @@ services:
       - MINIO_SECRET_KEY=minioadmin123
       - MINIO_BUCKET=ott-media
       - MINIO_USE_SSL=false
-      - MINIO_PUBLIC_HOST=http://10.22.19.41:9000
-      - SERVER_ORIGIN=http://10.22.19.41:8080
+      - MINIO_PUBLIC_HOST=http://192.168.1.78:9000
+      - SERVER_ORIGIN=http://192.168.1.78:8080 
     depends_on:
       - postgres
       - redis
@@ -102,7 +103,7 @@ services:
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin123
-      MINIO_API_CORS_ALLOW_ORIGIN: "http://10.22.19.41,http://10.22.19.41:8080,http://localhost,http://localhost:80,http://localhost:8080"
+      MINIO_API_CORS_ALLOW_ORIGIN: "http://192.168.1.78,http://192.168.1.78:8080,http://localhost,http://localhost:80,http://localhost:8080"
     volumes:
       - minio_data:/data
     restart: unless-stopped

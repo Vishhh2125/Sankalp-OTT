@@ -28,10 +28,13 @@ export async function unlockEpisodeForUser(userId, episodeId) {
     select: {
       id: true,
       show_id: true,
+      episode_num: true,
+      title: true,
       is_free: true,
       coin_cost: true,
       status: true,
       hls_master_url: true,
+      show: { select: { title: true } },
     },
   });
 
@@ -113,6 +116,10 @@ export async function unlockEpisodeForUser(userId, episodeId) {
       },
     });
 
+    const unlockLabel = episode.show?.title
+      ? `${episode.show.title} · EP.${episode.episode_num}`
+      : episode.title || `Episode ${episode.episode_num}`;
+
     await tx.coinTransaction.create({
       data: {
         user_id: userId,
@@ -120,6 +127,9 @@ export async function unlockEpisodeForUser(userId, episodeId) {
         amount: episode.coin_cost,
         reason: 'episode_unlock',
         ref_id: episodeId,
+        title: 'Episode unlock',
+        description: unlockLabel,
+        status: 'completed',
       },
     });
 
