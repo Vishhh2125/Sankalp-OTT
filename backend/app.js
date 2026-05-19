@@ -31,7 +31,16 @@ const app = express();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(morgan("dev"));
+
+// Morgan HTTP logger with skip filter for polling endpoints
+// Skip /auth/me logs to reduce disk usage (3+ calls/min per user = 15+ GB/year at scale)
+app.use(morgan("dev", {
+  skip: (req) => {
+    // Skip noisy polling requests used for real-time coin syncing
+    return req.path === '/api/v1/auth/me' || req.path === '/me';
+  }
+}));
+
 app.use(cookieParser());
 
 // CORS: reads SERVER_ORIGIN from env so it works for any machine IP without code changes.
@@ -58,16 +67,22 @@ app.use(cors({
 
 app.use(helmet());
 
-// Request logging middleware
+// Request logging middleware (with skip filter for polling endpoints)
 app.use((req, res, next) => {
   const startTime = Date.now();
   const requestId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+  // Skip polling endpoints to reduce log spam
+  const isPollingEndpoint = req.path === '/api/v1/auth/me' || req.path === '/me';
 
   logger.debug(`[${requestId}] ${req.method} ${req.path}`);
 
   res.on('finish', () => {
     const duration = Date.now() - startTime;
-    logger.info(`[${requestId}] ${req.method} ${req.path} ${res.statusCode} - ${duration}ms`);
+    // Don't log polling endpoints to reduce disk usage
+    if (!isPollingEndpoint) {
+      logger.info(`[${requestId}] ${req.method} ${req.path} ${res.statusCode} - ${duration}ms`);
+    }
   });
 
   next();

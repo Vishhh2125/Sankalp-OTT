@@ -4,6 +4,7 @@ import {
   Image,
   Modal,
   Pressable,
+  Share,
   StatusBar,
   StyleSheet,
   Text,
@@ -213,6 +214,17 @@ export default function ShortVideoReelItem({
     }
     onOpenDetails?.(item);
   }, [item, onReturnToDramaSheet, onOpenDetails]);
+
+  const handleShare = useCallback(async () => {
+    try {
+      await Share.share({
+        title: item.show_title,
+        message: `Watch "${item.show_title}" on 7K!\nhttps://ott.ventagenie.com/show/${item.show_id}/ep/${item.episode_num}`,
+      });
+    } catch {
+      // user dismissed the share sheet — nothing to do
+    }
+  }, [item.show_title, item.show_id, item.episode_num]);
 
   const topOverlay = renderTopOverlay
     ? renderTopOverlay({ insets, item })
@@ -445,7 +457,7 @@ export default function ShortVideoReelItem({
             label="Episodes"
             onPress={handleOpenEpisodesOrReturn}
           />
-          <SideAction icon="share-social" label="Share" />
+          <SideAction icon="share-social" label="Share" onPress={handleShare} />
         </View>
 
         <View style={styles.textContent}>

@@ -69,7 +69,6 @@ export const saveUserData = async (user) => {
   try {
     if (user) {
       await SecureStore.setItemAsync('userData', JSON.stringify(user));
-      console.log('[authService] User data saved to SecureStore');
     }
   } catch (error) {
     console.error('[authService] Error saving user data:', error);

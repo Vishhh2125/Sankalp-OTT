@@ -1,5 +1,5 @@
 import express from 'express';
-import { register, login, registerAdminController, refreshToken, logout } from './auth.controller.js';
+import { register, login, registerAdminController, refreshToken, logout, getCurrentUser } from './auth.controller.js';
 import { requireAuth } from '../../middleware/auth.middleware.js';
 
 const router = express.Router();
@@ -26,6 +26,15 @@ router.post('/login', login);
 router.post('/register-admin', registerAdminController);
 
 router.get("/refresh-token", refreshToken);
+
+/**
+ * GET /auth/me
+ * Fetch current authenticated user profile (coins, plan, role, etc.)
+ * 
+ * Middleware: requireAuth (verifies accessToken)
+ * Used by frontend to sync user data (coins) in real-time
+ */
+router.get('/me', requireAuth, getCurrentUser);
 
 /**
  * POST /auth/logout

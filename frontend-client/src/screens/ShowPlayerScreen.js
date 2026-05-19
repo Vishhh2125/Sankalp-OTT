@@ -63,6 +63,7 @@ export default function ShowPlayerScreen({ navigation }) {
   const isFocused = useIsFocused();
   const fromForYou = !!route.params?.fromForYou;
   const fromHome = !!route.params?.fromHome;
+  const fromDeepLink = !!route.params?.fromDeepLink; // NEW — arrived via shared link
   const dramaSheetSource = fromForYou ? 'forYou' : fromHome ? 'home' : null;
   const insets = useSafeAreaInsets();
   const flatListRef = useRef(null);
@@ -169,8 +170,13 @@ export default function ShowPlayerScreen({ navigation }) {
 
   const handleClose = useCallback(() => {
     dispatch(clearShowPlayer());
-    navigation.goBack();
-  }, [dispatch, navigation]);
+    // Deep-link entries have no meaningful back destination — go to MainTabs
+    if (fromDeepLink) {
+      navigation.navigate(ROUTES.MAIN_TABS);
+    } else {
+      navigation.goBack();
+    }
+  }, [dispatch, navigation, fromDeepLink]);
 
   const returnToDramaSheet = useCallback(
     (reelItem, initialTab) => {

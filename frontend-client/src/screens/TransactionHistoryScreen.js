@@ -44,7 +44,7 @@ function formatTime(iso) {
 }
 
 function txMeta(item) {
-  const isCredit = item.type === 'credit';
+  const isCredit = item.type?.toLowerCase() === 'credit';
   if (item.reason === 'wallet_topup_simulated') {
     return {
       icon: isCredit ? 'wallet' : 'wallet-outline',
@@ -67,7 +67,7 @@ function txMeta(item) {
 }
 
 function TransactionRow({ item }) {
-  const isCredit = item.type === 'credit';
+  const isCredit = item.type?.toLowerCase() === 'credit';
   const meta = txMeta(item);
   const title = item.title || (isCredit ? 'Coins added' : 'Coins spent');
   const subtitle = item.description || item.reason || '';
@@ -86,7 +86,7 @@ function TransactionRow({ item }) {
           </Text>
           <Text style={[styles.amount, isCredit ? styles.amountCredit : styles.amountDebit]}>
             {isCredit ? '+' : '−'}
-            {item.amount}
+            {Math.abs(item.amount)}
           </Text>
         </View>
         {subtitle ? (

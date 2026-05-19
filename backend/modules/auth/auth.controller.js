@@ -318,3 +318,37 @@ export const logout = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, null, 'Logout successful'));
 });
+
+/**
+ * Get current authenticated user profile
+ * Middleware: requireAuth (verifies accessToken)
+ * Returns: User profile including coins, plan, role
+ */
+export const getCurrentUser = asyncHandler(async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        plan: true,
+        coins: true,
+      },
+    });
+
+    if (!user) {
+      throw new ApiError(404, 'User not found');
+    }
+
+    return res.json(new ApiResponse(200, user, 'User profile fetched'));
+  } catch (e) {
+    if (e instanceof ApiError) {
+      throw e;
+    }
+    throw new ApiError(500, 'Failed to fetch user profile');
+  }
+});
