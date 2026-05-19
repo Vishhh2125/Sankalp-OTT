@@ -88,6 +88,15 @@ export default function ProfileScreen({ navigation }) {
     navigation.navigate(ROUTES.MY_WALLET);
   }
 
+  function goToTopUp() {
+    navigation.navigate(ROUTES.TOP_UP);
+  }
+
+  function handleMenuPress(label) {
+    if (label === 'Top Up') goToTopUp();
+    else if (label === 'My Wallet') goToMyWallet();
+  }
+
   function handleLogout() {
     // Dispatch logout action (clears tokens, calls backend)
     dispatch(logoutUser());
@@ -157,7 +166,7 @@ export default function ProfileScreen({ navigation }) {
           <MenuItem
             key={item.label}
             {...item}
-            onPress={item.label === 'My Wallet' ? goToMyWallet : item.onPress}
+            onPress={() => handleMenuPress(item.label)}
           />
         ))}
       </View>

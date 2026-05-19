@@ -257,13 +257,17 @@ model EpisodeAccess {
 }
 
 model CoinTransaction {
-  id         String   @id @default(uuid()) @db.Uuid
-  user_id    String   @db.Uuid
-  type       String   @db.VarChar(10)
-  amount     Int
-  reason     String   @db.VarChar(30)
-  ref_id     String?  @db.VarChar(100)
-  created_at DateTime @default(now())
+  id          String   @id @default(uuid()) @db.Uuid
+  user_id     String   @db.Uuid
+  type        String   @db.VarChar(10)
+  amount      Int
+  reason      String   @db.VarChar(30)
+  ref_id      String?  @db.VarChar(100)
+  title       String?  @db.VarChar(120)
+  description String?  @db.VarChar(255)
+  fiat_paise  Int?
+  status      String   @default("completed") @db.VarChar(20)
+  created_at  DateTime @default(now())
 
   user User @relation(fields: [user_id], references: [id])
 

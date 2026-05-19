@@ -7,6 +7,8 @@ export const ROUTES = {
   MEMBERSHIP: 'MembershipScreen',
   MY_LIST: 'MyList',
   MY_WALLET: 'MyWallet',
+  TOP_UP: 'TopUp',
+  TRANSACTION_HISTORY: 'TransactionHistory',
   PROFILE: 'Profile',
   SHOW_PLAYER: 'ShowPlayer',
 };

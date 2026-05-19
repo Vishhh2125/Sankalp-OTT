@@ -2,6 +2,7 @@
   "expo": {
     "name": "7K",
     "slug": "7k",
+    "scheme": "7k",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
@@ -13,7 +14,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.samyak_8505.x7K"
+      "bundleIdentifier": "com.samyak_8505.x7K",
+      "associatedDomains": [
+        "applinks:ott.ventagenie.com"
+      ]
     },
     "android": {
       "package": "com.samyak_8505.x7K",
@@ -23,6 +27,23 @@
       },
       "permissions": [
         "INTERNET"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "ott.ventagenie.com",
+              "pathPrefix": "/show"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
       ]
     },
     "web": {

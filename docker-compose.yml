@@ -22,6 +22,7 @@ services:
   backend:
     build: ./backend
     container_name: ott-backend
+    command: ["sh", "-c", "npx prisma generate && node --watch server.js"]
     volumes:
       - ./backend:/app
       - /app/node_modules

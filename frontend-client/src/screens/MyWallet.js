@@ -12,25 +12,19 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import axios from 'axios';
+import { useNavigation } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 
-import { API_BASE_URL } from '../constants/config';
+import {
+  fetchTopUpOptions,
+  simulatePurchase,
+} from '../components/wallet/topUpApi';
+import { ROUTES } from '../constants/routes';
 import { setCoins } from '../redux/slices/authSlice';
 import * as authService from '../services/authService';
 
-const userApi = axios.create({
-  baseURL: `${API_BASE_URL}/api/user`,
-  headers: {
-    'Content-Type': 'application/json',
-    'x-client-type': authService.getClientType(),
-  },
-});
-
-const authHeader = (token) =>
-  token ? { Authorization: `Bearer ${token}` } : {};
-
 const WalletScreen = () => {
+  const navigation = useNavigation();
   const dispatch = useDispatch();
   const accessToken = useSelector((s) => s.auth?.accessToken);
   const coins = useSelector((s) => s.auth?.coins);
@@ -51,11 +45,7 @@ const WalletScreen = () => {
     setLoadingPacks(true);
 
     try {
-      const res = await userApi.get('/wallet/top-up-options', {
-        headers: authHeader(accessToken),
-      });
-
-      const list = res.data?.data?.packs ?? [];
+      const list = await fetchTopUpOptions(accessToken);
       setPacks(Array.isArray(list) ? list : []);
     } catch (err) {
       const msg =
@@ -102,13 +92,8 @@ const WalletScreen = () => {
     setPurchasing(true);
 
     try {
-      const res = await userApi.post(
-        '/wallet/simulate-purchase',
-        { pack_id: selectedPack.pack_id },
-        { headers: authHeader(accessToken) }
-      );
-
-      const next = res.data?.data?.coins;
+      const data = await simulatePurchase(accessToken, selectedPack.pack_id);
+      const next = data?.coins;
 
       if (typeof next !== 'number') {
         throw new Error('Invalid response from server');
@@ -150,13 +135,11 @@ const WalletScreen = () => {
       </TouchableOpacity>
 
       <View style={styles.listContainer}>
-        <TouchableOpacity style={styles.listItem}>
+        <TouchableOpacity
+          style={styles.listItem}
+          onPress={() => navigation.navigate(ROUTES.TRANSACTION_HISTORY)}
+        >
           <Text style={styles.listItemText}>Transaction History</Text>
-          <Ionicons name="chevron-forward" size={20} color="#666" />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.listItem}>
-          <Text style={styles.listItemText}>Consumption Records</Text>
           <Ionicons name="chevron-forward" size={20} color="#666" />
         </TouchableOpacity>
       </View>
