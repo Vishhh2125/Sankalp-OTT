@@ -34,6 +34,7 @@ import {
 } from '../../redux/slices/myListSlice';
 import { unlockEpisode } from '../../redux/slices/showPlayerSlice';
 import { usePlaybackSpeed } from '../../context/PlaybackSpeedContext';
+import { useGuestAuth } from '../../context/GuestAuthContext';
 
 function DefaultTopOverlay({ top, style }) {
   return (
@@ -520,6 +521,7 @@ export default function ShortVideoReelItem({
 }
 
 function LockOverlay({ item, accessToken, navigation, dispatch }) {
+  const { openSignUp } = useGuestAuth();
   const isAuthenticated = !!accessToken;
   const coins = useSelector((s) => s.auth?.coins) ?? 0;
   const coinCost = item.coin_cost || 0;
@@ -531,9 +533,9 @@ function LockOverlay({ item, accessToken, navigation, dispatch }) {
   const [unlocking, setUnlocking] = useState(false);
   const [error, setError] = useState(null);
 
-  const goToLogin = useCallback(() => {
-    navigation.navigate(ROUTES.LOGIN);
-  }, [navigation]);
+  const goToSignUp = useCallback(() => {
+    openSignUp();
+  }, [openSignUp]);
 
   const goToWallet = useCallback(() => {
     navigation.navigate(ROUTES.MAIN_TABS, {
@@ -568,7 +570,7 @@ function LockOverlay({ item, accessToken, navigation, dispatch }) {
           <Ionicons name="lock-closed" size={32} color="#fff" />
         </View>
         <Text style={styles.lockTitle}>Sign up to watch</Text>
-        <TouchableOpacity style={styles.lockButton} onPress={goToLogin}>
+        <TouchableOpacity style={styles.lockButton} onPress={goToSignUp}>
           <Text style={styles.lockButtonText}>Sign Up</Text>
         </TouchableOpacity>
       </View>

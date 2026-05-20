@@ -12,44 +12,43 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 
-
+import GuestAccessPrompt from '../components/GuestAccessPrompt';
 import { theme } from '../constants/theme';
 import { ROUTES } from '../constants/routes';
+import { useGuestAuth } from '../context/GuestAuthContext';
 import { logoutUser, clearLogoutError } from '../redux/slices/authSlice';
 
 const FEATURE_ICONS = [
   { icon: 'play-circle-outline', label: '8K+ series' },
   { icon: 'time-outline', label: 'Daily points' },
-  // Removed Download icon from here
   { icon: 'videocam-outline', label: '1080p quality' },
 ];
 
-const MENU_ITEMS = [
+const MENU_ITEMS = [ 
   { icon: 'wallet-outline', label: 'Top Up', right: null },
   { icon: 'card-outline', label: 'My Wallet', right: null },
   { icon: 'gift-outline', label: 'Earn Rewards', badge: '+70' },
   { icon: 'heart-outline', label: 'Gifts', right: null },
   { icon: 'time-outline', label: 'History', right: null },
-  // Removed Download item from here
 ];
 
 const SETTINGS_ITEMS = [
-  // Removed Language item from here
   { icon: 'help-circle-outline', label: 'Help & feedback', right: null },
 ];
 
-function MenuItem({ icon, label, right, badge, onPress }) {
+function MenuItem({ icon, label, right, badge, onPress, disabled }) {
   return (
     <Pressable
-      onPress={onPress}
+      onPress={disabled ? undefined : onPress}
       style={({ pressed }) => [
         styles.menuItem,
-        pressed && styles.menuItemPressed,
+        pressed && !disabled && styles.menuItemPressed,
+        disabled && styles.menuItemDisabled,
       ]}
     >
       <View style={styles.menuLeft}>
-        <Ionicons name={icon} size={20} color={theme.white} />
-        <Text style={styles.menuLabel}>{label}</Text>
+        <Ionicons name={icon} size={20} color={disabled ? theme.darkGray : theme.white} />
+        <Text style={[styles.menuLabel, disabled && styles.menuLabelDisabled]}>{label}</Text>
       </View>
       <View style={styles.menuRight}>
         {badge && (
@@ -64,13 +63,63 @@ function MenuItem({ icon, label, right, badge, onPress }) {
   );
 }
 
+function GuestProfileScreen({ insets }) {
+  const { openSignUp } = useGuestAuth();
+
+  return (
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={[
+        styles.container,
+        { paddingTop: insets.top + 12 },
+      ]}
+    >
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <View style={styles.avatar}>
+            <Ionicons name="person" size={28} color={theme.darkGray} />
+          </View>
+          <View>
+            <Text style={styles.loginText}>Guest</Text>
+            <Text style={styles.guestSubtext}>Browsing without an account</Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.guestPromptCard}>
+        <GuestAccessPrompt
+          compact
+          title="Sign in to access your profile"
+          subtitle="Create a free account to use My Wallet, save your list, earn rewards, and unlock episodes with coins."
+          showLoginLink
+        />
+      </View>
+
+      <View style={styles.menuCard}>
+        <MenuItem icon="star-outline" label="Membership" disabled />
+        {MENU_ITEMS.map((item) => (
+          <MenuItem key={item.label} {...item} disabled />
+        ))}
+      </View>
+
+      <View style={styles.menuCard}>
+        {SETTINGS_ITEMS.map((item) => (
+          <MenuItem key={item.label} {...item} disabled />
+        ))}
+      </View>
+
+      <View style={{ height: 30 }} />
+    </ScrollView>
+  );
+}
+
 export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const accessToken = useSelector((state) => state.auth?.accessToken);
   const name = useSelector((state) => state.auth.name);
   const dispatch = useDispatch();
   const { logout: logoutState } = useSelector((state) => state.auth);
 
-  // Show error alert when logout fails
   useEffect(() => {
     if (logoutState.error && !logoutState.isLoading) {
       Alert.alert('Logout Failed', logoutState.error, [
@@ -79,6 +128,10 @@ export default function ProfileScreen({ navigation }) {
       ]);
     }
   }, [logoutState.error, logoutState.isLoading, dispatch]);
+
+  if (!accessToken) {
+    return <GuestProfileScreen insets={insets} />;
+  }
 
   function goToMembership() {
     navigation.navigate(ROUTES.MEMBERSHIP);
@@ -98,9 +151,7 @@ export default function ProfileScreen({ navigation }) {
   }
 
   function handleLogout() {
-    // Dispatch logout action (clears tokens, calls backend)
     dispatch(logoutUser());
-    // AuthWrapper will automatically handle navigation to login screen
   }
 
   return (
@@ -111,7 +162,6 @@ export default function ProfileScreen({ navigation }) {
         { paddingTop: insets.top + 12 },
       ]}
     >
-      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <View style={styles.avatar}>
@@ -119,18 +169,13 @@ export default function ProfileScreen({ navigation }) {
           </View>
           <View>
             <View style={styles.loginRow}>
-              <Text style={styles.loginText}>{name || 'Guest'}</Text>
-              <Ionicons
-                name="chevron-forward"
-                size={16}
-                color={theme.white}
-              />
+              <Text style={styles.loginText}>{name || 'User'}</Text>
+              <Ionicons name="chevron-forward" size={16} color={theme.white} />
             </View>
           </View>
         </View>
       </View>
 
-      {/* Membership Banner */}
       <View style={styles.memberBanner}>
         <View style={styles.discountBadge}>
           <Text style={styles.discountText}>16% off</Text>
@@ -142,10 +187,7 @@ export default function ProfileScreen({ navigation }) {
               Enjoy these exclusive benefits:
             </Text>
           </View>
-          <Pressable
-            style={styles.joinSmallBtn}
-            onPress={goToMembership}
-          >
+          <Pressable style={styles.joinSmallBtn} onPress={goToMembership}>
             <Text style={styles.joinSmallText}>Join</Text>
           </Pressable>
         </View>
@@ -159,7 +201,6 @@ export default function ProfileScreen({ navigation }) {
         </View>
       </View>
 
-      {/* Main Menu */}
       <View style={styles.menuCard}>
         <MenuItem icon="star-outline" label="Membership" onPress={goToMembership} />
         {MENU_ITEMS.map((item) => (
@@ -171,29 +212,22 @@ export default function ProfileScreen({ navigation }) {
         ))}
       </View>
 
-      {/* Settings Menu */}
       <View style={styles.menuCard}>
         {SETTINGS_ITEMS.map((item) => (
           <MenuItem key={item.label} {...item} />
         ))}
-        <MenuItem
-          icon="log-out-outline"
-          label="Log out"
-          onPress={handleLogout}
-        />
-        {/* Show logout error if exists */}
-        {logoutState.error && (
+        <MenuItem icon="log-out-outline" label="Log out" onPress={handleLogout} />
+        {logoutState.error ? (
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>Error: {logoutState.error}</Text>
           </View>
-        )}
+        ) : null}
       </View>
 
       <View style={{ height: 30 }} />
     </ScrollView>
   );
 }
-
 
 const styles = StyleSheet.create({
   screen: {
@@ -233,13 +267,19 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
   },
-  idText: {
+  guestSubtext: {
     color: theme.gray,
     fontSize: 12,
     marginTop: 4,
   },
-  separator: {
-    color: theme.darkGray,
+  guestPromptCard: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    backgroundColor: theme.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.border,
+    overflow: 'hidden',
   },
   memberBanner: {
     marginHorizontal: 16,
@@ -324,6 +364,9 @@ const styles = StyleSheet.create({
   menuItemPressed: {
     opacity: 0.7,
   },
+  menuItemDisabled: {
+    opacity: 0.45,
+  },
   menuLeft: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -333,6 +376,9 @@ const styles = StyleSheet.create({
     color: theme.white,
     fontSize: 15,
     fontWeight: '500',
+  },
+  menuLabelDisabled: {
+    color: theme.darkGray,
   },
   menuRight: {
     flexDirection: 'row',
@@ -352,6 +398,18 @@ const styles = StyleSheet.create({
   badgeText: {
     color: theme.white,
     fontSize: 11,
+    fontWeight: '700',
+  },
+  signUpRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  signUpRowText: {
+    color: theme.crimson,
+    fontSize: 15,
     fontWeight: '700',
   },
   errorContainer: {

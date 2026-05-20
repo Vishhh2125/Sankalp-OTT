@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 
+import GuestAccessPrompt from '../components/GuestAccessPrompt';
 import { theme } from '../constants/theme';
 import { ROUTES } from '../constants/routes';
 import { API_BASE_URL } from '../constants/config';
@@ -243,43 +244,13 @@ const emptyStyles = StyleSheet.create({
 // Guest screen
 // ─────────────────────────────────────────────────────────────────
 function GuestScreen() {
-  const navigation = useNavigation();
   return (
-    <View style={guestStyles.wrap}>
-      <Ionicons name="person-circle-outline" size={64} color={theme.border} />
-      <Text style={guestStyles.title}>Sign in to use My List</Text>
-      <Text style={guestStyles.sub}>
-        Bookmark shows and track your watch progress
-      </Text>
-      <TouchableOpacity
-        style={guestStyles.btn}
-        onPress={() => navigation.navigate(ROUTES.LOGIN)}
-      >
-        <Text style={guestStyles.btnText}>Sign In</Text>
-      </TouchableOpacity>
-    </View>
+    <GuestAccessPrompt
+      title="Sign in to use My List"
+      subtitle="Bookmark shows and track your watch progress across devices."
+    />
   );
 }
-
-const guestStyles = StyleSheet.create({
-  wrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    paddingHorizontal: 32,
-  },
-  title: { color: theme.white, fontSize: 20, fontWeight: '700' },
-  sub: { color: theme.gray, fontSize: 14, textAlign: 'center' },
-  btn: {
-    marginTop: 8,
-    backgroundColor: theme.crimson,
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 24,
-  },
-  btnText: { color: theme.white, fontWeight: '700', fontSize: 15 },
-});
 
 // ─────────────────────────────────────────────────────────────────
 // Main screen
