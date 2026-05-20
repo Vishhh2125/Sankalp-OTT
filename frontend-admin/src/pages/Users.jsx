@@ -39,7 +39,6 @@ function UserProfileModal({ open, onClose, user }) {
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
             {[
-              { label:'User ID', value:user.id },
               { label:'Joined', value:user.joined },
               { label:'Role', value:user.role },
               { label:'Coin balance', value:`₵ ${user.coins.toLocaleString()}` },
@@ -256,7 +255,7 @@ export default function Users() {
         <div className="table-wrap">
           <table>
             <thead>
-              <tr><th>User</th><th>Email</th><th>ID</th><th>Role</th><th>Subscription</th><th>Coins</th><th>Joined</th><th>Status</th><th>Actions</th></tr>
+              <tr><th>User</th><th>Email</th><th>Role</th><th>Subscription</th><th>Coins</th><th>Joined</th><th>Status</th><th>Actions</th></tr>
             </thead>
             <tbody>
               {filtered.map(u => (
@@ -268,7 +267,6 @@ export default function Users() {
                     </div>
                   </td>
                   <td style={{ color:'var(--text2)' }}>{u.email}</td>
-                  <td><span style={{ fontFamily:'var(--mono)', fontSize:11, color:'var(--text3)' }}>{u.id}</span></td>
                   <td><span className={`badge ${roleBadge[u.role]}`}>{u.role}</span></td>
                   <td style={{ fontSize:11, color:'var(--text3)' }}>{u.subExpiry}</td>
                   <td><span className="coin-pill">₵ {u.coins.toLocaleString()}</span></td>

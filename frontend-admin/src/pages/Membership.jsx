@@ -1,13 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, Edit2, Trash2, RefreshCw, Download } from 'lucide-react'
 import Modal, { FormGroup, ModalSection } from '../components/ui/Modal.jsx'
 import { Toggle, ConfirmDialog } from '../components/ui/Controls.jsx'
-
-const initPlans = [
-  { id:1, name:'Weekly',  price:49,  currency:'₹', period:'week',   active:true,  subs:3210, color:'var(--green)' },
-  { id:2, name:'Monthly', price:149, currency:'₹', period:'month',  active:true,  subs:6540, color:'var(--accent2)' },
-  { id:3, name:'Annual',  price:999, currency:'₹', period:'year',  active:true,  subs:2090, color:'var(--amber)' },
-]
+import { membershipApi } from '../services/api.js'
 
 const initHistory = [
   { id:'TX001', user:'Priya Raj',  plan:'Monthly', amount:'₹149', gateway:'Nation Link', date:'Apr 1, 2025', status:'Success', txnId:'NL-2025-001' },
@@ -18,26 +13,40 @@ const initHistory = [
   { id:'TX006', user:'Ravi V',     plan:'Weekly',  amount:'₹49',  gateway:'Nation Link', date:'Mar 20, 2025',status:'Refunded',txnId:'NL-2025-006' },
 ]
 
-function PlanModal({ open, onClose, onSave, initial }) {
+function PlanModal({ open, onClose, onSave, initial, loading }) {
   const isEdit = !!initial?.id
-  const [form, setForm] = useState(initial || { name:'', price:'', currency:'₹', period:'month', active:true, color:'var(--accent2)' })
+  const [form, setForm] = useState(initial || { name:'', price:'', currency:'INR', duration:'month', isActive:true })
   const upd = (k,v) => setForm(p=>({...p,[k]:v}))
+  
+  useEffect(() => {
+    if (initial) {
+      setForm({
+        name: initial.name || '',
+        price: initial.price || '',
+        currency: initial.currency || 'INR',
+        duration: initial.duration || 'month',
+        isActive: initial.isActive !== undefined ? initial.isActive : true,
+      })
+    }
+  }, [initial])
+
   if(!open) return null
+  
   return (
     <Modal open={open} onClose={onClose} title={isEdit?`Edit Plan — ${initial.name}`:'Create Membership Plan'} width={480}
-      footer={<><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" onClick={() => { onSave({...form,id:initial?.id||Date.now(),subs:initial?.subs||0}); onClose() }}>{isEdit?'Save Changes':'Create Plan'}</button></>}
+      footer={<><button className="btn btn-ghost" onClick={onClose} disabled={loading}>Cancel</button><button className="btn btn-primary" onClick={() => { onSave(form); }} disabled={loading}>{loading?'...':isEdit?'Save Changes':'Create Plan'}</button></>}
     >
       <ModalSection title="Pricing">
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10 }}>
-          <FormGroup label="Plan name *"><input className="input" placeholder="e.g. Monthly" value={form.name} onChange={e=>upd('name',e.target.value)}/></FormGroup>
+          <FormGroup label="Plan name *"><input className="input" placeholder="e.g. Monthly" value={form.name} onChange={e=>upd('name',e.target.value)} disabled={loading}/></FormGroup>
           <FormGroup label="Price">
             <div style={{ display:'flex', gap:4 }}>
-              <select className="select" value={form.currency} onChange={e=>upd('currency',e.target.value)} style={{ width:60 }}><option>₹</option><option>$</option></select>
-              <input className="input" type="number" placeholder="149" value={form.price} onChange={e=>upd('price',+e.target.value)}/>
+              <select className="select" value={form.currency} onChange={e=>upd('currency',e.target.value)} style={{ width:60 }} disabled={loading}><option value="INR">₹</option><option value="USD">$</option></select>
+              <input className="input" type="number" placeholder="149" value={form.price} onChange={e=>upd('price',+e.target.value)} disabled={loading}/>
             </div>
           </FormGroup>
           <FormGroup label="Period">
-            <select className="select" style={{ width:'100%' }} value={form.period} onChange={e=>upd('period',e.target.value)}>
+            <select className="select" style={{ width:'100%' }} value={form.duration} onChange={e=>upd('duration',e.target.value)} disabled={loading}>
               <option value="week">Week</option><option value="month">Month</option><option value="year">Year</option>
             </select>
           </FormGroup>
@@ -46,7 +55,7 @@ function PlanModal({ open, onClose, onSave, initial }) {
 
       <ModalSection title="Visibility">
         <label style={{ display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}>
-          <Toggle on={form.active} onChange={v=>upd('active',v)}/>
+          <Toggle on={form.isActive} onChange={v=>upd('isActive',v)} disabled={loading}/>
           <span style={{ fontSize:13 }}>Active (show to users)</span>
         </label>
       </ModalSection>
@@ -74,25 +83,121 @@ function RefundModal({ open, onClose, txn }) {
 }
 
 export default function Membership() {
-  const [plans, setPlans] = useState(initPlans)
+  const [plans, setPlans] = useState([])
   const [history] = useState(initHistory)
   const [tab, setTab] = useState('plans')
   const [modal, setModal] = useState(null)
   const [selected, setSelected] = useState(null)
   const [confirm, setConfirm] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
 
-  const savePlan = data => setPlans(p => p.find(x=>x.id===data.id)?p.map(x=>x.id===data.id?data:x):[...p,data])
-  const deletePlan = id => { setPlans(p=>p.filter(x=>x.id!==id)); setConfirm(null) }
-  const toggleActive = id => setPlans(p=>p.map(x=>x.id===id?{...x,active:!x.active}:x))
+  // Fetch plans on component mount
+  useEffect(() => {
+    fetchPlans()
+  }, [])
+
+  const fetchPlans = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const response = await membershipApi.getAll()
+      if (response.data?.success) {
+        setPlans(response.data.data || [])
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to fetch plans')
+      console.error('Fetch plans error:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const savePlan = async (formData) => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      const payload = {
+        name: formData.name,
+        duration: formData.duration,
+        price: formData.price,
+        currency: formData.currency,
+      }
+
+      if (selected?.id) {
+        // Update existing plan
+        const response = await membershipApi.update(selected.id, {
+          ...payload,
+          isActive: formData.isActive,
+        })
+        if (response.data?.success) {
+          setPlans(plans.map(p => p.id === selected.id ? response.data.data : p))
+          setModal(null)
+          setSelected(null)
+        }
+      } else {
+        // Create new plan
+        const response = await membershipApi.create(payload)
+        if (response.data?.success) {
+          setPlans([...plans, response.data.data])
+          setModal(null)
+        }
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to save plan')
+      console.error('Save plan error:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const deletePlan = async (planId) => {
+    try {
+      setLoading(true)
+      setError(null)
+      await membershipApi.delete(planId)
+      setPlans(plans.filter(p => p.id !== planId))
+      setConfirm(null)
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to delete plan')
+      console.error('Delete plan error:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const toggleActive = async (planId) => {
+    try {
+      setLoading(true)
+      setError(null)
+      const response = await membershipApi.toggle(planId)
+      if (response.data?.success) {
+        setPlans(plans.map(p => p.id === planId ? { ...p, isActive: response.data.data.isActive } : p))
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to toggle plan status')
+      console.error('Toggle plan error:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="page-enter">
+      {/* Error message */}
+      {error && (
+        <div style={{ background:'rgba(220, 38, 38, 0.1)', border:'1px solid rgb(220, 38, 38)', color:'rgb(220, 38, 38)', padding:'12px 16px', borderRadius:'6px', marginBottom:'16px', fontSize:'13px' }}>
+          {error}
+        </div>
+      )}
+
       {/* Stats */}
       <div className="metrics-grid" style={{ gridTemplateColumns:'repeat(3,1fr)', marginBottom:16 }}>
         {[
-          { label:'Total Subscribers', value:plans.reduce((a,p)=>a+p.subs,0).toLocaleString(), sub:'across all plans' },
+          { label:'Total Subscribers', value:plans.reduce((a,p)=>a+(p.subscribers||0),0).toLocaleString(), sub:'across all plans' },
           { label:'Monthly Revenue', value:'₹4,21,380', sub:'this month' },
-          { label:'Active Plans', value:plans.filter(p=>p.active).length, sub:`of ${plans.length} plans` },
+          { label:'Active Plans', value:plans.filter(p=>p.isActive).length, sub:`of ${plans.length} plans` },
         ].map(m => (
           <div className="metric-card" key={m.label}>
             <div className="metric-label">{m.label}</div>
@@ -118,26 +223,33 @@ export default function Membership() {
       {/* Plans tab */}
       {tab==='plans' && (
         <>
-          <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:14 }}>
-            <button className="btn btn-primary" onClick={() => { setSelected(null); setModal('plan-add') }}><Plus size={14}/> Create plan</button>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+            <button className="btn btn-ghost btn-sm" onClick={fetchPlans}><RefreshCw size={14}/></button>
+            <button className="btn btn-primary" onClick={() => { setSelected(null); setModal('plan-add') }} disabled={loading}><Plus size={14}/> Create plan</button>
           </div>
           <div className="grid3">
             {plans.map(p => (
               <div key={p.id} className="plan-card">
                 <div className="plan-name">{p.name} plan</div>
-                <div className="plan-price">{p.currency}{p.price}<span>/{p.period}</span></div>
+                <div className="plan-price">{p.currency === 'INR' ? '₹' : '$'}{p.price}<span>/{p.duration}</span></div>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
-                  <span className={`badge ${p.active?'badge-green':'badge-red'}`}>{p.active?'Active':'Inactive'}</span>
-                  <Toggle on={p.active} onChange={() => toggleActive(p.id)}/>
+                  <span className={`badge ${p.isActive?'badge-green':'badge-red'}`}>{p.isActive?'Active':'Inactive'}</span>
+                  <Toggle on={p.isActive} onChange={() => toggleActive(p.id)} disabled={loading}/>
                 </div>
-                <div style={{ fontSize:12, color:'var(--text3)', fontFamily:'var(--mono)', marginBottom:12 }}>{p.subs.toLocaleString()} subscribers</div>
+                <div style={{ fontSize:12, color:'var(--text3)', fontFamily:'var(--mono)', marginBottom:12 }}>{(p.subscribers||0).toLocaleString()} subscribers</div>
                 <div style={{ display:'flex', gap:6 }}>
-                  <button className="btn btn-ghost btn-sm" style={{ flex:1 }} onClick={() => { setSelected(p); setModal('plan-edit') }}><Edit2 size={11}/> Edit</button>
-                  <button className="btn btn-danger btn-sm" onClick={() => setConfirm({id:p.id,name:p.name})}><Trash2 size={11}/></button>
+                  <button className="btn btn-ghost btn-sm" style={{ flex:1 }} onClick={() => { setSelected(p); setModal('plan-edit') }} disabled={loading}><Edit2 size={11}/> Edit</button>
+                  <button className="btn btn-danger btn-sm" onClick={() => setConfirm({id:p.id,name:p.name})} disabled={loading}><Trash2 size={11}/></button>
                 </div>
               </div>
             ))}
           </div>
+          {plans.length === 0 && !loading && (
+            <div style={{ textAlign:'center', padding:'40px 20px', color:'var(--text3)' }}>
+              <div style={{ fontSize:14, marginBottom:10 }}>No membership plans created yet</div>
+              <button className="btn btn-primary btn-sm" onClick={() => { setSelected(null); setModal('plan-add') }}><Plus size={12}/> Create First Plan</button>
+            </div>
+          )}
         </>
       )}
 
@@ -194,11 +306,11 @@ export default function Membership() {
         </div>
       )}
 
-      <PlanModal open={modal==='plan-add'} onClose={() => setModal(null)} onSave={savePlan} initial={null}/>
-      <PlanModal open={modal==='plan-edit'} onClose={() => setModal(null)} onSave={savePlan} initial={selected}/>
+      <PlanModal open={modal==='plan-add'} onClose={() => setModal(null)} onSave={savePlan} initial={null} loading={loading}/>
+      <PlanModal open={modal==='plan-edit'} onClose={() => setModal(null)} onSave={savePlan} initial={selected} loading={loading}/>
       <RefundModal open={modal==='refund'} onClose={() => setModal(null)} txn={selected}/>
       <ConfirmDialog open={!!confirm} danger title="Delete Plan"
-        message={`Delete plan "${confirm?.name}"? All ${plans.find(p=>p.id===confirm?.id)?.subs||0} subscribers will be affected.`}
+        message={`Delete plan "${confirm?.name}"? All ${plans.find(p=>p.id===confirm?.id)?.subscribers||0} subscribers will be affected.`}
         onConfirm={() => deletePlan(confirm.id)} onCancel={() => setConfirm(null)}
       />
     </div>

@@ -5,10 +5,12 @@ import {
   Text,
   View,
   Pressable,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { theme } from '../constants/theme';
+import { api } from '../services/api';
 
 const BENEFITS = [
   {
@@ -49,8 +51,80 @@ function useCountdown() {
 }
 
 export default function MembershipScreen() {
-  const [selectedPlan, setSelectedPlan] = useState('weekly');
+  const [plans, setPlans] = useState([]);
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const countdown = useCountdown();
+
+  useEffect(() => {
+    fetchPlans();
+  }, []);
+
+  const fetchPlans = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await api.get('/membership/plans');
+      
+      if (response.data?.success) {
+        const fetchedPlans = response.data.data || [];
+        setPlans(fetchedPlans);
+        // Auto-select first plan
+        if (fetchedPlans.length > 0) {
+          setSelectedPlan(fetchedPlans[0].id);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch plans:', err);
+      setError('Failed to load membership plans');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatPrice = (price, currency) => {
+    if (currency === 'INR') {
+      return `₹${parseFloat(price).toFixed(2)}`;
+    } else if (currency === 'USD') {
+      return `$${parseFloat(price).toFixed(2)}`;
+    }
+    return `${price}`;
+  };
+
+  const getDurationLabel = (duration) => {
+    const labels = {
+      week: 'week',
+      month: 'month',
+      year: 'year',
+    };
+    return labels[duration] || duration;
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.screen, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={theme.crimson} />
+      </View>
+    );
+  }
+
+  if (error || plans.length === 0) {
+    return (
+      <View style={[styles.screen, { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 }]}>
+        <Ionicons name="alert-circle-outline" size={48} color={theme.gray} />
+        <Text style={{ color: theme.white, fontSize: 16, marginTop: 12, textAlign: 'center' }}>
+          {error || 'No membership plans available'}
+        </Text>
+        <Pressable
+          style={{ marginTop: 20, paddingVertical: 10, paddingHorizontal: 30, backgroundColor: theme.crimson, borderRadius: 8 }}
+          onPress={fetchPlans}
+        >
+          <Text style={{ color: theme.white, fontWeight: '600' }}>Try Again</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.screen}>
@@ -66,70 +140,47 @@ export default function MembershipScreen() {
 
         {/* Plan Cards */}
         <View style={styles.plansSection}>
-          {/* Weekly Plan */}
-          <Pressable
-            style={[
-              styles.planCard,
-              selectedPlan === 'weekly' && styles.planCardActive,
-            ]}
-            onPress={() => setSelectedPlan('weekly')}
-          >
-            <View style={styles.planLeft}>
-              <View
-                style={[
-                  styles.planRadio,
-                  selectedPlan === 'weekly' && styles.planRadioActive,
-                ]}
-              >
-                {selectedPlan === 'weekly' && (
-                  <Ionicons name="checkmark" size={16} color={theme.white} />
-                )}
-              </View>
-              <View>
-                <Text style={styles.planName}>Weekly Membership</Text>
-                <View style={styles.priceRow}>
-                  <Text style={styles.planPrice}>₹520.00</Text>
-                  <Text style={styles.planOldPrice}>₹620.00</Text>
+          {plans.map((plan) => (
+            <Pressable
+              key={plan.id}
+              style={[
+                styles.planCard,
+                selectedPlan === plan.id && styles.planCardActive,
+              ]}
+              onPress={() => setSelectedPlan(plan.id)}
+            >
+              <View style={styles.planLeft}>
+                <View
+                  style={[
+                    styles.planRadio,
+                    selectedPlan === plan.id && styles.planRadioActive,
+                  ]}
+                >
+                  {selectedPlan === plan.id && (
+                    <Ionicons name="checkmark" size={16} color={theme.white} />
+                  )}
                 </View>
-                <Text style={styles.planDetail}>
-                  ₹520.00/week for the first 3 weeks, then ₹620.00/week
-                </Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.planName}>{plan.name} Membership</Text>
+                  <Text style={styles.planPrice}>
+                    {formatPrice(plan.price, plan.currency)} /{getDurationLabel(plan.duration)}
+                  </Text>
+                  {plan.duration === 'week' && (
+                    <Text style={styles.planDetail}>
+                      {formatPrice(plan.price, plan.currency)}/week for the first 3 weeks
+                    </Text>
+                  )}
+                </View>
               </View>
-            </View>
-            {selectedPlan === 'weekly' && (
-              <View style={styles.discountTag}>
-                <Text style={styles.discountTagText}>
-                  Discount {countdown}
-                </Text>
-              </View>
-            )}
-          </Pressable>
-
-          {/* Annual Plan */}
-          <Pressable
-            style={[
-              styles.planCard,
-              selectedPlan === 'annual' && styles.planCardActive,
-            ]}
-            onPress={() => setSelectedPlan('annual')}
-          >
-            <View style={styles.planLeft}>
-              <View
-                style={[
-                  styles.planRadio,
-                  selectedPlan === 'annual' && styles.planRadioActive,
-                ]}
-              >
-                {selectedPlan === 'annual' && (
-                  <Ionicons name="checkmark" size={16} color={theme.white} />
-                )}
-              </View>
-              <View>
-                <Text style={styles.planName}>Annual Membership</Text>
-                <Text style={styles.planPrice}>₹5,100.00 /year</Text>
-              </View>
-            </View>
-          </Pressable>
+              {selectedPlan === plan.id && plan.duration === 'week' && (
+                <View style={styles.discountTag}>
+                  <Text style={styles.discountTagText}>
+                    Discount {countdown}
+                  </Text>
+                </View>
+              )}
+            </Pressable>
+          ))}
         </View>
 
         {/* Why Join */}

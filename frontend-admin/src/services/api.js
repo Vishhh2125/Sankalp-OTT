@@ -129,6 +129,16 @@ export const mediaApi = {
 
 export default api;
 
+// ── Membership Plans ──
+export const membershipApi = {
+  getAll: () => api.get('/v1/admin/membership/plans'),
+  getById: (planId) => api.get(`/v1/admin/membership/plans/${planId}`),
+  create: (data) => api.post('/v1/admin/membership/plans', data),
+  update: (planId, data) => api.patch(`/v1/admin/membership/plans/${planId}`, data),
+  delete: (planId) => api.delete(`/v1/admin/membership/plans/${planId}`),
+  toggle: (planId) => api.patch(`/v1/admin/membership/plans/${planId}/toggle`),
+};
+
 // ── Admin Users ──
 export const usersApi = {
   getAll: () => api.get('/v1/admin/users'),
