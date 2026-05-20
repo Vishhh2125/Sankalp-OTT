@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "7K",
-    "slug": "7k",
+    "slug": "7K",
     "scheme": "7k",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -73,9 +73,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "5e913204-2640-4352-98c9-be8b11d58149"
+        "projectId": "f9ed04e7-7f6c-4719-9e85-7c70da9e6154"
       }
     },
-    "owner": "paras10"
+    "owner": "vishnu2125"
   }
 }
