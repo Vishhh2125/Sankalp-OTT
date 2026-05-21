@@ -364,21 +364,33 @@ async function deleteEpisode(id) {
   const ep = await prisma.episode.findUnique({ where: { id } });
   if (!ep) throw new AppError('Episode not found', 404);
 
-  await prisma.episode.delete({ where: { id } });
+  // Use transaction to ensure delete + renumber happens atomically
+  await prisma.$transaction(async (tx) => {
+    // Delete the episode
+    await tx.episode.delete({ where: { id } });
 
-  // Renumber remaining episodes
-  const remaining = await prisma.episode.findMany({
-    where: { show_id: ep.show_id },
-    orderBy: { episode_num: 'asc' },
-  });
-  for (let i = 0; i < remaining.length; i++) {
-    if (remaining[i].episode_num !== i + 1) {
-      await prisma.episode.update({
+    // Renumber remaining episodes - use a temporary negative number to avoid conflicts
+    const remaining = await tx.episode.findMany({
+      where: { show_id: ep.show_id },
+      orderBy: { episode_num: 'asc' },
+    });
+
+    // First pass: set temporary negative numbers to avoid unique constraint violations
+    for (let i = 0; i < remaining.length; i++) {
+      await tx.episode.update({
+        where: { id: remaining[i].id },
+        data: { episode_num: -(i + 1) },
+      });
+    }
+
+    // Second pass: convert negative numbers to final sequence
+    for (let i = 0; i < remaining.length; i++) {
+      await tx.episode.update({
         where: { id: remaining[i].id },
         data: { episode_num: i + 1 },
       });
     }
-  }
+  });
 
   return { deleted: true };
 }
