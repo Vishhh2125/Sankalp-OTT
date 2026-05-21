@@ -8,8 +8,31 @@ const roleBadge = { free:'badge-amber', member:'badge-purple', admin:'badge-red'
 
 function UserProfileModal({ open, onClose, user }) {
   const [tab, setTab] = useState('profile')
+  const [profileData, setProfileData] = useState(null)
+  const [loading, setLoading] = useState(false)
+  
+  useEffect(() => {
+    if (open && user?.id) {
+      fetchUserProfile(user.id)
+    }
+  }, [open, user?.id])
+
+  const fetchUserProfile = async (userId) => {
+    try {
+      setLoading(true)
+      const response = await usersApi.getProfile(userId)
+      setProfileData(response.data.data)
+    } catch (err) {
+      console.error('Failed to fetch user profile:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   if (!user || !open) return null
   const tabs = ['profile','subscription','watch','wallet','activity']
+  const displayUser = profileData || user
+  
   return (
     <Modal open={open} onClose={onClose} title={`User Profile — ${user.name}`} width={640}>
       <div style={{ display:'flex', gap:0, marginBottom:20, borderBottom:'1px solid var(--border)' }}>
@@ -29,9 +52,8 @@ function UserProfileModal({ open, onClose, user }) {
           <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:20 }}>
             <div className="avatar" style={{ width:52, height:52, fontSize:18 }}>{user.name.split(' ').map(n=>n[0]).join('')}</div>
             <div>
-              <div style={{ fontWeight:600, fontSize:16 }}>{user.name}</div>
-              <div style={{ color:'var(--text3)', fontSize:13 }}>{user.email}</div>
-              <div style={{ color:'var(--text3)', fontSize:12 }}>{user.mobile}</div>
+              <div style={{ fontWeight:600, fontSize:16 }}>{displayUser.name}</div>
+              <div style={{ color:'var(--text3)', fontSize:13 }}>{displayUser.email}</div>
             </div>
             <div style={{ marginLeft:'auto' }}>
               <span className={`badge ${user.status==='Active'?'badge-green':'badge-red'}`}>{user.status}</span>
@@ -40,8 +62,8 @@ function UserProfileModal({ open, onClose, user }) {
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
             {[
               { label:'Joined', value:user.joined },
-              { label:'Role', value:user.role },
-              { label:'Coin balance', value:`₵ ${user.coins.toLocaleString()}` },
+              { label:'Role', value:displayUser.role },
+              { label:'Coin balance', value:`₵ ${(displayUser.coins || 0).toLocaleString()}` },
             ].map(r => (
               <div key={r.label} style={{ background:'var(--bg3)', padding:'10px 14px', borderRadius:8 }}>
                 <div style={{ fontSize:11, color:'var(--text3)', marginBottom:3 }}>{r.label}</div>
@@ -54,64 +76,107 @@ function UserProfileModal({ open, onClose, user }) {
 
       {tab==='subscription' && (
         <div>
-          <div style={{ background:'var(--bg3)', padding:16, borderRadius:8, marginBottom:16 }}>
-            <div style={{ fontSize:11, color:'var(--text3)', marginBottom:4 }}>CURRENT PLAN</div>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <span className={`badge ${roleBadge[user.role]}`} style={{ fontSize:14, padding:'4px 12px' }}>{user.plan}</span>
-              <div style={{ textAlign:'right' }}>
-                <div style={{ fontSize:12, color:'var(--text3)' }}>Expires</div>
-                <div style={{ fontWeight:500 }}>{user.subExpiry}</div>
+          {loading ? (
+            <div style={{ textAlign:'center', padding:'30px', color:'var(--text3)' }}>Loading...</div>
+          ) : profileData?.memberships && profileData.memberships.length > 0 ? (
+            <>
+              <div style={{ background:'var(--bg3)', padding:16, borderRadius:8, marginBottom:16 }}>
+                <div style={{ fontSize:11, color:'var(--text3)', marginBottom:4 }}>CURRENT PLAN</div>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                  <span className={`badge ${roleBadge[profileData.plan]}`} style={{ fontSize:14, padding:'4px 12px' }}>{profileData.plan === 'MEMBER' ? 'member' : 'free'}</span>
+                  <div style={{ textAlign:'right' }}>
+                    <div style={{ fontSize:12, color:'var(--text3)' }}>Expires</div>
+                    <div style={{ fontWeight:500 }}>{new Date(profileData.memberships[0].end_date).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' })}</div>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-          <div style={{ color:'var(--text3)', fontSize:13, textAlign:'center', padding:'20px 0' }}>Full subscription history coming soon</div>
+              <div>
+                <div style={{ fontSize:11, color:'var(--text3)', marginBottom:12, fontWeight:600 }}>SUBSCRIPTION HISTORY</div>
+                {profileData.memberships.map((m,i) => (
+                  <div key={i} style={{ padding:'10px 0', borderBottom:'1px solid var(--border)' }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                      <div>
+                        <div style={{ fontSize:13, fontWeight:500 }}>{m.plan?.name || 'Premium'}</div>
+                        <div style={{ fontSize:11, color:'var(--text3)' }}>
+                          {new Date(m.start_date).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' })} - {new Date(m.end_date).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' })}
+                        </div>
+                      </div>
+                      <span className={`badge ${m.status === 'ACTIVE' ? 'badge-green' : 'badge-gray'}`} style={{ fontSize:10 }}>{m.status}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div style={{ color:'var(--text3)', fontSize:13, textAlign:'center', padding:'20px 0' }}>No subscription data available</div>
+          )}
         </div>
       )}
 
       {tab==='watch' && (
         <div>
-          {user.watchHistory.length===0 && <div style={{ color:'var(--text3)', fontSize:13, textAlign:'center', padding:'30px 0' }}>No watch history</div>}
-          {user.watchHistory.map((w,i) => (
-            <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 0', borderBottom:'1px solid var(--border)' }}>
-              <div>
-                <div style={{ fontWeight:500, fontSize:13 }}>{w.drama}</div>
-                <div style={{ fontSize:11, color:'var(--text3)' }}>Episode {w.ep}</div>
+          {loading ? (
+            <div style={{ textAlign:'center', padding:'30px', color:'var(--text3)' }}>Loading...</div>
+          ) : profileData?.watch_history && profileData.watch_history.length > 0 ? (
+            profileData.watch_history.map((w,i) => (
+              <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 0', borderBottom:'1px solid var(--border)' }}>
+                <div>
+                  <div style={{ fontWeight:500, fontSize:13 }}>{w.episode?.show?.title || 'Unknown Show'}</div>
+                  <div style={{ fontSize:11, color:'var(--text3)' }}>Episode {w.episode?.episode_num || 1}</div>
+                </div>
+                <span style={{ fontSize:12, color:'var(--text3)' }}>{new Date(w.last_watched).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' })}</span>
               </div>
-              <span style={{ fontSize:12, color:'var(--text3)' }}>{w.date}</span>
-            </div>
-          ))}
+            ))
+          ) : (
+            <div style={{ color:'var(--text3)', fontSize:13, textAlign:'center', padding:'30px 0' }}>No watch history</div>
+          )}
         </div>
       )}
 
       {tab==='wallet' && (
         <div>
-          <div style={{ background:'var(--bg3)', padding:14, borderRadius:8, marginBottom:14, textAlign:'center' }}>
-            <div style={{ fontSize:11, color:'var(--text3)', marginBottom:4 }}>CURRENT BALANCE</div>
-            <div style={{ fontSize:28, fontWeight:700, fontFamily:'var(--mono)', color:'var(--amber)' }}>₵ {user.coins.toLocaleString()}</div>
-          </div>
-          {user.coinHistory.map((c,i) => (
-            <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'9px 0', borderBottom:'1px solid var(--border)' }}>
-              <div style={{ fontSize:13 }}>{c.type}</div>
-              <div style={{ display:'flex', gap:12, alignItems:'center' }}>
-                <span style={{ fontSize:12, color:'var(--text3)' }}>{c.date}</span>
-                <span style={{ fontFamily:'var(--mono)', fontSize:13, color:c.amount.startsWith('+')?'var(--green)':'var(--red)' }}>{c.amount}</span>
+          {loading ? (
+            <div style={{ textAlign:'center', padding:'30px', color:'var(--text3)' }}>Loading...</div>
+          ) : (
+            <>
+              <div style={{ background:'var(--bg3)', padding:14, borderRadius:8, marginBottom:14, textAlign:'center' }}>
+                <div style={{ fontSize:11, color:'var(--text3)', marginBottom:4 }}>CURRENT BALANCE</div>
+                <div style={{ fontSize:28, fontWeight:700, fontFamily:'var(--mono)', color:'var(--amber)' }}>₵ {(displayUser.coins || 0).toLocaleString()}</div>
               </div>
-            </div>
-          ))}
+              {profileData?.coin_transactions && profileData.coin_transactions.length > 0 ? (
+                profileData.coin_transactions.map((c,i) => (
+                  <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'9px 0', borderBottom:'1px solid var(--border)' }}>
+                    <div style={{ fontSize:13 }}>{c.title || c.reason || 'Transaction'}</div>
+                    <div style={{ display:'flex', gap:12, alignItems:'center' }}>
+                      <span style={{ fontSize:12, color:'var(--text3)' }}>{new Date(c.created_at).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' })}</span>
+                      <span style={{ fontFamily:'var(--mono)', fontSize:13, color:c.type === 'credit' ? 'var(--green)' : 'var(--red)' }}>
+                        {c.type === 'credit' ? '+' : '-'}₵ {Math.abs(c.amount).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div style={{ color:'var(--text3)', fontSize:13, textAlign:'center', padding:'20px 0' }}>No transactions</div>
+              )}
+            </>
+          )}
         </div>
       )}
 
-
-
       {tab==='activity' && (
         <div>
-          {user.activity.length===0 && <div style={{ color:'var(--text3)', fontSize:13, textAlign:'center', padding:'30px 0' }}>No activity logged</div>}
-          {user.activity.map((a,i) => (
-            <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'9px 0', borderBottom:'1px solid var(--border)' }}>
-              <div style={{ fontSize:13 }}>{a.action}{a.device ? ` (${a.device})` : ''}</div>
-              <span style={{ fontSize:12, color:'var(--text3)' }}>{a.date}</span>
-            </div>
-          ))}
+          {loading ? (
+            <div style={{ textAlign:'center', padding:'30px', color:'var(--text3)' }}>Loading...</div>
+          ) : profileData?.coin_transactions && profileData.coin_transactions.length > 0 ? (
+            profileData.coin_transactions.map((a,i) => (
+              <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'9px 0', borderBottom:'1px solid var(--border)' }}>
+                <div style={{ fontSize:13 }}>Coin {a.type === 'credit' ? 'credited' : 'debited'} - {a.reason || 'N/A'}</div>
+                <span style={{ fontSize:12, color:'var(--text3)' }}>{new Date(a.created_at).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' })}</span>
+              </div>
+            ))
+          ) : (
+            <div style={{ color:'var(--text3)', fontSize:13, textAlign:'center', padding:'30px 0' }}>No activity logged</div>
+          )}
         </div>
       )}
     </Modal>
