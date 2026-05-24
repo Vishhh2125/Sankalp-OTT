@@ -40,10 +40,11 @@ export default function useShortVideoPlayback({
   }, [initialDuration, itemKey]);
 
   const onLoad = useCallback((data) => {
+    console.log(`✅ [useShortVideoPlayback] Video loaded - itemKey: ${itemKey}, duration: ${data.duration}s`);
     if (data.duration > 0) {
       setDuration(data.duration);
     }
-  }, []);
+  }, [itemKey]);
 
   const onProgress = useCallback((data) => {
     setCurrentTime(data.currentTime);
@@ -59,13 +60,15 @@ export default function useShortVideoPlayback({
       data.currentTime - lastProgressUpdateRef.current >= 15
     ) {
       lastProgressUpdateRef.current = data.currentTime;
+      console.log(`⏱️ Progress update: ${Math.floor(data.currentTime)}s / ${Math.floor(data.seekableDuration)}s`);
       onProgressUpdate(Math.floor(data.currentTime));
     }
   }, [duration, onProgressUpdate, paused]);
 
   const onReadyForDisplay = useCallback(() => {
+    console.log(`🎬 [useShortVideoPlayback] First frame ready, itemKey: ${itemKey}`);
     setFirstFrameReady(true);
-  }, []);
+  }, [itemKey]);
 
   const togglePlayback = useCallback(() => {
     if (isLocked || !isActive) return;

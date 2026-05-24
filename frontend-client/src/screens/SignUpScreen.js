@@ -92,7 +92,7 @@ export default function SignUpScreen({ navigation }) {
           setFullName(t);
           if (localError) setLocalError('');
         }}
-        placeholder="Priya Sharma"
+        placeholder="user name"
         style={styles.input}
         placeholderTextColor={theme.darkGray}
       />
@@ -105,7 +105,7 @@ export default function SignUpScreen({ navigation }) {
           setEmail(t);
           if (localError) setLocalError('');
         }}
-        placeholder="priya@example.com"
+        placeholder="user@example.com"
         style={[styles.input, email.length > 0 && styles.inputActive]}
         placeholderTextColor={theme.darkGray}
         keyboardType="email-address"

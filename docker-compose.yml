@@ -1,5 +1,16 @@
 version: '3.8'
 
+# ─────────────────────────────────────────────
+# Global log rotation applied to every service
+# max-size: rotate when a single log file hits 10 MB
+# max-file: keep only the last 5 rotated files (= 50 MB max per service)
+# ─────────────────────────────────────────────
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
 
   nginx:
@@ -13,11 +24,13 @@ services:
       - admin
       - backend
     restart: unless-stopped
+    logging: *default-logging
 
   admin:
     build: ./frontend-admin
     container_name: ott-admin
     restart: unless-stopped
+    logging: *default-logging
 
   backend:
     build: ./backend
@@ -47,6 +60,7 @@ services:
       - redis
       - minio
     restart: unless-stopped
+    logging: *default-logging
 
   worker:
     build: ./backend
@@ -71,6 +85,7 @@ services:
       - redis
       - minio
     restart: unless-stopped
+    logging: *default-logging
 
   postgres:
     image: postgres:16-alpine
@@ -84,6 +99,7 @@ services:
     volumes:
       - pg_data:/var/lib/postgresql/data
     restart: unless-stopped
+    logging: *default-logging
 
   redis:
     image: redis:7-alpine
@@ -92,6 +108,7 @@ services:
     volumes:
       - redis_data:/data
     restart: unless-stopped
+    logging: *default-logging
 
   minio:
     image: minio/minio:latest
@@ -107,6 +124,7 @@ services:
     volumes:
       - minio_data:/data
     restart: unless-stopped
+    logging: *default-logging
 
   prisma-studio:
     build: ./backend
@@ -120,8 +138,7 @@ services:
     depends_on:
       - postgres
     restart: unless-stopped
-
-
+    logging: *default-logging
 
 volumes:
   pg_data:

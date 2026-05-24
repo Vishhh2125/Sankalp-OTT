@@ -9,6 +9,7 @@ export const ROUTES = {
   MY_WALLET: 'MyWallet',
   TOP_UP: 'TopUp',
   TRANSACTION_HISTORY: 'TransactionHistory',
+  EARN_REWARDS: 'EarnRewards',
   PROFILE: 'Profile',
   SHOW_PLAYER: 'ShowPlayer',
 };

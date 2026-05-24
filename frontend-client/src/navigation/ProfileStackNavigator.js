@@ -6,6 +6,7 @@ import MembershipScreen from '../screens/MembershipScreen';
 import MyWallet from '../screens/MyWallet';
 import TopUpScreen from '../screens/TopUpScreen';
 import TransactionHistoryScreen from '../screens/TransactionHistoryScreen';
+import EarnRewardsScreen from '../screens/EarnRewardsScreen';
 import { ROUTES } from '../constants/routes';
 import { theme } from '../constants/theme';
 
@@ -57,6 +58,17 @@ export default function ProfileStackNavigator() {
         component={TransactionHistoryScreen}
         options={{
           title: 'Transaction History',
+          headerShown: true,
+          headerStyle: { backgroundColor: theme.deepBlack },
+          headerTintColor: theme.white,
+          headerShadowVisible: false,
+        }}
+      />
+      <Stack.Screen
+        name={ROUTES.EARN_REWARDS}
+        component={EarnRewardsScreen}
+        options={{
+          title: 'Earn Rewards',
           headerShown: true,
           headerStyle: { backgroundColor: theme.deepBlack },
           headerTintColor: theme.white,

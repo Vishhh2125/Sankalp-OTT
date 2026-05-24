@@ -101,7 +101,54 @@ async function hlsProxy(req, res, next) {
   } catch (e) { next(e); }
 }
 
+
+
+// Image proxy — serves show thumbnails/banners through the backend
+// so the mobile app never needs to reach MinIO directly.
+// Route: GET /api/media/image/:showId/:type  (type = thumbnail | banner)
+async function imageProxy(req, res, next) {
+  try {
+    const { showId, type } = req.params;
+    console.log('[imageProxy] Request for showId:', showId, 'type:', type, 'full path:', req.originalUrl);
+    
+    if (!['thumbnail', 'banner'].includes(type)) {
+      console.log('[imageProxy] Invalid type:', type);
+      return res.status(400).json({ error: 'type must be thumbnail or banner' });
+    }
+
+    // Mirror the object name convention used when images are uploaded
+    const ext = 'jpg';
+    const objectName = `dramas/${showId}/${type}.${ext}`;
+    console.log('[imageProxy] Fetching from MinIO:', objectName);
+    
+    const presignedUrl = await getPresignedGetUrl(objectName, 7200);
+    console.log('[imageProxy] Got presigned URL, streaming to client...');
+
+    // Stream the image through so the client only ever talks to our backend
+    const protocolModule = presignedUrl.startsWith('https') ? https : http;
+    protocolModule.get(presignedUrl, (stream) => {
+      console.log('[imageProxy] MinIO response status:', stream.statusCode);
+      
+      if (stream.statusCode === 404) {
+        console.log('[imageProxy] Image not found in MinIO');
+        return res.status(404).json({ error: 'Image not found' });
+      }
+      res.set('Content-Type', stream.headers['content-type'] || 'image/jpeg');
+      res.set('Cache-Control', 'public, max-age=3600');
+      res.set('Access-Control-Allow-Origin', '*');
+      console.log('[imageProxy] Streaming image to client');
+      stream.pipe(res);
+    }).on('error', (err) => {
+      console.log('[imageProxy] Error fetching from MinIO:', err.message);
+      next(err);
+    });
+  } catch (e) {
+    console.log('[imageProxy] Exception:', e.message);
+    next(e);
+  }
+}
+
 export {
   getVideoUploadUrl, uploadVideo, getImageUploadUrl, confirmVideoUpload,
-  confirmImageUpload, getPlayUrl, getTranscodeStatus, hlsProxy,
+  confirmImageUpload, getPlayUrl, getTranscodeStatus, hlsProxy, imageProxy,
 };

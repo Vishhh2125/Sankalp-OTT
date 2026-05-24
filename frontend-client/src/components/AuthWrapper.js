@@ -1,22 +1,26 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Linking } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 
 import AppNavigator from '../navigation/AppNavigator';
 import AuthNavigator from '../navigation/AuthNavigator';
+import DailyCheckinGate from './rewards/DailyCheckinGate';
 import SplashScreen from './SplashScreen';
 import { GuestAuthProvider } from '../context/GuestAuthContext';
 import { ROUTES } from '../constants/routes';
 import { initAuth } from '../redux/slices/authSlice';
 import { fetchPendingNotifications } from '../redux/slices/notificationSlice'; // NEW
 
-export default function AuthWrapper() {
+export default function AuthWrapper({ onDeepLink }) {
   const dispatch = useDispatch();
   const accessToken = useSelector((state) => state.auth.accessToken);
   const isInitializing = useSelector((state) => state.auth.isInitializing);
   const [guestMode, setGuestMode] = useState(false);
   const [authEntryRoute, setAuthEntryRoute] = useState(ROUTES.LOGIN);
 
-  React.useEffect(() => {
+  const coldStartHandled = useRef(false);
+
+  useEffect(() => {
     dispatch(initAuth());
   }, [dispatch]);
 
@@ -46,7 +50,11 @@ export default function AuthWrapper() {
   }
 
   if (accessToken) {
-    return <AppNavigator />;
+    return (
+      <DailyCheckinGate>
+        <AppNavigator />
+      </DailyCheckinGate>
+    );
   }
 
   if (guestMode) {

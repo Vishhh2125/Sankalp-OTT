@@ -59,6 +59,13 @@ function txMeta(item) {
       iconBg: 'rgba(255,45,85,0.15)',
     };
   }
+  if (item.reason === 'daily_checkin') {
+    return {
+      icon: 'gift',
+      iconColor: '#4CD964',
+      iconBg: 'rgba(76,217,100,0.15)',
+    };
+  }
   return {
     icon: isCredit ? 'add-circle' : 'remove-circle',
     iconColor: isCredit ? '#4CD964' : '#FF6B6B',

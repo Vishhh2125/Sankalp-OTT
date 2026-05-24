@@ -139,6 +139,7 @@ async function getShowById(id) {
   if (!show) throw new AppError('Show not found', 404);
   return {
     ...show,
+    thumbnail_url: show.thumbnail_url,
     category_name: show.category.name,
     tags: show.show_tags.map((st) => st.tag.name),
     tag_ids: show.show_tags.map((st) => st.tag.id),

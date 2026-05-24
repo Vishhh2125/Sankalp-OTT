@@ -32,4 +32,7 @@ router.get('/hls/:showId/:episodeId/*', ctrl.hlsProxy);
 // Playback URL
 router.get('/play/:episodeId', allowGuest, ctrl.getPlayUrl);
 
+// Image proxy — thumbnail/banner served through backend so mobile never hits MinIO directly
+router.get('/image/:showId/:type', ctrl.imageProxy);
+
 export default router;

@@ -3,6 +3,10 @@ import { prisma } from '../../prisma/client.js';
 import { requireAuth } from '../../middleware/auth.middleware.js';
 import { ApiResponse } from '../../utils/ApiResponse.js';
 import { unlockEpisodeForUser } from './episode-unlock.service.js';
+import {
+  getCheckinStatus,
+  claimDailyCheckin,
+} from './daily-checkin.service.js';
 
 const router = express.Router();
 
@@ -424,6 +428,41 @@ router.get('/wallet/transactions', requireAuth, async (req, res, next) => {
     return res.json(
       new ApiResponse(200, { items, total, limit, offset }, 'Transactions fetched')
     );
+  } catch (e) {
+    next(e);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────
+// DAILY CHECK-IN (7-day streak; rules from admin settings)
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/user/checkin
+ * Status: rules, streak_day, claimed_today, today_reward, coins
+ */
+router.get('/checkin', requireAuth, async (req, res, next) => {
+  try {
+    const data = await getCheckinStatus(req.user.id);
+    return res.json(new ApiResponse(200, data, 'Check-in status fetched'));
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * POST /api/user/checkin
+ * Claim today's daily reward
+ */
+router.post('/checkin', requireAuth, async (req, res, next) => {
+  try {
+    const result = await claimDailyCheckin(req.user.id);
+    if (!result.ok) {
+      return res
+        .status(result.status)
+        .json(new ApiResponse(result.status, null, result.message));
+    }
+    return res.json(new ApiResponse(200, result.data, result.message));
   } catch (e) {
     next(e);
   }

@@ -83,6 +83,11 @@ export default function ShortVideoReelItem({
   const isLocked = item.is_locked;
   const streamUrl = !isLocked && item.hls_url ? `${streamBase}${item.hls_url}` : null;
   
+  // Log streamUrl setup for debugging
+  useEffect(() => {
+    console.log(`📺 ShortVideoReelItem mounted - Episode: ${item.episode_num}, Locked: ${isLocked}, URL: ${streamUrl?.substring(0, 80)}...`);
+  }, [item.episode_num, isLocked, streamUrl]);
+  
   // Track if we've already seeked for this item to avoid multiple seeks
   const hasSeekRef = useRef(false);
 
@@ -112,15 +117,17 @@ export default function ShortVideoReelItem({
 
   // Wrap onLoad to seek to initialSeekSec after video metadata is loaded
   const wrappedOnLoad = useCallback((data) => {
+    console.log(`✅ Video loaded - Episode: ${item.episode_num}, Duration: ${data.duration}s`);
     originalOnLoad(data);
     
     // Seek to initial position immediately after metadata loads
     // Only seek once per item change to avoid state oscillation
     if (initialSeekSec > 0 && videoRef.current && !hasSeekRef.current) {
       hasSeekRef.current = true;
+      console.log(`⏩ Seeking to ${initialSeekSec}s`);
       videoRef.current.seek(initialSeekSec);
     }
-  }, [originalOnLoad, initialSeekSec]);
+  }, [originalOnLoad, initialSeekSec, item.episode_num]);
   
   useEffect(() => {
     hasSeekRef.current = false;
@@ -129,11 +136,12 @@ export default function ShortVideoReelItem({
 
   // Wrap onReadyForDisplay to call onFirstFrameReady callback
   const onReadyForDisplay = useCallback(() => {
+    console.log(`🎬 First frame ready - Episode: ${item.episode_num}`);
     originalOnReadyForDisplay();
     if (onFirstFrameReady) {
       onFirstFrameReady();
     }
-  }, [originalOnReadyForDisplay, onFirstFrameReady]);
+  }, [originalOnReadyForDisplay, onFirstFrameReady, item.episode_num]);
 
   // Bookmark press handler — passes full item data for optimistic local update in Redux
   const handleBookmarkPress = useCallback(() => {
@@ -267,6 +275,7 @@ export default function ShortVideoReelItem({
               onReadyForDisplay={onReadyForDisplay}
               onError={(e) => {
                 const msg = e?.error?.localizedDescription || e?.error?.code || 'Playback error';
+                console.log(`❌ Video error - Episode: ${item.episode_num}, Error: ${msg}`);
                 setVideoError(String(msg));
               }}
               allowsExternalPlayback={false}
@@ -291,6 +300,7 @@ export default function ShortVideoReelItem({
                 onReadyForDisplay={onReadyForDisplay}
                 onError={(e) => {
                   const msg = e?.error?.localizedDescription || e?.error?.code || 'Playback error';
+                  console.log(`❌ Video error - Episode: ${item.episode_num}, Error: ${msg}`);
                   setVideoError(String(msg));
                 }}
                 allowsExternalPlayback={false}

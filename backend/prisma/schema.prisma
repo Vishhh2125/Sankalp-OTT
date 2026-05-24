@@ -235,7 +235,7 @@ model WatchHistory {
   last_watched DateTime @default(now())
 
   user    User    @relation(fields: [user_id], references: [id])
-  episode Episode @relation(fields: [episode_id], references: [id])
+  episode Episode @relation(fields: [episode_id], references: [id], onDelete: Cascade)
 
   @@unique([user_id, episode_id], name: "idx_wh_user_ep")
   @@index([user_id, last_watched(sort: Desc)], name: "idx_wh_user_last")
@@ -250,7 +250,7 @@ model EpisodeAccess {
   unlocked_at DateTime @default(now())
 
   user    User    @relation(fields: [user_id], references: [id])
-  episode Episode @relation(fields: [episode_id], references: [id])
+  episode Episode @relation(fields: [episode_id], references: [id], onDelete: Cascade)
 
   @@unique([user_id, episode_id], name: "idx_ea_user_ep")
   @@map("episode_access")
@@ -349,7 +349,7 @@ model Bookmark {
 
   user    User    @relation(fields: [user_id], references: [id])
   show    Show    @relation(fields: [show_id], references: [id])
-  episode Episode? @relation(fields: [episode_id], references: [id])
+  episode Episode? @relation(fields: [episode_id], references: [id], onDelete: Cascade)
 
   @@unique([user_id, show_id], name: "idx_bm_user_show")
   @@map("bookmarks")

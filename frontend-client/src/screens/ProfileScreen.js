@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   ScrollView,
   StyleSheet,
@@ -16,6 +17,7 @@ import GuestAccessPrompt from '../components/GuestAccessPrompt';
 import { theme } from '../constants/theme';
 import { ROUTES } from '../constants/routes';
 import { useGuestAuth } from '../context/GuestAuthContext';
+import { fetchCheckinStatus } from '../components/rewards/dailyCheckinApi';
 import { logoutUser, clearLogoutError } from '../redux/slices/authSlice';
 
 const FEATURE_ICONS = [
@@ -27,7 +29,7 @@ const FEATURE_ICONS = [
 const MENU_ITEMS = [ 
   { icon: 'wallet-outline', label: 'Top Up', right: null },
   { icon: 'card-outline', label: 'My Wallet', right: null },
-  { icon: 'gift-outline', label: 'Earn Rewards', badge: '+70' },
+  { icon: 'gift-outline', label: 'Earn Rewards', badge: null },
   { icon: 'heart-outline', label: 'Gifts', right: null },
   { icon: 'time-outline', label: 'History', right: null },
 ];
@@ -119,6 +121,33 @@ export default function ProfileScreen({ navigation }) {
   const name = useSelector((state) => state.auth.name);
   const dispatch = useDispatch();
   const { logout: logoutState } = useSelector((state) => state.auth);
+  const [earnRewardsBadge, setEarnRewardsBadge] = useState(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!accessToken) {
+        setEarnRewardsBadge(null);
+        return;
+      }
+      let cancelled = false;
+      (async () => {
+        try {
+          const data = await fetchCheckinStatus(accessToken);
+          if (cancelled) return;
+          if (data && !data.claimed_today && data.today_reward > 0) {
+            setEarnRewardsBadge(`+${data.today_reward}`);
+          } else {
+            setEarnRewardsBadge(null);
+          }
+        } catch {
+          if (!cancelled) setEarnRewardsBadge(null);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [accessToken])
+  );
 
   useEffect(() => {
     if (logoutState.error && !logoutState.isLoading) {
@@ -145,9 +174,14 @@ export default function ProfileScreen({ navigation }) {
     navigation.navigate(ROUTES.TOP_UP);
   }
 
+  function goToEarnRewards() {
+    navigation.navigate(ROUTES.EARN_REWARDS);
+  }
+
   function handleMenuPress(label) {
     if (label === 'Top Up') goToTopUp();
     else if (label === 'My Wallet') goToMyWallet();
+    else if (label === 'Earn Rewards') goToEarnRewards();
   }
 
   function handleLogout() {
@@ -207,6 +241,9 @@ export default function ProfileScreen({ navigation }) {
           <MenuItem
             key={item.label}
             {...item}
+            badge={
+              item.label === 'Earn Rewards' ? earnRewardsBadge : item.badge
+            }
             onPress={() => handleMenuPress(item.label)}
           />
         ))}
