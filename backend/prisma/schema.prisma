@@ -298,11 +298,13 @@ model Banner {
   show_id       String?   @db.Uuid
   image_url     String    @db.VarChar(500)
   title         String?   @db.VarChar(255)
-  link_type     String    @default("show") @db.VarChar(20)
-  display_order Int       @default(0)
+  // `link_type` and `display_order` removed: banners always link to a show and are
+  // ordered by creation time (first uploaded first).
   is_active     Boolean   @default(true)
   starts_at     DateTime?
   ends_at       DateTime?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
 
   show Show? @relation(fields: [show_id], references: [id])
 
