@@ -18,6 +18,9 @@ router.post('/admin/send', requireAuth, requireAdmin(), controller.sendNotificat
 // Get notification statistics
 router.get('/admin/stats', requireAuth, requireAdmin(), controller.getNotificationStats);
 
+// Get all sent notifications
+router.get('/admin/sent', requireAuth, requireAdmin(), controller.getSentNotifications);
+
 // Get notification configuration
 router.get('/admin/config', requireAuth, requireAdmin(), controller.getNotificationConfig);
 

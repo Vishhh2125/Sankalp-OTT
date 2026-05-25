@@ -33,45 +33,11 @@ export async function sendNotification(notificationData, adminId) {
       title,
       body,
       type,
-      trigger,
-      drama_id,
       audience,
-      scheduledAt,
-      ctaLink,
-      priority,
-      showOncePerUser,
     } = notificationData;
 
     // Get target users based on audience
     const userFilter = getUserFilterByAudience(audience);
-
-    // Handle scheduled notifications differently
-    if (trigger === 'scheduled' && scheduledAt) {
-      // Store in a queue or scheduled notifications table for later processing
-      // For now, we'll create notifications with a future date
-      const users = await prisma.user.findMany(userFilter);
-
-      const notifications = users.map(user => ({
-        user_id: user.id,
-        title,
-        body,
-        type,
-        trigger: 'scheduled',
-        sent_at: new Date(scheduledAt),
-        read_at: null,
-      }));
-
-      const result = await prisma.notificationLog.createMany({
-        data: notifications,
-      });
-
-      logger.info(`Scheduled ${result.count} notifications for ${new Date(scheduledAt).toISOString()}`);
-      return {
-        status: 'scheduled',
-        count: result.count,
-        scheduledAt,
-      };
-    }
 
     // Get all target users
     const users = await prisma.user.findMany(userFilter);
@@ -80,22 +46,7 @@ export async function sendNotification(notificationData, adminId) {
       throw new ApiError(400, 'No users match the specified audience');
     }
 
-    // Check if user already received this notification (if showOncePerUser is true)
-    let userIds = users.map(u => u.id);
-
-    if (showOncePerUser && drama_id) {
-      const existingNotifications = await prisma.notificationLog.findMany({
-        where: {
-          user_id: { in: userIds },
-          type: 'drama',
-          // Additional check can be added for drama_id if we extend the schema
-        },
-        select: { user_id: true },
-      });
-
-      const usersWithNotif = new Set(existingNotifications.map(n => n.user_id));
-      userIds = userIds.filter(id => !usersWithNotif.has(id));
-    }
+    const userIds = users.map(u => u.id);
 
     // Create notifications for all target users
     const notificationData_bulk = userIds.map(userId => ({
@@ -103,7 +54,6 @@ export async function sendNotification(notificationData, adminId) {
       title,
       body,
       type,
-      trigger,
     }));
 
     const result = await prisma.notificationLog.createMany({
@@ -206,6 +156,54 @@ export async function getNotificationStats() {
   } catch (error) {
     logger.error('Error fetching notification stats:', error);
     throw new ApiError(500, 'Failed to fetch notification statistics');
+  }
+}
+
+export async function getAllSentNotifications(page = 1, limit = 50) {
+  try {
+    // Get unique notification broadcasts (grouped by title, type, sent_at)
+    const broadcasts = await prisma.notificationLog.groupBy({
+      by: ['title', 'type', 'sent_at'],
+      _count: {
+        id: true,
+      },
+      orderBy: {
+        sent_at: 'desc',
+      },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    // Get total count of unique broadcasts
+    const totalBroadcasts = await prisma.notificationLog.findMany({
+      distinct: ['title', 'type', 'sent_at'],
+      select: {
+        title: true,
+        type: true,
+        sent_at: true,
+      },
+    });
+
+    const total = totalBroadcasts.length;
+
+    return {
+      notifications: broadcasts.map(b => ({
+        id: `${b.title}-${b.type}-${b.sent_at.getTime()}`,
+        title: b.title,
+        type: b.type,
+        sent_at: b.sent_at,
+        recipients: b._count.id,
+      })),
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    };
+  } catch (error) {
+    logger.error('Error fetching sent notifications:', error);
+    throw new ApiError(500, 'Failed to fetch sent notifications');
   }
 }
 

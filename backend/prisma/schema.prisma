@@ -413,7 +413,6 @@ model NotificationLog {
   title   String    @db.VarChar(255)
   body    String    @db.Text
   type    String    @db.VarChar(20)
-  trigger String    @db.VarChar(30)
   is_read Boolean   @default(false)
   sent_at DateTime  @default(now())
   read_at DateTime?

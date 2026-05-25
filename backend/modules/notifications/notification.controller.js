@@ -34,6 +34,16 @@ export const getNotificationStats = asyncHandler(async (req, res) => {
   });
 });
 
+export const getSentNotifications = asyncHandler(async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 50;
+  const result = await service.getAllSentNotifications(page, limit);
+  res.json({
+    success: true,
+    data: result,
+  });
+});
+
 export const getNotificationConfig = asyncHandler(async (req, res) => {
   const config = await service.getNotificationConfig(req.admin.id);
   res.json({

@@ -4,16 +4,7 @@ export const sendNotificationSchema = Joi.object({
   title: Joi.string().max(255).required(),
   body: Joi.string().max(500).required(),
   type: Joi.string().valid('drama', 'membership', 'reward', 'reminder', 're-engage', 'custom').required(),
-  trigger: Joi.string().valid('on-login', 'real-time', 'scheduled').default('on-login'),
-  drama_id: Joi.string().uuid().optional(),
   audience: Joi.string().valid('all', 'free', 'paid', 'weekly-plan', 'monthly-plan', 'annual-plan').default('all'),
-  scheduledAt: Joi.date().iso().optional().when('trigger', {
-    is: 'scheduled',
-    then: Joi.required(),
-  }),
-  ctaLink: Joi.string().uri().optional(),
-  priority: Joi.string().valid('low', 'medium', 'high').default('medium'),
-  showOncePerUser: Joi.boolean().default(false),
 }).required();
 
 export const updateNotificationConfigSchema = Joi.object({
