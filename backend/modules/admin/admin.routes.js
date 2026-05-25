@@ -10,6 +10,11 @@ import {
   saveCoinRules,
   getCoinMetrics,
   getCoinTransactions,
+  getBanners,
+  createBanner,
+  updateBanner,
+  deleteBanner,
+  toggleBanner,
 } from './admin.controller.js';
 
 const router = express.Router();
@@ -47,5 +52,24 @@ router.get('/coins/metrics', getCoinMetrics);
 
 // GET coin transactions
 router.get('/coins/transactions', getCoinTransactions);
+
+// ─────────────────────────────────────────────────────────────────
+// BANNER MANAGEMENT ENDPOINTS
+// ─────────────────────────────────────────────────────────────────
+
+// GET all banners
+router.get('/banners', getBanners);
+
+// POST create banner
+router.post('/banners', createBanner);
+
+// PUT update banner
+router.put('/banners/:id', updateBanner);
+
+// DELETE banner
+router.delete('/banners/:id', deleteBanner);
+
+// PATCH toggle active status
+router.patch('/banners/:id/toggle', toggleBanner);
 
 export default router;

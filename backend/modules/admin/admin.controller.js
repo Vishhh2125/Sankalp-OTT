@@ -434,3 +434,200 @@ function getMethodFromReason(reason) {
   };
   return reasonMap[reason] || 'Other';
 }
+
+// ─────────────────────────────────────────────────────────────────
+// BANNER CRUD
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/v1/admin/banners
+ * Return all banners with linked show info
+ */
+export async function getBanners(req, res, next) {
+  try {
+    const banners = await prisma.banner.findMany({
+      orderBy: { created_at: 'desc' },
+      include: {
+        show: { select: { id: true, title: true, banner_url: true } },
+      },
+    });
+
+    const formatted = banners.map(b => ({
+      id: b.id,
+      title: b.title,
+      image_url: b.image_url,
+      show_id: b.show_id,
+      show_name: b.show?.title || null,
+      is_active: b.is_active,
+      starts_at: b.starts_at ? b.starts_at.toISOString().split('T')[0] : null,
+      ends_at: b.ends_at ? b.ends_at.toISOString().split('T')[0] : null,
+      created_at: b.created_at,
+    }));
+
+    return res.json(new ApiResponse(200, { banners: formatted }, 'Banners fetched successfully'));
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * POST /api/v1/admin/banners
+ * Create a new banner — image_url is taken from the linked show's banner_url
+ * Body: { title, show_id, is_active, starts_at, ends_at }
+ */
+export async function createBanner(req, res, next) {
+  try {
+    const { title, show_id, is_active = true, starts_at, ends_at } = req.body;
+
+    if (!title || !title.trim()) {
+      throw new AppError('Title is required', 400);
+    }
+
+    // Derive image_url from the linked show's banner_url
+    let image_url = '';
+    let show = null;
+    if (show_id) {
+      show = await prisma.show.findUnique({
+        where: { id: show_id },
+        select: { id: true, title: true, banner_url: true },
+      });
+      if (!show) throw new AppError('Linked show not found', 404);
+      if (!show.banner_url) throw new AppError('The selected show has no banner image uploaded yet', 400);
+      image_url = show.banner_url;
+    } else {
+      throw new AppError('A linked show is required to create a banner', 400);
+    }
+
+    const banner = await prisma.banner.create({
+      data: {
+        title: title.trim(),
+        show_id,
+        image_url,
+        is_active: Boolean(is_active),
+        starts_at: starts_at ? new Date(starts_at) : null,
+        ends_at: ends_at ? new Date(ends_at) : null,
+      },
+    });
+
+    await prisma.adminActivityLog.create({
+      data: {
+        user_id: req.user.id,
+        action: 'BANNER_CREATED',
+        entity_type: 'BANNER',
+        entity_id: banner.id,
+        details: JSON.stringify({ title: banner.title }),
+      },
+    }).catch(() => {}); // non-fatal
+
+    return res.status(201).json(
+      new ApiResponse(201, {
+        id: banner.id,
+        title: banner.title,
+        image_url: banner.image_url,
+        show_id: banner.show_id,
+        show_name: show?.title || null,
+        is_active: banner.is_active,
+        starts_at: banner.starts_at ? banner.starts_at.toISOString().split('T')[0] : null,
+        ends_at: banner.ends_at ? banner.ends_at.toISOString().split('T')[0] : null,
+      }, 'Banner created successfully')
+    );
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * PUT /api/v1/admin/banners/:id
+ * Update a banner
+ */
+export async function updateBanner(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { title, show_id, is_active, starts_at, ends_at } = req.body;
+
+    const existing = await prisma.banner.findUnique({ where: { id } });
+    if (!existing) throw new AppError('Banner not found', 404);
+
+    // Re-derive image_url if show changed
+    let image_url = existing.image_url;
+    let show = null;
+    const resolvedShowId = show_id !== undefined ? show_id : existing.show_id;
+
+    if (resolvedShowId) {
+      show = await prisma.show.findUnique({
+        where: { id: resolvedShowId },
+        select: { id: true, title: true, banner_url: true },
+      });
+      if (!show) throw new AppError('Linked show not found', 404);
+      if (show.banner_url) image_url = show.banner_url;
+    }
+
+    const updated = await prisma.banner.update({
+      where: { id },
+      data: {
+        title: title?.trim() ?? existing.title,
+        show_id: resolvedShowId,
+        image_url,
+        is_active: is_active !== undefined ? Boolean(is_active) : existing.is_active,
+        starts_at: starts_at !== undefined ? (starts_at ? new Date(starts_at) : null) : existing.starts_at,
+        ends_at: ends_at !== undefined ? (ends_at ? new Date(ends_at) : null) : existing.ends_at,
+      },
+      include: { show: { select: { id: true, title: true } } },
+    });
+
+    return res.json(
+      new ApiResponse(200, {
+        id: updated.id,
+        title: updated.title,
+        image_url: updated.image_url,
+        show_id: updated.show_id,
+        show_name: updated.show?.title || null,
+        is_active: updated.is_active,
+        starts_at: updated.starts_at ? updated.starts_at.toISOString().split('T')[0] : null,
+        ends_at: updated.ends_at ? updated.ends_at.toISOString().split('T')[0] : null,
+      }, 'Banner updated successfully')
+    );
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * DELETE /api/v1/admin/banners/:id
+ */
+export async function deleteBanner(req, res, next) {
+  try {
+    const { id } = req.params;
+    const existing = await prisma.banner.findUnique({ where: { id } });
+    if (!existing) throw new AppError('Banner not found', 404);
+
+    await prisma.banner.delete({ where: { id } });
+
+    return res.json(new ApiResponse(200, { id }, 'Banner deleted successfully'));
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * PATCH /api/v1/admin/banners/:id/toggle
+ * Toggle is_active
+ */
+export async function toggleBanner(req, res, next) {
+  try {
+    const { id } = req.params;
+    const existing = await prisma.banner.findUnique({ where: { id } });
+    if (!existing) throw new AppError('Banner not found', 404);
+
+    const updated = await prisma.banner.update({
+      where: { id },
+      data: { is_active: !existing.is_active },
+    });
+
+    return res.json(
+      new ApiResponse(200, { id: updated.id, is_active: updated.is_active }, 'Banner status toggled')
+    );
+  } catch (error) {
+    next(error);
+  }
+}

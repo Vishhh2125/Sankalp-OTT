@@ -272,3 +272,12 @@ export const coinsApi = {
   getMetrics: () => api.get('/v1/admin/coins/metrics'),
   getTransactions: (params) => api.get('/v1/admin/coins/transactions', { params }),
 };
+
+// ── Banners ──
+export const bannersApi = {
+  getAll: () => api.get('/v1/admin/banners'),
+  create: (data) => api.post('/v1/admin/banners', data),
+  update: (id, data) => api.put(`/v1/admin/banners/${id}`, data),
+  delete: (id) => api.delete(`/v1/admin/banners/${id}`),
+  toggle: (id) => api.patch(`/v1/admin/banners/${id}/toggle`),
+};
