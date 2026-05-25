@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Search, Eye, Coins, Ban, UserCheck, Download, AlertCircle } from 'lucide-react'
+import { Search, Eye, Coins, Download, AlertCircle } from 'lucide-react'
 import Modal, { ModalSection, FormGroup } from '../components/ui/Modal.jsx'
 import { ConfirmDialog } from '../components/ui/Controls.jsx'
 import { usersApi } from '../services/api.js'
+import * as XLSX from 'xlsx'
 
 const roleBadge = { free:'badge-amber', member:'badge-purple', admin:'badge-red', sub_admin:'badge-blue', user:'badge-gray' }
 
@@ -30,7 +31,7 @@ function UserProfileModal({ open, onClose, user }) {
   }
 
   if (!user || !open) return null
-  const tabs = ['profile','subscription','watch','wallet','activity']
+  const tabs = ['profile','subscription','watch','wallet']
   const displayUser = profileData || user
   
   return (
@@ -163,22 +164,7 @@ function UserProfileModal({ open, onClose, user }) {
         </div>
       )}
 
-      {tab==='activity' && (
-        <div>
-          {loading ? (
-            <div style={{ textAlign:'center', padding:'30px', color:'var(--text3)' }}>Loading...</div>
-          ) : profileData?.coin_transactions && profileData.coin_transactions.length > 0 ? (
-            profileData.coin_transactions.map((a,i) => (
-              <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'9px 0', borderBottom:'1px solid var(--border)' }}>
-                <div style={{ fontSize:13 }}>Coin {a.type === 'credit' ? 'credited' : 'debited'} - {a.reason || 'N/A'}</div>
-                <span style={{ fontSize:12, color:'var(--text3)' }}>{new Date(a.created_at).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' })}</span>
-              </div>
-            ))
-          ) : (
-            <div style={{ color:'var(--text3)', fontSize:13, textAlign:'center', padding:'30px 0' }}>No activity logged</div>
-          )}
-        </div>
-      )}
+
     </Modal>
   )
 }
@@ -248,20 +234,9 @@ export default function Users() {
 
   const filtered = users.filter(u => {
     const m = u.name.toLowerCase().includes(q.toLowerCase()) || u.email.toLowerCase().includes(q.toLowerCase()) || u.id.toLowerCase().includes(q.toLowerCase())
-    const f = filter==='All' || (filter==='Blocked'?u.status==='Blocked':filter==='Member'?u.role==='member':filter==='Free'?u.role==='free':filter==='Admin'?(u.role==='admin'||u.role==='sub_admin'):true)
+    const f = filter==='All' || (filter==='Member'?u.plan==='MEMBER':filter==='Free'?u.plan!=='MEMBER':filter==='Admin'?(u.role==='admin'||u.role==='sub_admin'):true)
     return m && f
   })
-
-  const toggleBlock = async (id, currentStatus) => {
-    try {
-      await usersApi.toggleStatus(id)
-      // Update local state
-      setUsers(p => p.map(u => u.id===id ? {...u, status:currentStatus==='Blocked'?'Active':'Blocked'} : u))
-    } catch (err) {
-      alert('Failed to update user status')
-      console.error(err)
-    }
-  }
 
   const adjustCoins = async (id, delta) => {
     try {
@@ -277,6 +252,37 @@ export default function Users() {
   }
 
   const open = (m, u=null) => { setModal(m); setSelected(u) }
+
+  const exportToExcel = () => {
+    if (filtered.length === 0) {
+      alert('No users to export')
+      return
+    }
+
+    // Prepare data for export
+    const exportData = filtered.map(u => ({
+      'User ID': u.id,
+      'Name': u.name,
+      'Email': u.email,
+      'Role': u.role,
+      'User Type': u.plan === 'MEMBER' ? 'Member' : 'Free',
+      'Subscription': u.subscription || '—',
+      'Coins': u.coins,
+      'Joined': u.joined,
+      'Status': u.status,
+    }))
+
+    // Create workbook and worksheet
+    const worksheet = XLSX.utils.json_to_sheet(exportData)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Users')
+
+    // Generate filename with timestamp
+    const filename = `users_export_${new Date().toISOString().split('T')[0]}.xlsx`
+
+    // Write the file
+    XLSX.writeFile(workbook, filename)
+  }
 
   return (
     <div className="page-enter">
@@ -298,20 +304,19 @@ export default function Users() {
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
         <div>
           <div style={{ fontWeight:600 }}>{users.length} registered users</div>
-          <div style={{ fontSize:12, color:'var(--text3)' }}>{users.filter(u=>u.status==='Active').length} active · {users.filter(u=>u.role==='member').length} members</div>
+          <div style={{ fontSize:12, color:'var(--text3)' }}>{users.filter(u=>u.status==='Active').length} active · {users.filter(u=>u.plan==='MEMBER').length} members</div>
         </div>
         <div style={{ display:'flex', gap:8 }}>
-          <button className="btn btn-ghost"><Download size={13}/> Export CSV</button>
-          <button className="btn btn-primary">+ Invite user</button>
+          <button className="btn btn-ghost" onClick={exportToExcel}><Download size={13}/> Export Excel</button>
         </div>
       </div>
 
       <div className="search-row">
         <div className="search-wrap">
           <Search size={14} className="search-icon"/>
-          <input className="input" style={{ paddingLeft:32 }} placeholder="Search by name, email, ID, mobile…" value={q} onChange={e=>setQ(e.target.value)}/>
+          <input className="input" style={{ paddingLeft:32 }} placeholder="Search by name" value={q} onChange={e=>setQ(e.target.value)}/>
         </div>
-        {['All','Free','Member','Admin','Blocked'].map(f => (
+        {['All','Free','Member','Admin'].map(f => (
           <button key={f} className={`btn ${filter===f?'btn-primary':'btn-ghost'} btn-sm`} onClick={() => setFilter(f)}>{f}</button>
         ))}
       </div>
@@ -320,7 +325,7 @@ export default function Users() {
         <div className="table-wrap">
           <table>
             <thead>
-              <tr><th>User</th><th>Email</th><th>Role</th><th>Subscription</th><th>Coins</th><th>Joined</th><th>Status</th><th>Actions</th></tr>
+              <tr><th>User</th><th>Email</th><th>Role</th><th>User Type</th><th>Subscription</th><th>Coins</th><th>Joined</th><th>Status</th><th>Actions</th></tr>
             </thead>
             <tbody>
               {filtered.map(u => (
@@ -333,7 +338,8 @@ export default function Users() {
                   </td>
                   <td style={{ color:'var(--text2)' }}>{u.email}</td>
                   <td><span className={`badge ${roleBadge[u.role]}`}>{u.role}</span></td>
-                  <td style={{ fontSize:11, color:'var(--text3)' }}>{u.subExpiry}</td>
+                  <td><span className={`badge ${u.plan==='MEMBER'?'badge-purple':'badge-amber'}`}>{u.plan==='MEMBER'?'Member':'Free'}</span></td>
+                  <td style={{ fontSize:11, color:'var(--text3)' }}>{u.subscription}</td>
                   <td><span className="coin-pill">₵ {u.coins.toLocaleString()}</span></td>
                   <td style={{ color:'var(--text3)', fontSize:12 }}>{u.joined}</td>
                   <td><span className={`badge ${u.status==='Active'?'badge-green':'badge-red'}`}>{u.status}</span></td>
@@ -341,9 +347,6 @@ export default function Users() {
                     <div style={{ display:'flex', gap:5 }}>
                       <button className="btn btn-ghost btn-sm" onClick={() => open('profile', u)}><Eye size={11}/> View</button>
                       <button className="btn btn-ghost btn-sm" onClick={() => open('coins', u)}><Coins size={11}/> Coins</button>
-                      <button className={`btn btn-sm ${u.status==='Blocked'?'btn-primary':'btn-danger'}`} onClick={() => toggleBlock(u.id, u.status)}>
-                        {u.status==='Blocked'?<><UserCheck size={11}/> Unblock</>:<><Ban size={11}/> Block</>}
-                      </button>
                     </div>
                   </td>
                 </tr>

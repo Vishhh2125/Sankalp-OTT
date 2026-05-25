@@ -35,7 +35,7 @@ export async function getAllUsers(req, res, next) {
       name: u.name,
       email: u.email,
       role: u.role === 'USER' ? 'user' : u.role === 'ADMIN' ? 'admin' : 'sub_admin',
-      plan: u.plan ? (u.plan === 'MEMBER' ? 'member' : 'free') : 'free',
+      plan: u.plan || 'FREE',
       coins: u.coins || 0,
       joined: new Date(u.createdAt).toLocaleDateString('en-US', {
         year: 'numeric',
