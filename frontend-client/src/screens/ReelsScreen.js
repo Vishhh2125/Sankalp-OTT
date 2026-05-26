@@ -18,17 +18,8 @@ import { useNavigation, useIsFocused, useFocusEffect } from '@react-navigation/n
 import { useDispatch, useSelector } from 'react-redux';
 
 import DramaDetailsSheetConnected from '../components/DramaDetailsSheetConnected';
-import DramaBannerPopup from '../components/home/DramaBannerPopup';
-import HomeAnnouncementBar from '../components/home/HomeAnnouncementBar';
-import { fetchHomeBanners } from '../components/home/homePromoApi';
-import { useHomeAnnouncements } from '../hooks/useHomeAnnouncements';
-import {
-  filterUnseenBanners,
-  getSeenBannerIds,
-  markBannerIdsSeen,
-} from '../components/home/homePromoStorage';
-import { triggerAnnouncementRefresh } from '../components/home/homePromoRefresh';
 import { ROUTES } from '../constants/routes';
+import { clearPendingHomeBanner } from '../redux/slices/promoFlowSlice';
 import { API_BASE_URL } from '../constants/config';
 import { initShowPlayer } from '../redux/slices/showPlayerSlice';
 import {
@@ -38,6 +29,10 @@ import {
   setHomeDramaSheetSession,
   setHomeReopenSheetAfterPlayer,
 } from '../redux/slices/reelsSlice';
+
+function selectPendingHomeBanner(state) {
+  return state.promoFlow?.pendingHomeBanner;
+}
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COLUMN_WIDTH = (SCREEN_WIDTH - 32) / 3;
@@ -94,74 +89,10 @@ export default function PopularScreen() {
   const homeSession = useSelector(selectHomeDramaSheetSession);
   const reopenHomeSheet = useSelector(selectHomeReopenSheetAfterPlayer);
   const [dramaSheetKey, setDramaSheetKey] = useState(0);
-  const [homeBanners, setHomeBanners] = useState([]);
-  const [bannerPopupVisible, setBannerPopupVisible] = useState(false);
-  const { unseenAnnouncements, dismissAnnouncements } = useHomeAnnouncements();
-
-  const tryShowUnseenBanners = useCallback(async () => {
-    try {
-      const [bannerList, seenIds] = await Promise.all([
-        fetchHomeBanners(),
-        getSeenBannerIds(),
-      ]);
-      const unseen = filterUnseenBanners(bannerList.slice(0, 3), seenIds);
-      setHomeBanners(unseen);
-      if (unseen.length > 0) {
-        setBannerPopupVisible(true);
-      }
-      return unseen;
-    } catch (e) {
-      console.error('Home banners load error:', e);
-      setHomeBanners([]);
-      return [];
-    }
-  }, []);
-
-  // Show banner popup once per new admin banner (not seen before)
-  useFocusEffect(
-    useCallback(() => {
-      let cancelled = false;
-      const timer = setTimeout(() => {
-        if (!cancelled) {
-          tryShowUnseenBanners();
-          triggerAnnouncementRefresh();
-        }
-      }, 900);
-      return () => {
-        cancelled = true;
-        clearTimeout(timer);
-      };
-    }, [tryShowUnseenBanners])
-  );
+  const pendingHomeBanner = useSelector(selectPendingHomeBanner);
 
   const goToEarnRewards = () => {
     navigation.navigate(ROUTES.PROFILE, { screen: ROUTES.EARN_REWARDS });
-  };
-
-  const markCurrentBannersSeen = async () => {
-    const ids = homeBanners.map((b) => b.id).filter(Boolean);
-    if (ids.length) await markBannerIdsSeen(ids);
-  };
-
-  const closeBannerPopup = async () => {
-    await markCurrentBannersSeen();
-    setBannerPopupVisible(false);
-    setHomeBanners([]);
-  };
-
-  const handleBannerStartWatching = async (banner) => {
-    const ids = homeBanners.map((b) => b.id).filter(Boolean);
-    if (ids.length) await markBannerIdsSeen(ids);
-    setBannerPopupVisible(false);
-    setHomeBanners([]);
-    if (!banner?.show_id) return;
-    openDetails({
-      id: banner.show_id,
-      title: banner.show_title || banner.title,
-      thumbnail_url: banner.show_thumbnail_url || banner.image_url,
-      category_name: '',
-      view_count: 0,
-    });
   };
 
   // 1. Load Categories
@@ -263,21 +194,37 @@ export default function PopularScreen() {
     }
   };
 
-  const openDetails = (item, initialTab = 'synopsis') => {
-    setDramaSheetKey((k) => k + 1);
-    const selectedItem = {
-      ...item,
-      show_id: item.id,
-      show_title: item.title,
-      episode_num: 1,
-      total_episodes: item.episode_count || 0,
-    };
-    setSelected(selectedItem);
-    setSheetInitialTab(initialTab);
-    setSheetVisible(true);
-    dispatch(setHomeDramaSheetSession({ selectedItem, initialTab }));
-    fetchShowDetails(item.id, 1);
-  };
+  const openDetails = useCallback(
+    (item, initialTab = 'synopsis') => {
+      setDramaSheetKey((k) => k + 1);
+      const showId = item.id ?? item.show_id;
+      const selectedItem = {
+        ...item,
+        show_id: showId,
+        show_title: item.title,
+        episode_num: 1,
+        total_episodes: item.episode_count || 0,
+      };
+      setSelected(selectedItem);
+      setSheetInitialTab(initialTab);
+      setSheetVisible(true);
+      dispatch(setHomeDramaSheetSession({ selectedItem, initialTab }));
+      fetchShowDetails(showId, 1);
+    },
+    [dispatch, accessToken]
+  );
+
+  useEffect(() => {
+    if (!pendingHomeBanner || !isFocused) return;
+    openDetails({
+      id: pendingHomeBanner.id,
+      title: pendingHomeBanner.title,
+      thumbnail_url: pendingHomeBanner.thumbnail_url,
+      category_name: '',
+      view_count: 0,
+    });
+    dispatch(clearPendingHomeBanner());
+  }, [pendingHomeBanner, isFocused, openDetails, dispatch]);
 
   const handleRangeChange = (fromEp) => {
     if (!selected?.show_id) return;
@@ -324,42 +271,31 @@ export default function PopularScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="light-content" />
 
-      <View style={styles.headerArea}>
-        <View style={styles.header}>
-          <View style={styles.searchBar}>
-            <Ionicons name="search" size={18} color="#666" style={{ marginRight: 8 }} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search dramas..."
-              placeholderTextColor="#666"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Ionicons name="close-circle" size={18} color="#666" />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          <View style={styles.headerIcons}>
-            <TouchableOpacity onPress={() => navigation.navigate(ROUTES.PROFILE, { screen: ROUTES.MEMBERSHIP })}>
-              <FontAwesome6 name="crown" size={22} color="#FFD700" />
+      <View style={styles.header}>
+        <View style={styles.searchBar}>
+          <Ionicons name="search" size={18} color="#666" style={{ marginRight: 8 }} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search dramas..."
+            placeholderTextColor="#666"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={18} color="#666" />
             </TouchableOpacity>
-            <TouchableOpacity onPress={goToEarnRewards} hitSlop={8}>
-              <Ionicons name="gift" size={24} color="#FFD700" />
-            </TouchableOpacity>
-          </View>
+          )}
         </View>
 
-        {unseenAnnouncements.length > 0 ? (
-          <View style={styles.announcementOverlay} pointerEvents="box-none">
-            <HomeAnnouncementBar
-              announcements={unseenAnnouncements}
-              onDismiss={dismissAnnouncements}
-            />
-          </View>
-        ) : null}
+        <View style={styles.headerIcons}>
+          <TouchableOpacity onPress={() => navigation.navigate(ROUTES.PROFILE, { screen: ROUTES.MEMBERSHIP })}>
+            <FontAwesome6 name="crown" size={22} color="#FFD700" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={goToEarnRewards} hitSlop={8}>
+            <Ionicons name="gift" size={24} color="#FFD700" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.tabContainer}>
@@ -393,13 +329,6 @@ export default function PopularScreen() {
         />
       )}
 
-      <DramaBannerPopup
-        visible={bannerPopupVisible && isFocused}
-        banners={homeBanners}
-        onClose={closeBannerPopup}
-        onStartWatching={handleBannerStartWatching}
-      />
-
       <DramaDetailsSheetConnected
         key={`drama-${dramaSheetKey}-${selected?.show_id ?? 'none'}`}
         visible={isFocused && sheetVisible}
@@ -418,22 +347,7 @@ export default function PopularScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
-  headerArea: {
-    position: 'relative',
-    zIndex: 100,
-    elevation: 100,
-  },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 12 },
-  announcementOverlay: {
-    position: 'absolute',
-    left: 12,
-    right: 12,
-    top: 4,
-    bottom: 4,
-    zIndex: 1000,
-    elevation: 24,
-    justifyContent: 'center',
-  },
   searchBar: { flex: 1, height: 40, backgroundColor: '#1A1A1A', borderRadius: 20, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 },
   searchInput: { flex: 1, color: '#FFF', fontSize: 14, height: '100%', padding: 0 },
   headerIcons: { flexDirection: 'row', alignItems: 'center', gap: 15 },
