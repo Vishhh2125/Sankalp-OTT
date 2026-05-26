@@ -30,8 +30,6 @@ const MENU_ITEMS = [
   { icon: 'wallet-outline', label: 'Top Up', right: null },
   { icon: 'card-outline', label: 'My Wallet', right: null },
   { icon: 'gift-outline', label: 'Earn Rewards', badge: null },
-  { icon: 'heart-outline', label: 'Gifts', right: null },
-  { icon: 'time-outline', label: 'History', right: null },
 ];
 
 const SETTINGS_ITEMS = [
@@ -185,7 +183,18 @@ export default function ProfileScreen({ navigation }) {
   }
 
   function handleLogout() {
-    dispatch(logoutUser());
+    Alert.alert(
+      'Log out',
+      'Are you sure you want to log out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Log out',
+          style: 'destructive',
+          onPress: () => dispatch(logoutUser()),
+        },
+      ]
+    );
   }
 
   return (

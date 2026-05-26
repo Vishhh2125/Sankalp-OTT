@@ -3,8 +3,10 @@ version: '3.8'
 # ─────────────────────────────────────────────
 # Global log rotation applied to every service
 # max-size: rotate when a single log file hits 10 MB
-# max-file: keep only the last 5 rotated files (= 50 MB max per service)
+# max-file: keep only the last 5 rotated files
+# (= 50 MB max per service)
 # ─────────────────────────────────────────────
+
 x-logging: &default-logging
   driver: "json-file"
   options:
@@ -16,33 +18,48 @@ services:
   nginx:
     image: nginx:alpine
     container_name: ott-nginx
+
     ports:
       - "8080:80"
+
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+
     depends_on:
       - admin
       - backend
+
     restart: unless-stopped
     logging: *default-logging
 
   admin:
     build: ./frontend-admin
     container_name: ott-admin
+
     restart: unless-stopped
     logging: *default-logging
 
   backend:
     build: ./backend
     container_name: ott-backend
-    command: ["sh", "-c", "npx prisma generate && node --watch server.js"]
+
+    command:
+      [
+        "sh",
+        "-c",
+        "npx prisma generate && node --watch server.js"
+      ]
+
     volumes:
       - ./backend:/app
       - /app/node_modules
+
     ports:
       - "3000:3000"
+
     env_file:
       - ./backend/.env.docker
+
     environment:
       - PORT=3000
       - NODE_ENV=development
@@ -53,21 +70,27 @@ services:
       - MINIO_SECRET_KEY=minioadmin123
       - MINIO_BUCKET=ott-media
       - MINIO_USE_SSL=false
-      - MINIO_PUBLIC_HOST=http://192.168.1.15:9000
-      - SERVER_ORIGIN=http://192.168.1.15:8080
+      - MINIO_PUBLIC_HOST=http://${LOCAL_IP}:9000
+      - SERVER_ORIGIN=http://${LOCAL_IP}:8080
+
     depends_on:
       - postgres
       - redis
       - minio
+
     restart: unless-stopped
     logging: *default-logging
 
   worker:
     build: ./backend
     container_name: ott-worker
-    command: ["node", "workers/transcode.worker.js"]
+
+    command:
+      ["node", "workers/transcode.worker.js"]
+
     env_file:
       - ./backend/.env.docker
+
     environment:
       - NODE_ENV=development
       - DATABASE_URL=postgresql://ottdev:ottdev123@postgres:5432/ott_dev
@@ -78,65 +101,84 @@ services:
       - MINIO_SECRET_KEY=minioadmin123
       - MINIO_BUCKET=ott-media
       - MINIO_USE_SSL=false
-      - MINIO_PUBLIC_HOST=http://192.168.1.15:9000
-      - SERVER_ORIGIN=http://192.168.1.15:8080
+      - MINIO_PUBLIC_HOST=http://${LOCAL_IP}:9000
+      - SERVER_ORIGIN=http://${LOCAL_IP}:8080
+
     depends_on:
       - postgres
       - redis
       - minio
+
     restart: unless-stopped
     logging: *default-logging
 
   postgres:
     image: postgres:16-alpine
     container_name: ott-postgres
+
     ports:
       - "5432:5432"
+
     environment:
       POSTGRES_USER: ottdev
       POSTGRES_PASSWORD: ottdev123
       POSTGRES_DB: ott_dev
+
     volumes:
       - pg_data:/var/lib/postgresql/data
+
     restart: unless-stopped
     logging: *default-logging
 
   redis:
     image: redis:7-alpine
     container_name: ott-redis
+
     command: redis-server --maxmemory 1gb --maxmemory-policy noeviction
+
     volumes:
       - redis_data:/data
+
     restart: unless-stopped
     logging: *default-logging
 
   minio:
     image: minio/minio:latest
     container_name: ott-minio
+
     command: server /data --console-address ':9001'
+
     ports:
       - "9000:9000"
       - "9001:9001"
+
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin123
-      MINIO_API_CORS_ALLOW_ORIGIN: "http://192.168.1.15,http://192.168.1.15:8080,http://localhost,http://localhost:80,http://localhost:8080"
+      MINIO_API_CORS_ALLOW_ORIGIN: "http://${LOCAL_IP},http://localhost,http://localhost:80,http://localhost:8080"
+
     volumes:
       - minio_data:/data
+
     restart: unless-stopped
     logging: *default-logging
 
   prisma-studio:
     build: ./backend
     container_name: ott-prisma-studio
+
     command: npx prisma studio --port 5555 --browser none --hostname 0.0.0.0
+
     ports:
       - "5555:5555"
+
     environment:
       - DATABASE_URL=postgresql://ottdev:ottdev123@postgres:5432/ott_dev
       - NODE_ENV=development
+
     depends_on:
       - postgres
+
     restart: unless-stopped
     logging: *default-logging
 

@@ -39,6 +39,10 @@ router.post('/episodes', devAdmin('Dramas'), validate(createEpisodeSchema), ctrl
 router.put('/episodes/:id', devAdmin('Dramas'), validate(updateEpisodeSchema), ctrl.updateEpisode);
 router.delete('/episodes/:id', devAdmin('Dramas'), ctrl.deleteEpisode);
 
+// ── Home (mobile app — public) ──
+router.get('/home/banners', ctrl.getHomeBanners);
+router.get('/home/announcements', ctrl.getHomeAnnouncements);
+
 export default router;
 
 /* After access

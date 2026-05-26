@@ -20,7 +20,6 @@ const TAB_ICONS = {
 };
 
 export default function BottomTabNavigator() {
-  // Get the bottom safe area inset (home indicator / gesture bar height)
   const insets = useSafeAreaInsets();
 
   return (
@@ -34,7 +33,6 @@ export default function BottomTabNavigator() {
           backgroundColor: theme.surface,
           borderTopColor: theme.border,
           borderTopWidth: 1,
-          // Fixed inner height + device's safe area bottom inset
           height: 60 + insets.bottom,
           paddingBottom: insets.bottom + 6,
           paddingTop: 8,

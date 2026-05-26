@@ -75,9 +75,29 @@ async function deleteEpisode(req, res, next) {
   try { res.json(await service.deleteEpisode(req.params.id)); } catch (e) { next(e); }
 }
 
+// ── Home promotions (mobile) ──
+async function getHomeBanners(req, res, next) {
+  try {
+    const banners = await service.getActiveHomeBanners(3);
+    res.json({ banners });
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function getHomeAnnouncements(req, res, next) {
+  try {
+    const announcements = await service.getLatestAnnouncements(3);
+    res.json({ announcements });
+  } catch (e) {
+    next(e);
+  }
+}
+
 export {
   getCategories, createCategory, updateCategory, deleteCategory,
   getTags, createTag, updateTag, deleteTag,
   getShows, getShow, createShow, updateShow, deleteShow, togglePublish, updateFeedPosition,
   getEpisodes, createEpisode, updateEpisode, deleteEpisode,
+  getHomeBanners, getHomeAnnouncements,
 };

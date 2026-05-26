@@ -396,9 +396,103 @@ async function deleteEpisode(id) {
   return { deleted: true };
 }
 
+// ═══════════════════════════════════════
+// HOME PROMOTIONS (mobile app)
+// ═══════════════════════════════════════
+
+const NOTIFICATION_EMOJI = {
+  drama: '🎬',
+  membership: '👑',
+  reward: '🎁',
+  reminder: '⏰',
+  're-engage': '📞',
+  custom: '📬',
+};
+
+function emojiForNotificationType(type) {
+  return NOTIFICATION_EMOJI[String(type || '').toLowerCase()] || '📬';
+}
+
+/**
+ * Up to 3 most recent active homepage banners (admin toggle + optional date window).
+ */
+async function getActiveHomeBanners(limit = 3) {
+  const now = new Date();
+  const banners = await prisma.banner.findMany({
+    where: {
+      is_active: true,
+      show_id: { not: null },
+      AND: [
+        { OR: [{ starts_at: null }, { starts_at: { lte: now } }] },
+        { OR: [{ ends_at: null }, { ends_at: { gte: now } }] },
+      ],
+    },
+    orderBy: { created_at: 'desc' },
+    take: limit,
+    include: {
+      show: {
+        select: {
+          id: true,
+          title: true,
+          thumbnail_url: true,
+          banner_url: true,
+          synopsis: true,
+        },
+      },
+    },
+  });
+
+  return banners.map((b) => ({
+    id: b.id,
+    title: b.title,
+    image_url: b.image_url,
+    show_id: b.show_id,
+    show_title: b.show?.title || b.title,
+    show_thumbnail_url: b.show?.thumbnail_url || null,
+    show_synopsis: b.show?.synopsis || null,
+  }));
+}
+
+/**
+ * Up to 3 most recent admin broadcast notifications (deduped by title+body+type).
+ */
+async function getLatestAnnouncements(limit = 3) {
+  const rows = await prisma.notificationLog.findMany({
+    orderBy: { sent_at: 'desc' },
+    take: 150,
+    select: {
+      title: true,
+      body: true,
+      type: true,
+      sent_at: true,
+    },
+  });
+
+  const seen = new Set();
+  const announcements = [];
+
+  for (const row of rows) {
+    const key = `${row.title}::${row.body}::${row.type}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    announcements.push({
+      id: `ann_${row.sent_at.getTime()}_${row.type}`,
+      title: row.title,
+      body: row.body,
+      type: row.type,
+      emoji: emojiForNotificationType(row.type),
+      sent_at: row.sent_at,
+    });
+    if (announcements.length >= limit) break;
+  }
+
+  return announcements;
+}
+
 export {
   getAllCategories, getCategoryById, createCategory, updateCategory, deleteCategory,
   getAllTags, createTag, updateTag, deleteTag,
   getAllShows, getShowById, createShow, updateShow, deleteShow, toggleShowPublish, updateFeedPosition,
   getEpisodesByShow, createEpisode, updateEpisode, deleteEpisode,
+  getActiveHomeBanners, getLatestAnnouncements,
 };
