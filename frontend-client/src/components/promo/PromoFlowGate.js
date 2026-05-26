@@ -13,7 +13,6 @@ import {
 import {
   wasCheckinPopupDismissedToday,
   markCheckinPopupDismissedToday,
-  clearCheckinPopupDismissed,
 } from '../rewards/dailyCheckinStorage';
 import { fetchHomeBanners, fetchHomeAnnouncements } from '../home/homePromoApi';
 import {
@@ -24,19 +23,30 @@ import {
   markAnnouncementIdsSeen,
   markBannerIdsSeen,
 } from '../home/homePromoStorage';
+import {
+  hasCompletedWelcomePromo,
+  markWelcomePromoCompleted,
+} from './promoFlowStorage';
 import { setPendingHomeBanner } from '../../redux/slices/promoFlowSlice';
 import { setCoins } from '../../redux/slices/authSlice';
 import * as authService from '../../services/authService';
 
+const MODAL_SETTLE_MS = 120;
+
+function pause(ms = MODAL_SETTLE_MS) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /**
  * Logged-in promo sequence:
- * - First app open today: daily → banner → notification → Home
+ * - New user (first session): daily → banner → notification → Home
+ * - First app open today (returning): daily → banner → notification → Home
  * - Later opens same day: banner → notification → Home
- * Each item shown once per id until admin creates new content.
  */
 export default function PromoFlowGate({ children }) {
   const dispatch = useDispatch();
   const accessToken = useSelector((s) => s.auth?.accessToken);
+  const userId = useSelector((s) => s.auth?.userId);
 
   const [step, setStep] = useState(null);
   const [checkinStatus, setCheckinStatus] = useState(null);
@@ -47,6 +57,13 @@ export default function PromoFlowGate({ children }) {
   const proceedRef = useRef(null);
   const runningRef = useRef(false);
   const appState = useRef(AppState.currentState);
+  const bannersRef = useRef([]);
+  const announcementsRef = useRef([]);
+  const userIdRef = useRef(userId);
+
+  userIdRef.current = userId;
+  bannersRef.current = banners;
+  announcementsRef.current = announcements;
 
   const waitForClose = () =>
     new Promise((resolve) => {
@@ -59,22 +76,36 @@ export default function PromoFlowGate({ children }) {
     setStep(null);
   }, []);
 
+  const resolveUserId = useCallback(async () => {
+    if (userIdRef.current) return userIdRef.current;
+    const user = await authService.getUserData();
+    return user?.id ?? null;
+  }, []);
+
   const runPromoFlow = useCallback(async () => {
     if (!accessToken || runningRef.current) return;
     runningRef.current = true;
 
-    try {
-      const firstOpenToday = !(await wasCheckinPopupDismissedToday());
+    let uid = null;
+    let isWelcomeSession = false;
 
-      if (firstOpenToday) {
+    try {
+      uid = await resolveUserId();
+      isWelcomeSession = uid ? !(await hasCompletedWelcomePromo(uid)) : false;
+
+      const firstOpenToday = !(await wasCheckinPopupDismissedToday(uid));
+      const showDaily = isWelcomeSession || firstOpenToday;
+
+      if (showDaily) {
         try {
           const data = await fetchCheckinStatus(accessToken);
           setCheckinStatus(data);
           if (data && !data.claimed_today) {
             setStep('daily');
+            await pause();
             await waitForClose();
           } else {
-            await markCheckinPopupDismissedToday();
+            await markCheckinPopupDismissedToday(uid);
           }
         } catch {
           // continue to banner / notifications
@@ -85,9 +116,12 @@ export default function PromoFlowGate({ children }) {
       try {
         const [bannerList, seenBannerIds] = await Promise.all([
           fetchHomeBanners(),
-          getSeenBannerIds(),
+          getSeenBannerIds(uid),
         ]);
-        unseenBanners = filterUnseenBanners(bannerList.slice(0, 3), seenBannerIds);
+        const recent = bannerList.slice(0, 3);
+        unseenBanners = isWelcomeSession
+          ? recent
+          : filterUnseenBanners(recent, seenBannerIds);
       } catch (e) {
         console.error('Promo banners load error:', e);
       }
@@ -95,6 +129,7 @@ export default function PromoFlowGate({ children }) {
       if (unseenBanners.length > 0) {
         setBanners(unseenBanners);
         setStep('banner');
+        await pause();
         await waitForClose();
       }
 
@@ -102,12 +137,12 @@ export default function PromoFlowGate({ children }) {
       try {
         const [annList, seenAnnIds] = await Promise.all([
           fetchHomeAnnouncements(),
-          getSeenAnnouncementIds(),
+          getSeenAnnouncementIds(uid),
         ]);
-        unseenAnnouncements = filterUnseenAnnouncements(
-          annList.slice(0, 3),
-          seenAnnIds
-        );
+        const recent = annList.slice(0, 3);
+        unseenAnnouncements = isWelcomeSession
+          ? recent
+          : filterUnseenAnnouncements(recent, seenAnnIds);
       } catch (e) {
         console.error('Promo announcements load error:', e);
       }
@@ -115,7 +150,12 @@ export default function PromoFlowGate({ children }) {
       if (unseenAnnouncements.length > 0) {
         setAnnouncements(unseenAnnouncements);
         setStep('notification');
+        await pause();
         await waitForClose();
+      }
+
+      if (isWelcomeSession && uid) {
+        await markWelcomePromoCompleted(uid);
       }
     } finally {
       setStep(null);
@@ -123,13 +163,13 @@ export default function PromoFlowGate({ children }) {
       setAnnouncements([]);
       runningRef.current = false;
     }
-  }, [accessToken]);
+  }, [accessToken, resolveUserId]);
 
   useEffect(() => {
     if (!accessToken) return undefined;
-    const t = setTimeout(() => runPromoFlow(), 500);
+    const t = setTimeout(() => runPromoFlow(), 600);
     return () => clearTimeout(t);
-  }, [accessToken, runPromoFlow]);
+  }, [accessToken, userId, runPromoFlow]);
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (nextState) => {
@@ -147,7 +187,8 @@ export default function PromoFlowGate({ children }) {
   }, [accessToken, runPromoFlow]);
 
   const onDailyDismiss = async () => {
-    await markCheckinPopupDismissedToday();
+    const uid = await resolveUserId();
+    await markCheckinPopupDismissedToday(uid);
     advance();
   };
 
@@ -158,7 +199,8 @@ export default function PromoFlowGate({ children }) {
       const data = await claimDailyCheckin(accessToken);
       dispatch(setCoins(data.coins));
       await authService.patchUserDataInStore({ coins: data.coins });
-      await clearCheckinPopupDismissed();
+      const uid = await resolveUserId();
+      await markCheckinPopupDismissedToday(uid);
       setCheckinStatus((s) =>
         s ? { ...s, claimed_today: true, coins: data.coins } : s
       );
@@ -178,15 +220,17 @@ export default function PromoFlowGate({ children }) {
   };
 
   const onBannerClose = async () => {
-    const ids = banners.map((b) => b.id).filter(Boolean);
-    if (ids.length) await markBannerIdsSeen(ids);
+    const uid = await resolveUserId();
+    const ids = bannersRef.current.map((b) => b.id).filter(Boolean);
+    if (ids.length) await markBannerIdsSeen(ids, uid);
     setBanners([]);
     advance();
   };
 
   const onBannerStartWatching = async (banner) => {
-    const ids = banners.map((b) => b.id).filter(Boolean);
-    if (ids.length) await markBannerIdsSeen(ids);
+    const uid = await resolveUserId();
+    const ids = bannersRef.current.map((b) => b.id).filter(Boolean);
+    if (ids.length) await markBannerIdsSeen(ids, uid);
     setBanners([]);
     if (banner?.show_id) {
       dispatch(
@@ -201,8 +245,9 @@ export default function PromoFlowGate({ children }) {
   };
 
   const onNotificationDismiss = async () => {
-    const ids = announcements.map((a) => a.id).filter(Boolean);
-    if (ids.length) await markAnnouncementIdsSeen(ids);
+    const uid = await resolveUserId();
+    const ids = announcementsRef.current.map((a) => a.id).filter(Boolean);
+    if (ids.length) await markAnnouncementIdsSeen(ids, uid);
     setAnnouncements([]);
     advance();
   };

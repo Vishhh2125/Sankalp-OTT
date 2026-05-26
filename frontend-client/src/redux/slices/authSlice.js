@@ -4,6 +4,7 @@ import * as authService from '../../services/authService';
 import { api } from '../../services/api';
 
 const initialState = {
+    userId: null,
     name: null,
     email: null,
     role: null,
@@ -244,6 +245,7 @@ const authSlice = createSlice({
       })
       .addCase(loginUser.fulfilled, (state, action) => {
         state.accessToken = action.payload.accessToken;
+        state.userId = action.payload.user?.id ?? null;
         // refreshToken is in SecureStore only (never in Redux)
         state.name = action.payload.user.name;
         state.email = action.payload.user.email;
@@ -268,6 +270,7 @@ const authSlice = createSlice({
         state.isInitializing = false;
         if (action.payload) {
           state.accessToken = action.payload.accessToken;
+          state.userId = action.payload.user?.id ?? null;
           // Restore user data from payload
           state.name = action.payload.user.name;
           state.email = action.payload.user.email;
@@ -289,6 +292,7 @@ const authSlice = createSlice({
         state.logout.status = 'loading';
       })
       .addCase(logoutUser.fulfilled, (state) => {
+        state.userId = null;
         state.name = null;
         state.email = null;
         state.role = null;

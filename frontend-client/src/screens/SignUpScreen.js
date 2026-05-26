@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -12,7 +12,11 @@ import { useDispatch, useSelector } from 'react-redux';
 
 import { theme } from '../constants/theme';
 import { ROUTES } from '../constants/routes';
-import { clearRegisterState, registerUser } from '../redux/slices/authSlice';
+import {
+  clearRegisterState,
+  loginUser,
+  registerUser,
+} from '../redux/slices/authSlice';
 import { API_BASE_URL } from '../constants/config';
 
 function getPasswordStrength(password) {
@@ -42,13 +46,23 @@ export default function SignUpScreen({ navigation }) {
   const registerError = useSelector((state) => state.auth.register.error);
 
   const strength = useMemo(() => getPasswordStrength(password), [password]);
+  const pendingLoginRef = useRef(null);
 
   useEffect(() => {
-    // After successful registration, send user to Login (manual login flow).
-    if (registerStatus === 'succeeded') {
-      navigation.navigate(ROUTES.LOGIN);
-      dispatch(clearRegisterState());
-    }
+    if (registerStatus !== 'succeeded' || !pendingLoginRef.current) return;
+
+    const { email: loginEmail, password: loginPassword } = pendingLoginRef.current;
+    pendingLoginRef.current = null;
+
+    dispatch(loginUser({ email: loginEmail, password: loginPassword }))
+      .unwrap()
+      .then(() => {
+        dispatch(clearRegisterState());
+      })
+      .catch(() => {
+        dispatch(clearRegisterState());
+        navigation.navigate(ROUTES.LOGIN);
+      });
   }, [dispatch, navigation, registerStatus]);
 
   function handleCreateAccount() {
@@ -62,6 +76,7 @@ export default function SignUpScreen({ navigation }) {
     if (!password) return setLocalError('Please enter your password.');
 
     setLocalError('');
+    pendingLoginRef.current = { email: nextEmail, password };
     dispatch(registerUser({ name, email: nextEmail, password }));
   }
 
