@@ -64,6 +64,21 @@ export const updateNotificationConfig = asyncHandler(async (req, res) => {
   });
 });
 
+export const deleteNotification = asyncHandler(async (req, res) => {
+  const { title, type, sent_at } = req.body;
+  
+  if (!title || !type || !sent_at) {
+    return res.status(400).json({ success: false, message: 'Missing required fields: title, type, sent_at' });
+  }
+
+  const result = await service.deleteNotificationBroadcast(title, type, sent_at);
+  res.json({
+    success: true,
+    message: 'Notification deleted successfully',
+    data: result,
+  });
+});
+
 // ──────────────────────────────────
 // USER ENDPOINTS
 // ──────────────────────────────────

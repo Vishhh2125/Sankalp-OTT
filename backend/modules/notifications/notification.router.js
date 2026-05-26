@@ -27,6 +27,9 @@ router.get('/admin/config', requireAuth, requireAdmin(), controller.getNotificat
 // Update notification configuration
 router.put('/admin/config', requireAuth, requireAdmin(), controller.updateNotificationConfig);
 
+// Delete a sent notification broadcast
+router.delete('/admin/sent', requireAuth, requireAdmin(), controller.deleteNotification);
+
 // ──────────────────────────────────
 // USER ROUTES
 // ──────────────────────────────────

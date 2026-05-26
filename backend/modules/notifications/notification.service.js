@@ -242,6 +242,34 @@ export async function updateNotificationConfig(adminId, configData) {
   }
 }
 
+export async function deleteNotificationBroadcast(title, type, sent_at) {
+  try {
+    // Delete all notifications matching this broadcast
+    const result = await prisma.notificationLog.deleteMany({
+      where: {
+        title,
+        type,
+        sent_at: new Date(sent_at),
+      },
+    });
+
+    if (result.count === 0) {
+      throw new ApiError(404, 'Notification broadcast not found');
+    }
+
+    logger.info(`Deleted notification broadcast: ${title} (${result.count} records)`);
+
+    return {
+      success: true,
+      message: `Deleted ${result.count} notification records`,
+      deletedCount: result.count,
+    };
+  } catch (error) {
+    logger.error('Error deleting notification broadcast:', error);
+    throw error instanceof ApiError ? error : new ApiError(500, 'Failed to delete notification');
+  }
+}
+
 // Helper function to filter users by audience
 function getUserFilterByAudience(audience) {
   switch (audience) {

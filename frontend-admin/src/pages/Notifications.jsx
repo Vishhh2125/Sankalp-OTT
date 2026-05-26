@@ -112,7 +112,26 @@ export default function Notifications() {
   }
 
   const cancelScheduled = id => { setScheduled(p => p.filter(n => n.id !== id)); setConfirm(null) }
-  const deleteSent = id => { setSent(p => p.filter(n => n.id !== id)); setConfirm(null) }
+  const deleteSent = async id => {
+    try {
+      const notification = sent.find(n => n.id === id)
+      if (!notification) return
+
+      await api.delete('/v1/notifications/admin/sent', {
+        data: {
+          title: notification.title,
+          type: notification.type,
+          sent_at: notification.sent_at,
+        },
+      })
+
+      setSent(p => p.filter(n => n.id !== id))
+      setConfirm(null)
+    } catch (err) {
+      console.error('Error deleting notification:', err)
+      alert(err.response?.data?.message || 'Failed to delete notification')
+    }
+  }
 
   const getIcon = (type) => {
     const icons = { drama: '🎬', membership: '👑', reward: '🎁', reminder: '⏰', 're-engage': '📞', custom: '📬' }
