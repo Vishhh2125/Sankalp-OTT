@@ -409,7 +409,7 @@ export async function getCoinTransactions(req, res, next) {
       type: t.title || t.reason,
       method: getMethodFromReason(t.reason),
       amount: t.amount,
-      dir: t.type === 'CREDIT' ? '+' : '-',
+      dir: t.type?.toUpperCase() === 'CREDIT' ? '+' : '-',
       date: new Date(t.created_at).toLocaleString('en-IN'),
     }));
 

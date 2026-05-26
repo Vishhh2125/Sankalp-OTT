@@ -285,7 +285,7 @@ export default function Coins() {
                     <td style={{ color:'var(--text2)' }}>{t.type}</td>
                     <td><span className="badge badge-blue" style={{ fontSize:10 }}>{t.method}</span></td>
                     <td style={{ fontFamily:'var(--mono)', fontSize:13, color:t.dir==='+'?'var(--green)':'var(--red)' }}>
-                      {t.dir}₵ {t.amount.toLocaleString()}
+                      {t.dir}₵ {Math.abs(t.amount).toLocaleString()}
                     </td>
                     <td style={{ color:'var(--text3)', fontSize:12 }}>{t.date}</td>
                   </tr>
