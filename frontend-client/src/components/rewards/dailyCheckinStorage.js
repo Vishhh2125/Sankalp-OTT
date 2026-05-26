@@ -1,6 +1,10 @@
 import * as SecureStore from 'expo-secure-store';
 
-const DISMISS_KEY = 'daily_checkin_popup_dismissed_date';
+function dismissKey(userId) {
+  return userId
+    ? `daily_checkin_popup_dismissed_date_${userId}`
+    : 'daily_checkin_popup_dismissed_date';
+}
 
 export function todayDateKey() {
   const d = new Date();
@@ -10,26 +14,26 @@ export function todayDateKey() {
   return `${y}-${m}-${day}`;
 }
 
-export async function wasCheckinPopupDismissedToday() {
+export async function wasCheckinPopupDismissedToday(userId) {
   try {
-    const stored = await SecureStore.getItemAsync(DISMISS_KEY);
+    const stored = await SecureStore.getItemAsync(dismissKey(userId));
     return stored === todayDateKey();
   } catch {
     return false;
   }
 }
 
-export async function markCheckinPopupDismissedToday() {
+export async function markCheckinPopupDismissedToday(userId) {
   try {
-    await SecureStore.setItemAsync(DISMISS_KEY, todayDateKey());
+    await SecureStore.setItemAsync(dismissKey(userId), todayDateKey());
   } catch {
     // ignore
   }
 }
 
-export async function clearCheckinPopupDismissed() {
+export async function clearCheckinPopupDismissed(userId) {
   try {
-    await SecureStore.deleteItemAsync(DISMISS_KEY);
+    await SecureStore.deleteItemAsync(dismissKey(userId));
   } catch {
     // ignore
   }

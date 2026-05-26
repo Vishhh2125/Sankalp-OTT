@@ -1,7 +1,12 @@
 import * as SecureStore from 'expo-secure-store';
 
-const SEEN_BANNERS_KEY = 'home_seen_banner_ids';
-const SEEN_ANNOUNCEMENTS_KEY = 'home_seen_announcement_ids';
+function seenBannersKey(userId) {
+  return userId ? `home_seen_banner_ids_${userId}` : 'home_seen_banner_ids';
+}
+
+function seenAnnouncementsKey(userId) {
+  return userId ? `home_seen_announcement_ids_${userId}` : 'home_seen_announcement_ids';
+}
 
 async function readIdList(key) {
   try {
@@ -23,22 +28,22 @@ async function writeIdList(key, ids) {
   }
 }
 
-export async function getSeenBannerIds() {
-  return readIdList(SEEN_BANNERS_KEY);
+export async function getSeenBannerIds(userId) {
+  return readIdList(seenBannersKey(userId));
 }
 
-export async function markBannerIdsSeen(ids) {
-  const existing = await getSeenBannerIds();
-  await writeIdList(SEEN_BANNERS_KEY, [...existing, ...ids]);
+export async function markBannerIdsSeen(ids, userId) {
+  const existing = await getSeenBannerIds(userId);
+  await writeIdList(seenBannersKey(userId), [...existing, ...ids]);
 }
 
-export async function getSeenAnnouncementIds() {
-  return readIdList(SEEN_ANNOUNCEMENTS_KEY);
+export async function getSeenAnnouncementIds(userId) {
+  return readIdList(seenAnnouncementsKey(userId));
 }
 
-export async function markAnnouncementIdsSeen(ids) {
-  const existing = await getSeenAnnouncementIds();
-  await writeIdList(SEEN_ANNOUNCEMENTS_KEY, [...existing, ...ids]);
+export async function markAnnouncementIdsSeen(ids, userId) {
+  const existing = await getSeenAnnouncementIds(userId);
+  await writeIdList(seenAnnouncementsKey(userId), [...existing, ...ids]);
 }
 
 export function filterUnseenBanners(banners, seenIds) {
