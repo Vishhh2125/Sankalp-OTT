@@ -275,3 +275,99 @@ export async function togglePlanStatus(planId) {
     throw error;
   }
 }
+
+/**
+ * Get membership statistics (for admin dashboard)
+ * Calculates: total subscribers, monthly revenue, active plans count
+ */
+export async function getMembershipStats() {
+  try {
+    // Get current month date range
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    // Total active subscribers across all plans
+    const totalSubscribers = await prisma.userMembership.count({
+      where: { status: 'ACTIVE' },
+    });
+
+    // Monthly revenue: sum of membership payments in current month
+    const monthlyRevenueResult = await prisma.paymentTransaction.aggregate({
+      where: {
+        type: 'membership',
+        created_at: {
+          gte: monthStart,
+          lte: monthEnd,
+        },
+      },
+      _sum: {
+        amount: true,
+      },
+    });
+
+    const monthlyRevenue = monthlyRevenueResult._sum?.amount || 0;
+
+    // Count active and total plans
+    const activePlansCount = await prisma.membershipPlan.count({
+      where: { is_active: true },
+    });
+    const totalPlansCount = await prisma.membershipPlan.count();
+
+    return {
+      totalSubscribers,
+      monthlyRevenue: parseFloat(monthlyRevenue),
+      activePlans: activePlansCount,
+      totalPlans: totalPlansCount,
+      currency: 'INR',
+    };
+  } catch (error) {
+    throw error;
+  }
+}
+
+/**
+ * Get subscription history (all memberships)
+ * For admin subscription history table
+ */
+export async function getSubscriptionHistory(page = 1, limit = 50) {
+  try {
+    const skip = (page - 1) * limit;
+
+    const memberships = await prisma.userMembership.findMany({
+      include: {
+        user: { select: { name: true } },
+        plan: { select: { name: true, price: true, currency: true } },
+        payment: { select: { amount: true, status: true, created_at: true } },
+      },
+      orderBy: { created_at: 'desc' },
+      skip,
+      take: limit,
+    });
+
+    const total = await prisma.userMembership.count();
+
+    const history = memberships.map(m => ({
+      id: m.id,
+      user: m.user.name,
+      plan: m.plan.name,
+      amount: m.payment?.amount ? parseFloat(m.payment.amount) : parseFloat(m.plan.price),
+      currency: m.plan.currency,
+      date: m.payment?.created_at || m.created_at,
+      status: m.status,
+      txnId: m.payment?.id || m.id,
+    }));
+
+    return {
+      history,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    };
+  } catch (error) {
+    throw error;
+  }
+}

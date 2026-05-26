@@ -3,15 +3,7 @@ import { Plus, Edit2, Trash2, RefreshCw, Download } from 'lucide-react'
 import Modal, { FormGroup, ModalSection } from '../components/ui/Modal.jsx'
 import { Toggle, ConfirmDialog } from '../components/ui/Controls.jsx'
 import { membershipApi } from '../services/api.js'
-
-const initHistory = [
-  { id:'TX001', user:'Priya Raj',  plan:'Monthly', amount:'₹149', gateway:'Nation Link', date:'Apr 1, 2025', status:'Success', txnId:'NL-2025-001' },
-  { id:'TX002', user:'Arjun M',    plan:'Annual',  amount:'₹999', gateway:'Nation Link', date:'Mar 28, 2025',status:'Success', txnId:'NL-2025-002' },
-  { id:'TX003', user:'Meena S',    plan:'Weekly',  amount:'₹49',  gateway:'Nation Link', date:'Apr 2, 2025', status:'Failed',  txnId:'NL-2025-003' },
-  { id:'TX004', user:'Divya T',    plan:'Annual',  amount:'₹999', gateway:'Nation Link', date:'Mar 14, 2025',status:'Success', txnId:'NL-2025-004' },
-  { id:'TX005', user:'Kiran P',    plan:'Monthly', amount:'₹149', gateway:'Nation Link', date:'Apr 3, 2025', status:'Success', txnId:'NL-2025-005' },
-  { id:'TX006', user:'Ravi V',     plan:'Weekly',  amount:'₹49',  gateway:'Nation Link', date:'Mar 20, 2025',status:'Refunded',txnId:'NL-2025-006' },
-]
+import * as XLSX from 'xlsx'
 
 function PlanModal({ open, onClose, onSave, initial, loading }) {
   const isEdit = !!initial?.id
@@ -84,18 +76,28 @@ function RefundModal({ open, onClose, txn }) {
 
 export default function Membership() {
   const [plans, setPlans] = useState([])
-  const [history] = useState(initHistory)
+  const [stats, setStats] = useState(null)
+  const [history, setHistory] = useState([])
   const [tab, setTab] = useState('plans')
   const [modal, setModal] = useState(null)
   const [selected, setSelected] = useState(null)
   const [confirm, setConfirm] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [historyLoading, setHistoryLoading] = useState(false)
 
-  // Fetch plans on component mount
+  // Fetch plans and stats on component mount
   useEffect(() => {
     fetchPlans()
+    fetchStats()
   }, [])
+
+  // Fetch history when history tab is opened
+  useEffect(() => {
+    if (tab === 'history') {
+      fetchHistory()
+    }
+  }, [tab])
 
   const fetchPlans = async () => {
     try {
@@ -111,6 +113,60 @@ export default function Membership() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const fetchStats = async () => {
+    try {
+      const response = await membershipApi.getStats()
+      if (response.data?.success) {
+        setStats(response.data.data)
+      }
+    } catch (err) {
+      console.error('Fetch stats error:', err)
+    }
+  }
+
+  const fetchHistory = async () => {
+    try {
+      setHistoryLoading(true)
+      setError(null)
+      const response = await membershipApi.getHistory()
+      if (response.data?.success) {
+        setHistory(response.data.data.history || [])
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to fetch subscription history')
+      console.error('Fetch history error:', err)
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
+
+  const exportHistoryToExcel = () => {
+    if (history.length === 0) {
+      alert('No subscription history to export')
+      return
+    }
+
+    // Prepare data for export
+    const exportData = history.map(h => ({
+      'User': h.user,
+      'Plan': h.plan,
+      'Amount': `₹${Math.round(h.amount)}`,
+      'Date': new Date(h.date).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' }),
+      'Status': h.status === 'ACTIVE' ? 'Active' : 'Expired',
+    }))
+
+    // Create workbook and worksheet
+    const worksheet = XLSX.utils.json_to_sheet(exportData)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Subscriptions')
+
+    // Generate filename with timestamp
+    const filename = `subscription_history_${new Date().toISOString().split('T')[0]}.xlsx`
+
+    // Write the file
+    XLSX.writeFile(workbook, filename)
   }
 
   const savePlan = async (formData) => {
@@ -195,9 +251,9 @@ export default function Membership() {
       {/* Stats */}
       <div className="metrics-grid" style={{ gridTemplateColumns:'repeat(3,1fr)', marginBottom:16 }}>
         {[
-          { label:'Total Subscribers', value:plans.reduce((a,p)=>a+(p.subscribers||0),0).toLocaleString(), sub:'across all plans' },
-          { label:'Monthly Revenue', value:'₹4,21,380', sub:'this month' },
-          { label:'Active Plans', value:plans.filter(p=>p.isActive).length, sub:`of ${plans.length} plans` },
+          { label:'Total Subscribers', value:(stats?.totalSubscribers || 0).toLocaleString(), sub:'across all plans' },
+          { label:'Monthly Revenue', value:stats ? `₹${Math.round(stats.monthlyRevenue).toLocaleString()}` : '₹0', sub:'this month' },
+          { label:'Active Plans', value:stats ? `${stats.activePlans}` : '0', sub:stats ? `of ${stats.totalPlans} plans` : 'of 0 plans' },
         ].map(m => (
           <div className="metric-card" key={m.label}>
             <div className="metric-label">{m.label}</div>
@@ -209,14 +265,14 @@ export default function Membership() {
 
       {/* Tabs */}
       <div style={{ display:'flex', gap:0, marginBottom:18, borderBottom:'1px solid var(--border)' }}>
-        {['plans','history','gateway'].map(t => (
+        {['plans','history'].map(t => (
           <button key={t} onClick={() => setTab(t)} style={{
             padding:'8px 16px', background:'none', border:'none', cursor:'pointer',
             fontSize:12, fontWeight:tab===t?600:400,
             color:tab===t?'var(--accent2)':'var(--text3)',
             borderBottom:tab===t?'2px solid var(--accent)':'2px solid transparent',
             textTransform:'capitalize', marginBottom:-1,
-          }}>{t==='history'?'Subscription history':t==='gateway'?'Gateway logs':t}</button>
+          }}>{t==='history'?'Subscription history':t}</button>
         ))}
       </div>
 
@@ -258,53 +314,34 @@ export default function Membership() {
         <div className="card" style={{ padding:0 }}>
           <div style={{ padding:'12px 18px', display:'flex', justifyContent:'space-between', borderBottom:'1px solid var(--border)' }}>
             <div className="card-title" style={{ marginBottom:0 }}>All subscription purchases</div>
-            <button className="btn btn-ghost btn-sm"><Download size={12}/> Export CSV</button>
+            <button className="btn btn-ghost btn-sm" onClick={exportHistoryToExcel} disabled={historyLoading || history.length === 0}><Download size={12}/> {historyLoading ? 'Loading...' : 'Export Excel'}</button>
           </div>
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Transaction ID</th><th>User</th><th>Plan</th><th>Amount</th><th>Gateway</th><th>Date</th><th>Status</th><th>Actions</th></tr></thead>
+              <thead><tr><th>User</th><th>Plan</th><th>Amount</th><th>Date</th><th>Status</th></tr></thead>
               <tbody>
-                {history.map(h => (
-                  <tr key={h.id}>
-                    <td style={{ fontFamily:'var(--mono)', fontSize:11, color:'var(--text3)' }}>{h.txnId}</td>
-                    <td style={{ fontWeight:500 }}>{h.user}</td>
-                    <td><span className={`badge ${h.plan==='Annual'?'badge-blue':h.plan==='Monthly'?'badge-purple':'badge-green'}`}>{h.plan}</span></td>
-                    <td style={{ fontFamily:'var(--mono)' }}>{h.amount}</td>
-                    <td style={{ color:'var(--text3)' }}>{h.gateway}</td>
-                    <td style={{ color:'var(--text3)', fontSize:12 }}>{h.date}</td>
-                    <td><span className={`badge ${h.status==='Success'?'badge-green':h.status==='Refunded'?'badge-amber':'badge-red'}`}>{h.status}</span></td>
-                    <td>
-                      <div style={{ display:'flex', gap:5 }}>
-                        {h.status==='Failed' && <button className="btn btn-ghost btn-sm"><RefreshCw size={11}/> Retry</button>}
-                        {h.status==='Success' && <button className="btn btn-ghost btn-sm" onClick={() => { setSelected(h); setModal('refund') }}>Refund</button>}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {historyLoading ? (
+                  <tr><td colSpan="5" style={{ textAlign:'center', color:'var(--text3)', padding:'20px' }}>Loading...</td></tr>
+                ) : history.length === 0 ? (
+                  <tr><td colSpan="5" style={{ textAlign:'center', color:'var(--text3)', padding:'20px' }}>No subscription history</td></tr>
+                ) : (
+                  history.map(h => (
+                    <tr key={h.id}>
+                      <td style={{ fontWeight:500 }}>{h.user}</td>
+                      <td><span className={`badge ${h.plan==='Annual'?'badge-blue':h.plan==='Monthly'?'badge-purple':'badge-green'}`}>{h.plan}</span></td>
+                      <td style={{ fontFamily:'var(--mono)' }}>₹{Math.round(h.amount).toLocaleString()}</td>
+                      <td style={{ color:'var(--text3)', fontSize:12 }}>{new Date(h.date).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' })}</td>
+                      <td><span className={`badge ${h.status==='ACTIVE'?'badge-green':'badge-red'}`}>{h.status === 'ACTIVE' ? 'Active' : 'Expired'}</span></td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </div>
       )}
 
-      {/* Gateway logs tab */}
-      {tab==='gateway' && (
-        <div className="card">
-          <div className="card-title">Nation Link payment gateway logs</div>
-          {initHistory.map(h => (
-            <div key={h.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 0', borderBottom:'1px solid var(--border)' }}>
-              <div>
-                <div style={{ fontFamily:'var(--mono)', fontSize:11, color:'var(--accent2)' }}>{h.txnId}</div>
-                <div style={{ fontSize:12, color:'var(--text2)', marginTop:2 }}>{h.user} · {h.plan} · {h.gateway}</div>
-              </div>
-              <div style={{ textAlign:'right' }}>
-                <div style={{ fontFamily:'var(--mono)', fontWeight:500 }}>{h.amount}</div>
-                <span className={`badge ${h.status==='Success'?'badge-green':h.status==='Refunded'?'badge-amber':'badge-red'}`} style={{ fontSize:10 }}>{h.status}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+
 
       <PlanModal open={modal==='plan-add'} onClose={() => setModal(null)} onSave={savePlan} initial={null} loading={loading}/>
       <PlanModal open={modal==='plan-edit'} onClose={() => setModal(null)} onSave={savePlan} initial={selected} loading={loading}/>

@@ -8,6 +8,8 @@ import {
   updatePlan,
   deletePlan,
   togglePlanStatus,
+  getMembershipStats,
+  getSubscriptionHistory,
 } from './membership.service.js';
 import { simulateMembershipPurchase } from './membership-purchase.service.js';
 
@@ -126,5 +128,29 @@ export const toggleMembershipPlanStatus = asyncHandler(async (req, res) => {
 
   return res.json(
     new ApiResponse(200, result, 'Membership plan status toggled successfully')
+  );
+});
+
+/**
+ * GET /api/v1/admin/membership/stats
+ * Get membership statistics (Admin only)
+ */
+export const getMembershipStatsHandler = asyncHandler(async (req, res) => {
+  const stats = await getMembershipStats();
+  return res.json(
+    new ApiResponse(200, stats, 'Membership statistics fetched successfully')
+  );
+});
+
+/**
+ * GET /api/v1/admin/membership/history
+ * Get subscription history (Admin only)
+ */
+export const getSubscriptionHistoryHandler = asyncHandler(async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 50;
+  const result = await getSubscriptionHistory(page, limit);
+  return res.json(
+    new ApiResponse(200, result, 'Subscription history fetched successfully')
   );
 });

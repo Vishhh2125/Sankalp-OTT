@@ -10,6 +10,8 @@ import {
   updateMembershipPlan,
   deleteMembershipPlan,
   toggleMembershipPlanStatus,
+  getMembershipStatsHandler,
+  getSubscriptionHistoryHandler,
 } from './membership.controller.js';
 
 const router = express.Router();
@@ -35,6 +37,12 @@ router.post('/simulate-purchase', requireAuth, simulateMembershipPurchaseHandler
 // All admin routes require authentication and admin role
 router.use(requireAuth);
 router.use(requireAdmin());
+
+// GET membership statistics
+router.get('/stats', getMembershipStatsHandler);
+
+// GET subscription history
+router.get('/history', getSubscriptionHistoryHandler);
 
 // GET all membership plans with stats
 router.get('/plans', getAllMembershipPlans);
