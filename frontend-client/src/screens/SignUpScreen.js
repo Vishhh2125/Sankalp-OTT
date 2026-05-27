@@ -40,16 +40,16 @@ export default function SignUpScreen({ navigation }) {
   const dispatch = useDispatch();
   const registerStatus = useSelector((state) => state.auth.register.status);
   const registerError = useSelector((state) => state.auth.register.error);
+  const registerData = useSelector((state) => state.auth.register.data);
 
   const strength = useMemo(() => getPasswordStrength(password), [password]);
 
   useEffect(() => {
-    // After successful registration, send user to Login (manual login flow).
-    if (registerStatus === 'succeeded') {
-      navigation.navigate(ROUTES.LOGIN);
+    if (registerStatus === 'succeeded' && registerData?.sessionId) {
+      navigation.navigate(ROUTES.OTP, registerData);
       dispatch(clearRegisterState());
     }
-  }, [dispatch, navigation, registerStatus]);
+  }, [dispatch, navigation, registerData, registerStatus]);
 
   function handleCreateAccount() {
     const name = fullName.trim();

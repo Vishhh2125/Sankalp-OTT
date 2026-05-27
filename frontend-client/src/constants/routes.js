@@ -1,6 +1,7 @@
 export const ROUTES = {
   SIGNUP: 'SignUp',
   LOGIN: 'Login',
+  OTP: 'OtpVerification',
   MAIN_TABS: 'MainTabs',
   HOME: 'Home',
   FOR_YOU: 'ForYou',

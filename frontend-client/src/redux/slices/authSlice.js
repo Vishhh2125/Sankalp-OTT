@@ -19,6 +19,16 @@ const initialState = {
     status: 'idle', // idle | loading | succeeded | failed
     error: null,
     isLoading: false,
+    data: null,
+  },
+  otp: {
+    status: 'idle', // idle | loading | succeeded | failed
+    error: null,
+    isLoading: false,
+    resendStatus: 'idle',
+    resendError: null,
+    isResending: false,
+    data: null,
   },
   logout: {
     status: 'idle', // idle | loading | succeeded | failed
@@ -80,13 +90,73 @@ export const registerUser = createAsyncThunk(
         email,
         password,
       });
-      return response.data;
+      const registrationData = response.data?.data || null;
+      await authService.savePendingRegistration(registrationData);
+      return registrationData;
     } catch (err) {
       const message =
         err?.response?.data?.message ||
         err?.response?.data?.error ||
         err?.message ||
         'Registration failed';
+      return rejectWithValue(message);
+    }
+  }
+);
+
+export const verifyOtp = createAsyncThunk(
+  'auth/verifyOtp',
+  async ({ sessionId, otp }, { rejectWithValue }) => {
+    try {
+      const response = await api.post('/auth/verify-otp', {
+        sessionId,
+        otp,
+      });
+
+      await authService.clearPendingRegistration();
+
+      return {
+        user: response.data?.data || null,
+        message: response.data?.message || 'Email verified successfully',
+      };
+    } catch (err) {
+      const message =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        'OTP verification failed';
+
+      return rejectWithValue(message);
+    }
+  }
+);
+
+export const resendOtp = createAsyncThunk(
+  'auth/resendOtp',
+  async ({ sessionId }, { rejectWithValue }) => {
+    try {
+      const response = await api.post('/auth/resend-otp', {
+        sessionId,
+      });
+
+      const data = response.data?.data || null;
+      const pendingRegistration = await authService.getPendingRegistration();
+
+      if (pendingRegistration && data) {
+        await authService.savePendingRegistration({
+          ...pendingRegistration,
+          ...data,
+        });
+      }
+
+      return data;
+    } catch (err) {
+      const message =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        'Failed to resend OTP';
+
       return rejectWithValue(message);
     }
   }
@@ -102,8 +172,14 @@ export const initAuth = createAsyncThunk(
     try {
       // Get refresh token from storage (SecureStore for mobile, cookie for web)
       const refreshTokenValue = await authService.getRefreshToken();
+      const pendingRegistration = await authService.getPendingRegistration();
 
       if (!refreshTokenValue) {
+        if (pendingRegistration) {
+          console.log('[initAuth] Pending registration found, restoring OTP flow');
+          return { pendingRegistration };
+        }
+
         console.log('[initAuth] No refresh token found, staying logged out');
         return null;
       }
@@ -127,13 +203,14 @@ export const initAuth = createAsyncThunk(
 
       if (!user) {
         console.log('[initAuth] No user data found in storage');
-        return null;
+        return pendingRegistration ? { pendingRegistration } : null;
       }
 
       // Return accessToken AND user data to Redux
       return {
         accessToken,
         user,
+        pendingRegistration,
       };
     } catch (err) {
       console.error('[initAuth] Restore failed:', err?.message);
@@ -174,6 +251,16 @@ const authSlice = createSlice({
       state.register.status = 'idle';
       state.register.error = null;
       state.register.isLoading = false;
+      state.register.data = null;
+    },
+    clearOtpState(state) {
+      state.otp.status = 'idle';
+      state.otp.error = null;
+      state.otp.isLoading = false;
+      state.otp.resendStatus = 'idle';
+      state.otp.resendError = null;
+      state.otp.isResending = false;
+      state.otp.data = null;
     },
     clearLogoutState(state) {
       state.logout.status = 'idle';
@@ -203,6 +290,9 @@ const authSlice = createSlice({
       if (coins !== undefined) state.coins = coins;
       if (membership !== undefined) state.membership = membership;
     },
+    setPendingRegistration(state, action) {
+      state.pendingRegistration = action.payload || null;
+    },
     /**
      * Logout reducer (clears auth state)
      * refreshToken is cleared from SecureStore by authService
@@ -226,15 +316,53 @@ const authSlice = createSlice({
         state.register.status = 'loading';
         state.register.error = null;
         state.register.isLoading = true;
+        state.register.data = null;
       })
-      .addCase(registerUser.fulfilled, (state) => {
+      .addCase(registerUser.fulfilled, (state, action) => {
         state.register.status = 'succeeded';
         state.register.isLoading = false;
+        state.register.data = action.payload;
+        state.pendingRegistration = action.payload;
       })
       .addCase(registerUser.rejected, (state, action) => {
         state.register.status = 'failed';
         state.register.error = action.payload || 'Registration failed';
         state.register.isLoading = false;
+      })
+      .addCase(verifyOtp.pending, (state) => {
+        state.otp.status = 'loading';
+        state.otp.error = null;
+        state.otp.isLoading = true;
+      })
+      .addCase(verifyOtp.fulfilled, (state, action) => {
+        state.otp.status = 'succeeded';
+        state.otp.isLoading = false;
+        state.otp.data = action.payload;
+        state.pendingRegistration = null;
+      })
+      .addCase(verifyOtp.rejected, (state, action) => {
+        state.otp.status = 'failed';
+        state.otp.error = action.payload || 'OTP verification failed';
+        state.otp.isLoading = false;
+      })
+      .addCase(resendOtp.pending, (state) => {
+        state.otp.resendStatus = 'loading';
+        state.otp.resendError = null;
+        state.otp.isResending = true;
+      })
+      .addCase(resendOtp.fulfilled, (state, action) => {
+        state.otp.resendStatus = 'succeeded';
+        state.otp.isResending = false;
+        state.otp.data = action.payload;
+        state.pendingRegistration = {
+          ...(state.pendingRegistration || {}),
+          ...(action.payload || {}),
+        };
+      })
+      .addCase(resendOtp.rejected, (state, action) => {
+        state.otp.resendStatus = 'failed';
+        state.otp.resendError = action.payload || 'Failed to resend OTP';
+        state.otp.isResending = false;
       })
       // LOGIN FLOW
       .addCase(loginUser.pending, (state) => {
@@ -267,14 +395,19 @@ const authSlice = createSlice({
       .addCase(initAuth.fulfilled, (state, action) => {
         state.isInitializing = false;
         if (action.payload) {
-          state.accessToken = action.payload.accessToken;
-          // Restore user data from payload
-          state.name = action.payload.user.name;
-          state.email = action.payload.user.email;
-          state.role = action.payload.user.role;
-          state.plan = action.payload.user.plan;
-          state.coins = action.payload.user.coins;
-          state.membership = action.payload.user.membership ?? null;
+          if (action.payload.accessToken) {
+            state.accessToken = action.payload.accessToken;
+            // Restore user data from payload
+            state.name = action.payload.user.name;
+            state.email = action.payload.user.email;
+            state.role = action.payload.user.role;
+            state.plan = action.payload.user.plan;
+            state.coins = action.payload.user.coins;
+            state.membership = action.payload.user.membership ?? null;
+          }
+          if (action.payload.pendingRegistration) {
+            state.pendingRegistration = action.payload.pendingRegistration;
+          }
           // refreshToken stays in SecureStore (never exposed in Redux)
         }
       })
@@ -312,12 +445,14 @@ const authSlice = createSlice({
 
 export const {
   clearRegisterState,
+  clearOtpState,
   clearLogoutState,
   clearLogoutError,
   setTokens,
   setCoins,
   setPlan,
   patchUserProfile,
+  setPendingRegistration,
   logout,
 } = authSlice.actions;
 

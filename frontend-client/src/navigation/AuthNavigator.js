@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import LoginScreen from '../screens/LoginScreen';
 import SignUpScreen from '../screens/SignUpScreen';
+import OtpVerificationScreen from '../screens/OtpVerificationScreen';
 import { ROUTES } from '../constants/routes';
 
 const Stack = createNativeStackNavigator();
@@ -10,6 +11,7 @@ const Stack = createNativeStackNavigator();
 export default function AuthNavigator({
   onGuestAccess,
   initialRouteName = ROUTES.LOGIN,
+  otpInitialParams,
 }) {
   return (
     <Stack.Navigator
@@ -20,6 +22,11 @@ export default function AuthNavigator({
         {(props) => <LoginScreen {...props} onGuestAccess={onGuestAccess} />}
       </Stack.Screen>
       <Stack.Screen name={ROUTES.SIGNUP} component={SignUpScreen} />
+      <Stack.Screen
+        name={ROUTES.OTP}
+        component={OtpVerificationScreen}
+        initialParams={otpInitialParams}
+      />
     </Stack.Navigator>
   );
 }

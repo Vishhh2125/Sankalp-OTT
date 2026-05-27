@@ -13,6 +13,8 @@
 
 import * as SecureStore from 'expo-secure-store';
 
+const PENDING_REGISTRATION_KEY = 'pendingRegistration';
+
 /**
  * Get refresh token from SecureStore
  * @returns {Promise<string|null>} refreshToken or null
@@ -113,10 +115,55 @@ export const clearTokens = async () => {
     // Mobile: remove refreshToken and userData from SecureStore
     await SecureStore.deleteItemAsync('refreshToken');
     await SecureStore.deleteItemAsync('userData');
+    await SecureStore.deleteItemAsync(PENDING_REGISTRATION_KEY);
     console.log('[authService] Refresh token and user data removed from SecureStore');
   } catch (error) {
     console.error('[authService] Error clearing tokens:', error);
     throw error;
+  }
+};
+
+/**
+ * Save pending registration data so the OTP flow can survive app restarts.
+ * @param {object} registrationData
+ * @returns {Promise<void>}
+ */
+export const savePendingRegistration = async (registrationData) => {
+  try {
+    if (!registrationData) return;
+    await SecureStore.setItemAsync(
+      PENDING_REGISTRATION_KEY,
+      JSON.stringify(registrationData)
+    );
+  } catch (error) {
+    console.error('[authService] Error saving pending registration:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get pending registration data from SecureStore.
+ * @returns {Promise<object|null>}
+ */
+export const getPendingRegistration = async () => {
+  try {
+    const pending = await SecureStore.getItemAsync(PENDING_REGISTRATION_KEY);
+    return pending ? JSON.parse(pending) : null;
+  } catch (error) {
+    console.error('[authService] Error getting pending registration:', error);
+    return null;
+  }
+};
+
+/**
+ * Clear pending registration data.
+ * @returns {Promise<void>}
+ */
+export const clearPendingRegistration = async () => {
+  try {
+    await SecureStore.deleteItemAsync(PENDING_REGISTRATION_KEY);
+  } catch (error) {
+    console.error('[authService] Error clearing pending registration:', error);
   }
 };
 
