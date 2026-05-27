@@ -27,8 +27,8 @@ import * as authService from '../services/authService';
 const BENEFITS = [
 
   { icon: 'star-outline', title: 'Members-only dramas', sub: null },
-  { icon: 'infinite-outline', label: 'Unlimited Access' },
-  { icon: 'lock-open-outline', label: 'Unlock Episodes' },
+  { icon: 'infinite-outline', title: 'Unlimited Access' },
+  { icon: 'lock-open-outline', title: 'Unlock Episodes' },
 
 ];
 

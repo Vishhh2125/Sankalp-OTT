@@ -5,14 +5,13 @@ import {
   Text,
   View,
   Pressable,
-  FlatList,
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { theme } from '../../constants/theme';
 
-const CARD_WIDTH = Math.min(Dimensions.get('window').width - 40, 360);
+const CARD_WIDTH = Math.min(Dimensions.get('window').width - 80, 320);
 
 export default function AnnouncementPopup({ visible, announcements, onDismiss }) {
   const [index, setIndex] = useState(0);
@@ -30,84 +29,67 @@ export default function AnnouncementPopup({ visible, announcements, onDismiss })
   const title = (current.title || '').trim();
   const body = (current.body || '').trim();
 
-  const renderItem = ({ item }) => {
-    const t = (item.title || '').trim();
-    const b = (item.body || '').trim();
-    return (
-      <View style={[styles.card, { width: CARD_WIDTH }]}>
-        <Pressable style={styles.closeBtn} onPress={onDismiss} hitSlop={12}>
-          <Ionicons name="close" size={22} color={theme.white} />
-        </Pressable>
-        <View style={styles.iconCircle}>
-          <Text style={styles.emojiLarge}>{item.emoji || '📬'}</Text>
-        </View>
-        <Text style={styles.headline}>Notification</Text>
-        {t ? (
-          <Text style={styles.title} numberOfLines={2}>
-            {t}
-          </Text>
-        ) : null}
-        {b ? (
-          <Text style={styles.body} numberOfLines={4}>
-            {b}
-          </Text>
-        ) : null}
-        <Pressable style={styles.okBtn} onPress={onDismiss}>
-          <Text style={styles.okBtnText}>Got it</Text>
-        </Pressable>
-      </View>
-    );
+  const goToPrev = () => {
+    setIndex((i) => (i === 0 ? list.length - 1 : i - 1));
+  };
+
+  const goToNext = () => {
+    setIndex((i) => (i === list.length - 1 ? 0 : i + 1));
   };
 
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onDismiss}>
       <View style={styles.backdrop}>
-        {list.length > 1 ? (
-          <FlatList
-            data={list}
-            keyExtractor={(item) => item.id}
-            renderItem={renderItem}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onMomentumScrollEnd={(e) => {
-              const i = Math.round(e.nativeEvent.contentOffset.x / CARD_WIDTH);
-              setIndex(i);
-            }}
-            getItemLayout={(_, i) => ({
-              length: CARD_WIDTH,
-              offset: CARD_WIDTH * i,
-              index: i,
-            })}
-            contentContainerStyle={styles.listContent}
-          />
-        ) : (
-          <View style={styles.listContent}>
-            <View style={[styles.card, { width: CARD_WIDTH }]}>
-              <Pressable style={styles.closeBtn} onPress={onDismiss} hitSlop={12}>
-                <Ionicons name="close" size={22} color={theme.white} />
-              </Pressable>
-              <View style={styles.iconCircle}>
-                <Text style={styles.emojiLarge}>{emoji}</Text>
-              </View>
-              <Text style={styles.headline}>Notification</Text>
-              {title ? (
-                <Text style={styles.title} numberOfLines={2}>
-                  {title}
-                </Text>
-              ) : null}
-              {body ? (
-                <Text style={styles.body} numberOfLines={4}>
-                  {body}
-                </Text>
-              ) : null}
-              <Pressable style={styles.okBtn} onPress={onDismiss}>
-                <Text style={styles.okBtnText}>Got it</Text>
-              </Pressable>
+        <View style={styles.cardWrapper}>
+          {/* Card */}
+          <View style={[styles.card, { width: CARD_WIDTH }]}>
+            <Pressable style={styles.closeBtn} onPress={onDismiss} hitSlop={12}>
+              <Ionicons name="close" size={22} color={theme.white} />
+            </Pressable>
+            <View style={styles.iconCircle}>
+              <Text style={styles.emojiLarge}>{emoji}</Text>
             </View>
+            <Text style={styles.headline}>Notification</Text>
+            {title ? (
+              <Text style={styles.title} numberOfLines={2}>
+                {title}
+              </Text>
+            ) : null}
+            {body ? (
+              <Text style={styles.body} numberOfLines={4}>
+                {body}
+              </Text>
+            ) : null}
+            <Pressable style={styles.okBtn} onPress={onDismiss}>
+              <Text style={styles.okBtnText}>Got it</Text>
+            </Pressable>
+
+            {/* Left Arrow - Bottom Left */}
+            {list.length > 1 && (
+              <Pressable
+                style={[styles.arrowBtn, styles.arrowBtnBottomLeft]}
+                onPress={goToPrev}
+                hitSlop={12}
+              >
+                <Ionicons name="chevron-back" size={24} color={theme.white} />
+              </Pressable>
+            )}
+
+            {/* Right Arrow - Bottom Right */}
+            {list.length > 1 && (
+              <Pressable
+                style={[styles.arrowBtn, styles.arrowBtnBottomRight]}
+                onPress={goToNext}
+                hitSlop={12}
+              >
+                <Ionicons name="chevron-forward" size={24} color={theme.white} />
+              </Pressable>
+            )}
           </View>
-        )}
-        {list.length > 1 ? (
+        </View>
+
+        {/* Dots Indicator */}
+        {list.length > 1 && (
           <View style={styles.dots}>
             {list.map((item, i) => (
               <View
@@ -116,7 +98,7 @@ export default function AnnouncementPopup({ visible, announcements, onDismiss })
               />
             ))}
           </View>
-        ) : null}
+        )}
       </View>
     </Modal>
   );
@@ -129,7 +111,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  listContent: { alignItems: 'center' },
+  cardWrapper: {
+    position: 'relative',
+    alignItems: 'center',
+  },
+  arrowBtn: {
+    position: 'absolute',
+    bottom: -55,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  arrowBtnBottomLeft: {
+    left: -12,
+  },
+  arrowBtnBottomRight: {
+    right: -12,
+  },
   card: {
     borderRadius: 20,
     padding: 22,
@@ -196,7 +199,7 @@ const styles = StyleSheet.create({
   dots: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 16,
+    marginTop: 20,
   },
   dot: {
     width: 8,
