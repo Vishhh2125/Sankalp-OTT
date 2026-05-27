@@ -53,7 +53,7 @@ export default function DramaBannerPopup({
       </View>
 
       <View style={styles.footer}>
-        <Text style={styles.headline}>Your may like this drama</Text>
+        <Text style={styles.headline}>{item.title}</Text>
         <Text style={styles.subheadline}>Perfect pick based on your taste!</Text>
 
         <Pressable
