@@ -12,6 +12,7 @@ import { ApiResponse } from './utils/ApiResponse.js';
 import authRouter from './modules/auth/auth.routes.js';
 import adminRouter from './modules/admin/admin.routes.js';
 import membershipRouter from './modules/membership/membership.routes.js';
+import topupRouter from './modules/topup/topup.routes.js';
 
 // added from admin_ui_v2 (non-conflicting)
 import contentRouter from './modules/content/content.router.js';
@@ -147,6 +148,8 @@ app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/admin', adminRouter);
 app.use('/api/v1/membership', membershipRouter);
 app.use('/api/v1/admin/membership', membershipRouter);
+app.use('/api/v1/topup', topupRouter);
+app.use('/api/v1/admin/topup', topupRouter);
 app.use('/api/content', contentRouter);
 app.use('/api/feed', feedRouter);
 app.use('/api/media', mediaRouter);

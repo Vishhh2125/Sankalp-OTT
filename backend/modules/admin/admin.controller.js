@@ -1,6 +1,7 @@
 import { prisma } from '../../prisma/client.js';
 import { ApiResponse } from '../../utils/ApiResponse.js';
 import { AppError } from '../../middleware/error.middleware.js';
+import { getRevenueByPlan } from '../membership/membership.service.js';
 
 /**
  * GET /api/v1/admin/users
@@ -976,37 +977,26 @@ export async function getAnalyticsReport(req, res, next) {
         { lbl: 'Top unlock ep.', val: topEpisodeName, color: 'var(--text)' },
       ];
     } else if (reportType === 'revenue') {
-      const weeklyRevenue = await prisma.paymentTransaction.aggregate({
-        where: { 
-          status: 'completed',
-          type: 'weekly',
-        },
-        _sum: { amount: true },
+      // Get revenue breakdown by membership plans (dynamic from database)
+      const revenueByPlan = await getRevenueByPlan({
+        startDate,
+        endDate,
       });
 
-      const monthlyRevenue = await prisma.paymentTransaction.aggregate({
-        where: { 
-          status: 'completed',
-          type: 'monthly',
-        },
-        _sum: { amount: true },
-      });
-
-      const annualRevenue = await prisma.paymentTransaction.aggregate({
-        where: { 
-          status: 'completed',
-          type: 'annual',
-        },
-        _sum: { amount: true },
-      });
-
-      const total = (weeklyRevenue._sum.amount || 0) + (monthlyRevenue._sum.amount || 0) + (annualRevenue._sum.amount || 0);
+      // Format data for report
+      const total = revenueByPlan.reduce((sum, plan) => sum + plan.revenue, 0);
 
       reportData = [
-        { lbl: 'Weekly', val: formatCurrency(weeklyRevenue._sum.amount || 0), color: 'var(--green)' },
-        { lbl: 'Monthly', val: formatCurrency(monthlyRevenue._sum.amount || 0), color: 'var(--accent2)' },
-        { lbl: 'Annual', val: formatCurrency(annualRevenue._sum.amount || 0), color: 'var(--amber)' },
-        { lbl: 'Total', val: formatCurrency(total), color: 'var(--text)' },
+        ...revenueByPlan.map((plan) => ({
+          lbl: `${plan.planName} (${plan.duration})`,
+          val: formatCurrency(plan.revenue),
+          color: 'var(--text2)',
+        })),
+        {
+          lbl: 'Total',
+          val: formatCurrency(total),
+          color: 'var(--accent2)',
+        },
       ];
     }
 

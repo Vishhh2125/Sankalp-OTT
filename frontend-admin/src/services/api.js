@@ -258,6 +258,16 @@ export const membershipApi = {
   toggle: (planId) => api.patch(`/v1/admin/membership/plans/${planId}/toggle`),
 };
 
+// ── Top-Up Plans ──
+export const topupApi = {
+  getAll: () => api.get('/v1/admin/topup/plans'),
+  getById: (planId) => api.get(`/v1/admin/topup/plans/${planId}`),
+  create: (data) => api.post('/v1/admin/topup/plans', data),
+  update: (planId, data) => api.patch(`/v1/admin/topup/plans/${planId}`, data),
+  delete: (planId) => api.delete(`/v1/admin/topup/plans/${planId}`),
+  toggle: (planId) => api.patch(`/v1/admin/topup/plans/${planId}/toggle`),
+};
+
 // ── Admin Users ──
 export const usersApi = {
   getAll: () => api.get('/v1/admin/users'),

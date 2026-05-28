@@ -13,6 +13,7 @@ import Dramas        from './pages/Dramas.jsx'
 import Categories    from './pages/Categories.jsx'
 import Banners       from './pages/Banners.jsx'
 import Membership    from './pages/Membership.jsx'
+import TopUp         from './pages/TopUp.jsx'
 import Coins         from './pages/Coins.jsx'
 import Notifications from './pages/Notifications.jsx'
 import Analytics     from './pages/Analytics.jsx'
@@ -27,6 +28,7 @@ const ROUTES = {
   categories:    Categories,
   banners:       Banners,
   membership:    Membership,
+  topup:         TopUp,
   coins:         Coins,
   notifications: Notifications,
   analytics:     Analytics,

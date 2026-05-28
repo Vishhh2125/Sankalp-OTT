@@ -7,6 +7,7 @@ import {
   getCheckinStatus,
   claimDailyCheckin,
 } from './daily-checkin.service.js';
+import { getAllActiveTopUpPlans } from '../topup/topup.service.js';
 
 const router = express.Router();
 
@@ -296,32 +297,27 @@ router.get('/watch-history', requireAuth, async (req, res, next) => {
 });
 
 // ─────────────────────────────────────────────────────────────────
-// WALLET (simulated INR → coins top-up; no payment gateway)
-// CoinTransaction: type "credit", reason "wallet_topup_simulated", ref_id = pack_id
+// WALLET (Dynamic Top-up Plans from Database)
+// Coins are issued based on admin-configured top-up plans
+// CoinTransaction: type "credit", reason "wallet_topup_simulated", ref_id = plan_id
 // ─────────────────────────────────────────────────────────────────
-
-const TOP_UP_PACKS = [
-  { pack_id: 'pack_inr_10_30', inr_paise: 1000, coins: 30, label: '₹10 → 30 coins' },
-  { pack_id: 'pack_inr_50_200', inr_paise: 5000, coins: 200, label: '₹50 → 200 coins' },
-  { pack_id: 'pack_inr_100_500', inr_paise: 10000, coins: 500, label: '₹100 → 500 coins' },
-];
-
-function getPackById(packId) {
-  return TOP_UP_PACKS.find((p) => p.pack_id === packId) || null;
-}
 
 /**
  * GET /api/user/wallet/top-up-options
- * Returns purchasable coin packs (single source of truth with POST simulate-purchase).
+ * Returns all active top-up plans from database (dynamic)
  */
 router.get('/wallet/top-up-options', requireAuth, async (req, res, next) => {
   try {
-    const packs = TOP_UP_PACKS.map((p) => ({
-      pack_id: p.pack_id,
-      label: p.label,
-      inr_paise: p.inr_paise,
-      coins: p.coins,
+    const plans = await getAllActiveTopUpPlans();
+    
+    const packs = plans.map((p) => ({
+      pack_id: p.id, // Use plan ID as pack_id
+      label: `₹${parseFloat(p.price).toFixed(2)} → ${p.coins_amount} coins`,
+      inr_paise: Math.round(parseFloat(p.price) * 100), // Convert to paise
+      coins: p.coins_amount,
+      name: p.name,
     }));
+    
     return res.json(new ApiResponse(200, { packs }, 'Top-up options'));
   } catch (e) {
     next(e);
@@ -330,21 +326,26 @@ router.get('/wallet/top-up-options', requireAuth, async (req, res, next) => {
 
 /**
  * POST /api/user/wallet/simulate-purchase
- * Body: { pack_id: string }
+ * Body: { pack_id: string (top-up plan ID) }
  * Credits coins and appends a coin_transactions ledger row (simulated payment).
+ * Now uses dynamic top-up plans from database instead of hardcoded packs.
  */
 router.post('/wallet/simulate-purchase', requireAuth, async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const packId = req.body?.pack_id;
+    const planId = req.body?.pack_id; // pack_id now contains the TopUpPlan ID
 
-    if (!packId || typeof packId !== 'string') {
+    if (!planId || typeof planId !== 'string') {
       return res.status(400).json(new ApiResponse(400, null, 'pack_id is required'));
     }
 
-    const pack = getPackById(packId);
-    if (!pack) {
-      return res.status(400).json(new ApiResponse(400, null, 'Unknown pack_id'));
+    // Fetch the top-up plan from database
+    const plan = await prisma.topUpPlan.findUnique({
+      where: { id: planId },
+    });
+
+    if (!plan || !plan.is_active) {
+      return res.status(400).json(new ApiResponse(400, null, 'Top-up plan not found or inactive'));
     }
 
     const result = await prisma.$transaction(async (tx) => {
@@ -357,7 +358,8 @@ router.post('/wallet/simulate-purchase', requireAuth, async (req, res, next) => 
       }
 
       const prev = user.coins ?? 0;
-      const nextCoins = prev + pack.coins;
+      const coinsToAdd = plan.coins_amount;
+      const nextCoins = prev + coinsToAdd;
 
       await tx.user.update({
         where: { id: userId },
@@ -368,12 +370,12 @@ router.post('/wallet/simulate-purchase', requireAuth, async (req, res, next) => 
         data: {
           user_id: userId,
           type: 'credit',
-          amount: pack.coins,
+          amount: coinsToAdd,
           reason: 'wallet_topup_simulated',
-          ref_id: pack.pack_id,
+          ref_id: plan.id,
           title: 'Coin top-up',
-          description: pack.label,
-          fiat_paise: pack.inr_paise,
+          description: `${plan.name} - ₹${parseFloat(plan.price).toFixed(2)} → ${coinsToAdd} coins`,
+          fiat_paise: Math.round(parseFloat(plan.price) * 100),
           status: 'completed',
         },
       });

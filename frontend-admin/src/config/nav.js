@@ -19,6 +19,7 @@ export const NAV_CONFIG = [
     section: 'Monetization',
     items: [
       { id: 'membership', label: 'Membership Plans', badge: null },
+      { id: 'topup',      label: 'Top-Up Plans',     badge: null },
       { id: 'coins',      label: 'Coins & Wallet',   badge: null },
     ],
   },
@@ -43,6 +44,7 @@ export const PAGE_META = {
   categories:    { title: 'Categories & Tags',    subtitle: 'Organise and tag content' },
   banners:       { title: 'Banners & Popups',     subtitle: 'Homepage promotions' },
   membership:    { title: 'Membership Plans',     subtitle: 'Plans and billing' },
+  topup:         { title: 'Top-Up Plans',         subtitle: 'Coin package management' },
   coins:         { title: 'Coins & Wallet',       subtitle: 'Virtual currency management' },
   notifications: { title: 'Notifications',        subtitle: 'Push messages & alerts' },
   analytics:     { title: 'Analytics & Reports',  subtitle: 'Growth & performance reports' },

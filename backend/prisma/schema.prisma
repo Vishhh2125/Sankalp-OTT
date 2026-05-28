@@ -132,6 +132,23 @@ model PaymentTransaction {
 }
 
 // ──────────────────────────────────────
+// TOP-UP PLANS (DYNAMIC COIN PACKAGES)
+// ──────────────────────────────────────
+
+model TopUpPlan {
+  id            String   @id @default(uuid()) @db.Uuid
+  name          String   @db.VarChar(100)
+  price         Decimal  @db.Decimal(10, 2)
+  coins_amount  Int
+  currency      String   @default("INR") @db.VarChar(10)
+  is_active     Boolean  @default(true)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  @@map("top_up_plans")
+}
+
+// ──────────────────────────────────────
 // CONTENT: CATEGORIES, TAGS, SHOWS, EPISODES
 // ──────────────────────────────────────
 

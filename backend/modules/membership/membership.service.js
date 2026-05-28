@@ -371,3 +371,75 @@ export async function getSubscriptionHistory(page = 1, limit = 50) {
     throw error;
   }
 }
+
+/**
+ * Get revenue breakdown by membership plan (Dynamic from database)
+ * For admin revenue report - shows revenue for each membership plan
+ * @param {Object} dateRange - { startDate, endDate } for filtering
+ * @returns {Array} Array of revenue data by plan
+ */
+export async function getRevenueByPlan(dateRange = {}) {
+  try {
+    const { startDate = new Date(0), endDate = new Date() } = dateRange;
+
+    // Get all membership plans
+    const plans = await prisma.membershipPlan.findMany({
+      orderBy: { created_at: 'asc' },
+    });
+
+    // For each plan, calculate total revenue from completed payments
+    const revenueByPlan = await Promise.all(
+      plans.map(async (plan) => {
+        // Sum revenue from payments for this plan
+        // UserMembership links user to plan and payment
+        const revenueResult = await prisma.paymentTransaction.aggregate({
+          where: {
+            status: 'completed',
+            created_at: {
+              gte: startDate,
+              lte: endDate,
+            },
+            memberships: {
+              some: {
+                plan_id: plan.id,
+              },
+            },
+          },
+          _sum: {
+            amount: true,
+          },
+        });
+
+        const revenue = revenueResult._sum?.amount || 0;
+        
+        // Also get subscriber count for this plan (active subscriptions)
+        const subscriberCount = await prisma.userMembership.count({
+          where: {
+            plan_id: plan.id,
+            status: 'ACTIVE',
+          },
+        });
+
+        return {
+          id: plan.id,
+          planName: plan.name,
+          duration: plan.duration,
+          price: parseFloat(plan.price),
+          currency: plan.currency,
+          revenue: parseFloat(revenue),
+          subscribers: subscriberCount,
+          isActive: plan.is_active,
+        };
+      })
+    );
+
+    // Filter to only show active plans or plans with revenue
+    const reportData = revenueByPlan
+      .filter((item) => item.isActive || item.revenue > 0)
+      .sort((a, b) => b.revenue - a.revenue); // Sort by revenue descending
+
+    return reportData;
+  } catch (error) {
+    throw error;
+  }
+}

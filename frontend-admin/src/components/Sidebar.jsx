@@ -49,6 +49,13 @@ const NAV_ICONS = {
       <circle cx="4" cy="10.5" r="1" fill="currentColor" opacity=".7"/>
     </>
   ),
+  topup: (
+    <>
+      <circle cx="8" cy="6" r="4" fill="currentColor" opacity=".3"/>
+      <circle cx="8" cy="6" r="2" fill="currentColor" opacity=".7"/>
+      <path d="M8 10v3M6 12h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity=".7"/>
+    </>
+  ),
   coins: (
     <>
       <circle cx="8" cy="8" r="6" fill="currentColor" opacity=".25"/>
