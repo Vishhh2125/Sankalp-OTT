@@ -52,6 +52,17 @@ router.post('/bookmarks/:showId', requireAuth, async (req, res, next) => {
       }, 'Bookmark removed'));
     }
 
+    // Fetch full show data for response
+    const showData = await prisma.show.findUnique({
+      where: { id: showId },
+      select: {
+        id: true,
+        title: true,
+        thumbnail_url: true,
+        category: { select: { name: true } },
+      },
+    });
+
     // Resolve episode_id and progress_sec if not fully provided
     // Case 1: episode_id given but no progress_sec → look up WatchHistory
     if (episode_id && (progress_sec === undefined || progress_sec === null)) {
@@ -101,6 +112,9 @@ router.post('/bookmarks/:showId', requireAuth, async (req, res, next) => {
         show_id: showId,
         episode_id: updated.episode_id,
         progress_sec: updated.progress_sec,
+        show_title: showData?.title || '',
+        thumbnail_url: showData?.thumbnail_url || null,
+        category: showData?.category?.name || null,
       }, 'Bookmark updated'));
     }
 
@@ -119,6 +133,9 @@ router.post('/bookmarks/:showId', requireAuth, async (req, res, next) => {
       show_id: showId,
       episode_id: bookmark.episode_id,
       progress_sec: bookmark.progress_sec,
+      show_title: showData?.title || '',
+      thumbnail_url: showData?.thumbnail_url || null,
+      category: showData?.category?.name || null,
     }, 'Bookmark added'));
 
   } catch (e) { next(e); }

@@ -44,26 +44,17 @@ export default function SignUpScreen({ navigation }) {
   const dispatch = useDispatch();
   const registerStatus = useSelector((state) => state.auth.register.status);
   const registerError = useSelector((state) => state.auth.register.error);
+  const registerData = useSelector((state) => state.auth.register.data);
 
   const strength = useMemo(() => getPasswordStrength(password), [password]);
   const pendingLoginRef = useRef(null);
 
   useEffect(() => {
-    if (registerStatus !== 'succeeded' || !pendingLoginRef.current) return;
-
-    const { email: loginEmail, password: loginPassword } = pendingLoginRef.current;
-    pendingLoginRef.current = null;
-
-    dispatch(loginUser({ email: loginEmail, password: loginPassword }))
-      .unwrap()
-      .then(() => {
-        dispatch(clearRegisterState());
-      })
-      .catch(() => {
-        dispatch(clearRegisterState());
-        navigation.navigate(ROUTES.LOGIN);
-      });
-  }, [dispatch, navigation, registerStatus]);
+    if (registerStatus === 'succeeded' && registerData?.sessionId) {
+      navigation.navigate(ROUTES.OTP, registerData);
+      dispatch(clearRegisterState());
+    }
+  }, [dispatch, navigation, registerData, registerStatus]);
 
   function handleCreateAccount() {
     const name = fullName.trim();

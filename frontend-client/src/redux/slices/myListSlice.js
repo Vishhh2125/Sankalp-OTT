@@ -182,26 +182,29 @@ const myListSlice = createSlice({
     // ── toggleBookmark ──────────────────────────────────────────
     builder
       .addCase(toggleBookmark.fulfilled, (state, action) => {
-        const { bookmarked, show_id, episode_id, progress_sec, showData } = action.payload;
+        const { bookmarked, show_id, episode_id, progress_sec, showData, show_title, thumbnail_url, category } = action.payload;
 
         if (bookmarked) {
           // Add or update in bookmarkedShowIds
           state.bookmarkedShowIds[show_id] = { episode_id, progress_sec };
 
-          // If showData provided (optimistic local update), immediately update bookmarks array
-          if (showData) {
+          // Use showData if provided, otherwise use API response data
+          const dataToUse = showData || { show_title, thumbnail_url, category };
+          
+          // Only update bookmarks array if we have show data (from either source)
+          if (dataToUse) {
             const existingIdx = state.bookmarks.findIndex(b => b.show_id === show_id);
             const bookmarkEntry = {
               bookmark_id: `bm_${show_id}_${Date.now()}`, // Temp ID until server confirms
-              show_id: showData.show_id,
-              show_title: showData.show_title,
-              thumbnail_url: showData.thumbnail_url,
-              category: showData.category || null,
+              show_id: show_id,
+              show_title: dataToUse.show_title || show_title || '',
+              thumbnail_url: dataToUse.thumbnail_url || thumbnail_url || null,
+              category: dataToUse.category || category || null,
               episode_id: episode_id,
-              episode_num: showData.episode_num,
-              duration_sec: showData.duration_sec || 0,
+              episode_num: dataToUse.episode_num || 1,
+              duration_sec: dataToUse.duration_sec || 0,
               progress_sec: progress_sec,
-              total_episodes: showData.total_episodes || 1,
+              total_episodes: dataToUse.total_episodes || 1,
             };
 
             if (existingIdx !== -1) {

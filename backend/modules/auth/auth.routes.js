@@ -1,5 +1,5 @@
 import express from 'express';
-import { register, login, registerAdminController, refreshToken, logout, getCurrentUser } from './auth.controller.js';
+import { register, login, registerAdminController, refreshToken, logout, getCurrentUser, verifyOtp, resendOtpController } from './auth.controller.js';
 import { requireAuth } from '../../middleware/auth.middleware.js';
 
 const router = express.Router();
@@ -17,6 +17,20 @@ router.post('/register', register);
  * Body: { email, password }
  */
 router.post('/login', login);
+
+/**
+ * POST /auth/verify-otp
+ * Verify OTP and create user account
+ * Body: { sessionId, otp }
+ */
+router.post('/verify-otp', verifyOtp);
+
+/**
+ * POST /auth/resend-otp
+ * Resend OTP for a registration session
+ * Body: { sessionId }
+ */
+router.post('/resend-otp', resendOtpController);
 
 /**
  * POST /auth/register-admin

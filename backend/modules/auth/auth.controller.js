@@ -8,6 +8,9 @@ import {
   registerUser,
   verifyRefreshToken,
   verifyStoredRefreshToken,
+  initiateRegistration,
+  verifyOtpAndCreateUser,
+  resendOTP,
 } from './auth.service.js';
 import { validateRegister, validateLogin, validateClientType } from './auth.validation.js';
 import { asyncHandler } from '../../utils/asyncHandler.js';
@@ -19,7 +22,9 @@ import { getPrismaClient } from '../../config/db.js';
 const prisma = getPrismaClient();
 
 /**
- * Register user controller
+ * Register user controller - Step 1: Initiate OTP verification
+ * Body: { name, email, password }
+ * Returns: { sessionId, email (masked), expiresAt, otpExpiresAt }
  */
 export const register = asyncHandler(async (req, res, next) => {
   const { name, email, password } = req.body;
@@ -35,21 +40,21 @@ export const register = asyncHandler(async (req, res, next) => {
   const sanitizedEmail = String(email).toLowerCase().trim();
   const sanitizedPassword = String(password);
 
-  // Register user
-  const result = await registerUser({
+  // Initiate registration - generates OTP and sends email
+  const result = await initiateRegistration({
     name: sanitizedName,
     email: sanitizedEmail,
     password: sanitizedPassword
   });
 
-  logger.info('User registered successfully', { 
-    userId: result.user.id, 
-    email: result.user.email
+  logger.info('Registration initiated - OTP sent', { 
+    sessionId: result.sessionId, 
+    email: result.email
   });
 
-  // Return only user data (no tokens - user must login to get tokens)
+  // Return sessionId and masked email (user hasn't been created yet)
   return res.status(201).json(
-    new ApiResponse(201, result.user, 'User registered successfully. Please login to continue')
+    new ApiResponse(201, result, 'OTP sent to your email. Please verify to complete registration.')
   );
 });
 
@@ -147,6 +152,62 @@ export const registerAdminController = asyncHandler(async (req, res, next) => {
   // Return only admin data (no tokens - admin must login to get tokens)
   return res.status(201).json(
     new ApiResponse(201, result.user, 'Admin registered successfully. Please login to continue')
+  );
+});
+
+/**
+ * Verify OTP controller - Step 2: Create user after OTP verification
+ * Body: { sessionId, otp }
+ * Returns: { user, message }
+ */
+export const verifyOtp = asyncHandler(async (req, res, next) => {
+  const { sessionId, otp } = req.body;
+
+  // Validate input
+  if (!sessionId || typeof sessionId !== 'string') {
+    throw new ApiError(400, 'Validation failed', ['sessionId is required']);
+  }
+
+  if (!otp || typeof otp !== 'string' || otp.length !== 6 || !/^\d+$/.test(otp)) {
+    throw new ApiError(400, 'Validation failed', ['OTP must be a 6-digit number']);
+  }
+
+  // Verify OTP and create user
+  const result = await verifyOtpAndCreateUser({
+    sessionId,
+    otp
+  });
+
+  logger.info('User account created after OTP verification', { 
+    userId: result.user.id, 
+    email: result.user.email
+  });
+
+  return res.status(201).json(
+    new ApiResponse(201, result.user, result.message)
+  );
+});
+
+/**
+ * Resend OTP controller
+ * Body: { sessionId }
+ * Returns: { message, nextResendAt, otpExpiresAt, remainingResends }
+ */
+export const resendOtpController = asyncHandler(async (req, res, next) => {
+  const { sessionId } = req.body;
+
+  // Validate input
+  if (!sessionId || typeof sessionId !== 'string') {
+    throw new ApiError(400, 'Validation failed', ['sessionId is required']);
+  }
+
+  // Resend OTP
+  const result = await resendOTP(sessionId);
+
+  logger.info('OTP resent', { sessionId });
+
+  return res.status(200).json(
+    new ApiResponse(200, result, result.message)
   );
 });
 

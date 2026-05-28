@@ -14,7 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 
 import GuestAccessPrompt from '../components/GuestAccessPrompt';
 import { theme } from '../constants/theme';
@@ -57,6 +57,15 @@ function ThumbnailProgressBar({ progressSec, durationSec }) {
   );
 }
 
+// ─────────────────────────────────────────────────────────────────
+// Helper to resolve thumbnail URLs to absolute URLs
+// ─────────────────────────────────────────────────────────────────
+function resolveThumbnailUrl(url) {
+  if (!url) return null;
+  if (url.startsWith('http')) return url; // already absolute
+  return `${API_BASE_URL}${url}`; // make it absolute
+}
+
 const pStyles = StyleSheet.create({
   track: {
     position: 'absolute',
@@ -83,6 +92,8 @@ function ShowCard({ item, onPress, onRemove, showRemove = false }) {
       ? Math.min(Math.round((item.progress_sec / item.duration_sec) * 100), 100)
       : 0;
 
+  const resolvedThumbnailUrl = resolveThumbnailUrl(item.thumbnail_url);
+
   return (
     <Pressable
       style={({ pressed }) => [
@@ -93,9 +104,9 @@ function ShowCard({ item, onPress, onRemove, showRemove = false }) {
     >
       {/* Thumbnail */}
       <View style={cardStyles.thumbnailWrap}>
-        {item.thumbnail_url ? (
+        {resolvedThumbnailUrl ? (
           <Image
-            source={{ uri: item.thumbnail_url }}
+            source={{ uri: resolvedThumbnailUrl }}
             style={cardStyles.thumbnail}
             resizeMode="cover"
           />
@@ -276,6 +287,17 @@ export default function MyListScreen() {
     if (!bookmarksLoaded) dispatch(fetchBookmarks());
     if (!watchHistoryLoaded) dispatch(fetchWatchHistory());
   }, [accessToken, bookmarksLoaded, watchHistoryLoaded, dispatch]);
+
+  // Refetch bookmarks and watch history when screen comes into focus
+  // This ensures data is fresh after watching/browsing in other screens
+  useFocusEffect(
+    useCallback(() => {
+      if (!accessToken) return;
+      // Refetch to ensure we have the latest bookmarks and watch history
+      dispatch(fetchBookmarks());
+      dispatch(fetchWatchHistory());
+    }, [accessToken, dispatch])
+  );
 
   // ── Navigate to player from a bookmark or watch history entry ──
   const handleCardPress = useCallback((entry) => {

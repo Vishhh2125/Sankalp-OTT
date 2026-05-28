@@ -14,6 +14,7 @@ export default function AuthWrapper({ onDeepLink }) {
   const dispatch = useDispatch();
   const accessToken = useSelector((state) => state.auth.accessToken);
   const isInitializing = useSelector((state) => state.auth.isInitializing);
+  const pendingRegistration = useSelector((state) => state.auth.pendingRegistration);
   const [guestMode, setGuestMode] = useState(false);
   const [authEntryRoute, setAuthEntryRoute] = useState(ROUTES.LOGIN);
 
@@ -80,6 +81,14 @@ export default function AuthWrapper({ onDeepLink }) {
     setAuthEntryRoute(ROUTES.LOGIN);
   }, []);
 
+  useEffect(() => {
+    if (pendingRegistration?.sessionId) {
+      setAuthEntryRoute(ROUTES.OTP);
+      return;
+    }
+    setAuthEntryRoute(ROUTES.LOGIN);
+  }, [pendingRegistration]);
+
   if (isInitializing) {
     return <SplashScreen />;
   }
@@ -105,6 +114,7 @@ export default function AuthWrapper({ onDeepLink }) {
       key={authEntryRoute}
       initialRouteName={authEntryRoute}
       onGuestAccess={onGuestAccess}
+      otpInitialParams={pendingRegistration || undefined}
     />
   );
 }

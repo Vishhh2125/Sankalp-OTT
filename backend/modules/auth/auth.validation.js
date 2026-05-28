@@ -80,3 +80,42 @@ export const validateClientType = (clientType) => {
     value: normalized
   };
 };
+
+/**
+ * Validate OTP format (6 digits)
+ */
+export const validateOtp = (otp) => {
+  const errors = [];
+
+  if (!otp || typeof otp !== 'string') {
+    errors.push('OTP is required');
+  } else if (otp.length !== 6) {
+    errors.push('OTP must be exactly 6 digits');
+  } else if (!/^\d+$/.test(otp)) {
+    errors.push('OTP must contain only numbers');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+};
+
+/**
+ * Validate session ID (UUID format)
+ */
+export const validateSessionId = (sessionId) => {
+  const errors = [];
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  if (!sessionId || typeof sessionId !== 'string') {
+    errors.push('Session ID is required');
+  } else if (!uuidRegex.test(sessionId)) {
+    errors.push('Invalid session ID format');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+};

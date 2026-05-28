@@ -64,6 +64,35 @@ model User {
   @@map("users")
 }
 
+// ──────────────────────────────────────
+// OTP & REGISTRATION (Email Verification)
+// ──────────────────────────────────────
+
+model OtpToken {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique @db.VarChar(255) // Store email (not user_id) since user doesn't exist yet
+  otp_hash     String   @db.VarChar(255) // Bcrypt hashed OTP (NEVER store plaintext)
+  attempts     Int      @default(0) // Track failed attempts
+  max_attempts Int      @default(3) // Fail after 3 wrong attempts
+  expires_at   DateTime // OTP expires after 10 minutes
+  created_at   DateTime @default(now())
+  // Unique constraint already defined on the `email` field above (@unique)
+  @@index([expires_at]) // For cleanup queries
+  @@map("otp_tokens")
+}
+
+model RegistrationSession {
+  id            String   @id @default(uuid()) @db.Uuid
+  email         String   @unique @db.VarChar(255)
+  name          String   @db.VarChar(100)
+  password_hash String   @db.VarChar(255) // Store hashed password temporarily
+  expires_at    DateTime // Session expires after 24 hours or after OTP verified
+  created_at    DateTime @default(now())
+
+  @@index([expires_at]) // For cleanup queries
+  @@map("registration_sessions")
+}
+
 model SubAdminAccess {
   id         String   @id @default(uuid()) @db.Uuid
   user_id    String   @db.Uuid
