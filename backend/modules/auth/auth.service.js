@@ -617,3 +617,222 @@ export const resendOTP = async (sessionId) => {
     throw new ApiError(500, 'Failed to resend OTP', [error.message]);
   }
 };
+
+// ============================================
+// FORGOT PASSWORD FLOW
+// ============================================
+
+const maskEmail = (email) => email.replace(/(.{2})(.*)(@.*)/, '$1***$3');
+
+const createOtpForEmail = async (email) => {
+  const otp = generateOTP();
+  const otpHash = await hashOTP(otp);
+  const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+  await prisma.otpToken.deleteMany({ where: { email } });
+
+  await prisma.otpToken.create({
+    data: {
+      email,
+      otp_hash: otpHash,
+      attempts: 0,
+      expires_at: otpExpiresAt,
+    },
+  });
+
+  return { otp, otpExpiresAt };
+};
+
+const sendOtpAsync = (email, otp) => {
+  setImmediate(async () => {
+    try {
+      await sendOtpEmail(email, otp);
+    } catch (error) {
+      logger.error('Failed to send OTP email', { email, error: error.message });
+    }
+  });
+};
+
+/**
+ * Step 1: Request password reset OTP for an existing account
+ */
+export const requestForgotPassword = async (email) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { email } });
+
+    if (!user) {
+      throw new ApiError(404, 'No account found with this email');
+    }
+
+    if (user.isBlocked) {
+      throw new ApiError(403, 'Your account has been blocked');
+    }
+
+    const existingSession = await prisma.passwordResetSession.findUnique({
+      where: { email },
+    });
+
+    if (existingSession) {
+      if (new Date() > existingSession.expires_at) {
+        await prisma.passwordResetSession.delete({ where: { id: existingSession.id } });
+      } else {
+        throw new ApiError(
+          409,
+          'Password reset already in progress for this email. Check your inbox for OTP.'
+        );
+      }
+    }
+
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    const session = await prisma.passwordResetSession.create({
+      data: {
+        email,
+        expires_at: expiresAt,
+      },
+    });
+
+    const { otp, otpExpiresAt } = await createOtpForEmail(email);
+    sendOtpAsync(email, otp);
+
+    logger.info('Forgot password initiated', {
+      sessionId: session.id,
+      email,
+      otpExpiresAt: otpExpiresAt.toISOString(),
+    });
+
+    return {
+      sessionId: session.id,
+      email: maskEmail(email),
+      originalEmail: email,
+      expiresAt: expiresAt.toISOString(),
+      otpExpiresAt: otpExpiresAt.toISOString(),
+    };
+  } catch (error) {
+    logger.error('Forgot password initiation failed', { error: error.message });
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw new ApiError(500, 'Failed to initiate password reset', [error.message]);
+  }
+};
+
+/**
+ * Resend OTP for password reset session
+ */
+export const resendForgotOtp = async (sessionId) => {
+  try {
+    const session = await prisma.passwordResetSession.findUnique({
+      where: { id: sessionId },
+    });
+
+    if (!session) {
+      throw new ApiError(404, 'Password reset session not found.');
+    }
+
+    if (new Date() > session.expires_at) {
+      await prisma.passwordResetSession.delete({ where: { id: sessionId } });
+      throw new ApiError(400, 'Password reset session expired.');
+    }
+
+    const rateLimit = await checkResendRateLimit(session.email);
+
+    if (!rateLimit.allowed) {
+      throw new ApiError(429, rateLimit.error || 'Too many resend requests');
+    }
+
+    const { otp, otpExpiresAt } = await createOtpForEmail(session.email);
+    sendOtpAsync(session.email, otp);
+
+    logger.info('Forgot password OTP resent', { sessionId, email: session.email });
+
+    return {
+      message: 'New OTP sent to your email',
+      nextResendAt: rateLimit.nextResendAt,
+      otpExpiresAt: otpExpiresAt.toISOString(),
+      remainingResends: rateLimit.remainingResends,
+    };
+  } catch (error) {
+    logger.error('Forgot password OTP resend failed', { error: error.message });
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw new ApiError(500, 'Failed to resend OTP', [error.message]);
+  }
+};
+
+/**
+ * Verify OTP and set new password
+ */
+export const verifyForgotOtpAndResetPassword = async ({ sessionId, otp, newPassword }) => {
+  try {
+    const session = await prisma.passwordResetSession.findUnique({
+      where: { id: sessionId },
+    });
+
+    if (!session) {
+      throw new ApiError(404, 'Password reset session not found. Please start again.');
+    }
+
+    if (new Date() > session.expires_at) {
+      await prisma.passwordResetSession.delete({ where: { id: sessionId } });
+      throw new ApiError(400, 'Password reset session expired. Please start again.');
+    }
+
+    const otpToken = await prisma.otpToken.findUnique({
+      where: { email: session.email },
+    });
+
+    if (!otpToken) {
+      throw new ApiError(400, 'OTP not found. Please request a new OTP.');
+    }
+
+    if (new Date() > otpToken.expires_at) {
+      await prisma.otpToken.delete({ where: { id: otpToken.id } });
+      throw new ApiError(400, 'OTP expired. Please request a new OTP.');
+    }
+
+    if (otpToken.attempts >= otpToken.max_attempts) {
+      await prisma.otpToken.delete({ where: { id: otpToken.id } });
+      throw new ApiError(429, 'Too many failed attempts. Please request a new OTP.');
+    }
+
+    const isOtpValid = await compareOTP(otp, otpToken.otp_hash);
+
+    if (!isOtpValid) {
+      await prisma.otpToken.update({
+        where: { id: otpToken.id },
+        data: { attempts: otpToken.attempts + 1 },
+      });
+
+      const attemptsLeft = otpToken.max_attempts - otpToken.attempts - 1;
+      throw new ApiError(400, `Invalid OTP. ${attemptsLeft} attempts remaining.`);
+    }
+
+    const passwordHash = await hashPassword(newPassword);
+
+    await prisma.user.update({
+      where: { email: session.email },
+      data: {
+        password: passwordHash,
+        refreshToken: null,
+      },
+    });
+
+    await prisma.otpToken.delete({ where: { id: otpToken.id } });
+    await prisma.passwordResetSession.delete({ where: { id: sessionId } });
+    await clearResendRateLimit(session.email);
+
+    logger.info('Password reset successful', { email: session.email });
+
+    return {
+      message: 'Password reset successfully. You can now login with your new password.',
+    };
+  } catch (error) {
+    logger.error('Password reset failed', { error: error.message });
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw new ApiError(500, 'Failed to reset password', [error.message]);
+  }
+};

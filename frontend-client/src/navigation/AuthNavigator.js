@@ -4,6 +4,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import LoginScreen from '../screens/LoginScreen';
 import SignUpScreen from '../screens/SignUpScreen';
 import OtpVerificationScreen from '../screens/OtpVerificationScreen';
+import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
+import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 import { ROUTES } from '../constants/routes';
 
 const Stack = createNativeStackNavigator();
@@ -12,6 +14,7 @@ export default function AuthNavigator({
   onGuestAccess,
   initialRouteName = ROUTES.LOGIN,
   otpInitialParams,
+  resetPasswordInitialParams,
 }) {
   return (
     <Stack.Navigator
@@ -28,6 +31,15 @@ export default function AuthNavigator({
         name={ROUTES.OTP}
         component={OtpVerificationScreen}
         initialParams={otpInitialParams}
+      />
+      <Stack.Screen
+        name={ROUTES.FORGOT_PASSWORD}
+        component={ForgotPasswordScreen}
+      />
+      <Stack.Screen
+        name={ROUTES.RESET_PASSWORD}
+        component={ResetPasswordScreen}
+        initialParams={resetPasswordInitialParams}
       />
     </Stack.Navigator>
   );

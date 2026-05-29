@@ -47,7 +47,7 @@ services:
       [
         "sh",
         "-c",
-        "npx prisma generate && node --watch server.js"
+        "npx prisma migrate deploy && npx prisma generate && node --watch server.js"
       ]
 
     volumes:

@@ -31,6 +31,22 @@ const initialState = {
     isResending: false,
     data: null,
   },
+  forgotPassword: {
+    status: 'idle',
+    error: null,
+    isLoading: false,
+    data: null,
+  },
+  passwordReset: {
+    status: 'idle',
+    error: null,
+    isLoading: false,
+    resendStatus: 'idle',
+    resendError: null,
+    isResending: false,
+    data: null,
+  },
+  pendingPasswordReset: null,
   logout: {
     status: 'idle', // idle | loading | succeeded | failed
     error: null,
@@ -132,6 +148,78 @@ export const verifyOtp = createAsyncThunk(
   }
 );
 
+export const requestForgotPassword = createAsyncThunk(
+  'auth/requestForgotPassword',
+  async ({ email }, { rejectWithValue }) => {
+    try {
+      const response = await api.post('/auth/forgot-password', { email });
+      const resetData = response.data?.data || null;
+      await authService.savePendingPasswordReset(resetData);
+      return resetData;
+    } catch (err) {
+      const message =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        'Failed to send reset code';
+      return rejectWithValue(message);
+    }
+  }
+);
+
+export const resetPasswordWithOtp = createAsyncThunk(
+  'auth/resetPasswordWithOtp',
+  async ({ sessionId, otp, newPassword }, { rejectWithValue }) => {
+    try {
+      const response = await api.post('/auth/reset-password', {
+        sessionId,
+        otp,
+        newPassword,
+      });
+
+      await authService.clearPendingPasswordReset();
+
+      return {
+        message: response.data?.message || 'Password reset successfully',
+      };
+    } catch (err) {
+      const message =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        'Password reset failed';
+      return rejectWithValue(message);
+    }
+  }
+);
+
+export const resendForgotOtp = createAsyncThunk(
+  'auth/resendForgotOtp',
+  async ({ sessionId }, { rejectWithValue }) => {
+    try {
+      const response = await api.post('/auth/resend-forgot-otp', { sessionId });
+      const data = response.data?.data || null;
+      const pendingReset = await authService.getPendingPasswordReset();
+
+      if (pendingReset && data) {
+        await authService.savePendingPasswordReset({
+          ...pendingReset,
+          ...data,
+        });
+      }
+
+      return data;
+    } catch (err) {
+      const message =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        'Failed to resend OTP';
+      return rejectWithValue(message);
+    }
+  }
+);
+
 export const resendOtp = createAsyncThunk(
   'auth/resendOtp',
   async ({ sessionId }, { rejectWithValue }) => {
@@ -174,11 +262,17 @@ export const initAuth = createAsyncThunk(
       // Get refresh token from storage (SecureStore for mobile, cookie for web)
       const refreshTokenValue = await authService.getRefreshToken();
       const pendingRegistration = await authService.getPendingRegistration();
+      const pendingPasswordReset = await authService.getPendingPasswordReset();
 
       if (!refreshTokenValue) {
         if (pendingRegistration) {
           console.log('[initAuth] Pending registration found, restoring OTP flow');
-          return { pendingRegistration };
+          return { pendingRegistration, pendingPasswordReset };
+        }
+
+        if (pendingPasswordReset) {
+          console.log('[initAuth] Pending password reset found, restoring reset flow');
+          return { pendingPasswordReset };
         }
 
         console.log('[initAuth] No refresh token found, staying logged out');
@@ -204,7 +298,13 @@ export const initAuth = createAsyncThunk(
 
       if (!user) {
         console.log('[initAuth] No user data found in storage');
-        return pendingRegistration ? { pendingRegistration } : null;
+        if (pendingRegistration) {
+          return { pendingRegistration, pendingPasswordReset };
+        }
+        if (pendingPasswordReset) {
+          return { pendingPasswordReset };
+        }
+        return null;
       }
 
       // Return accessToken AND user data to Redux
@@ -212,6 +312,7 @@ export const initAuth = createAsyncThunk(
         accessToken,
         user,
         pendingRegistration,
+        pendingPasswordReset,
       };
     } catch (err) {
       console.error('[initAuth] Restore failed:', err?.message);
@@ -262,6 +363,22 @@ const authSlice = createSlice({
       state.otp.resendError = null;
       state.otp.isResending = false;
       state.otp.data = null;
+    },
+    clearForgotPasswordState(state) {
+      state.forgotPassword.status = 'idle';
+      state.forgotPassword.error = null;
+      state.forgotPassword.isLoading = false;
+      state.forgotPassword.data = null;
+    },
+    clearPasswordResetState(state) {
+      state.passwordReset.status = 'idle';
+      state.passwordReset.error = null;
+      state.passwordReset.isLoading = false;
+      state.passwordReset.resendStatus = 'idle';
+      state.passwordReset.resendError = null;
+      state.passwordReset.isResending = false;
+      state.passwordReset.data = null;
+      state.pendingPasswordReset = null;
     },
     clearLogoutState(state) {
       state.logout.status = 'idle';
@@ -365,6 +482,58 @@ const authSlice = createSlice({
         state.otp.resendError = action.payload || 'Failed to resend OTP';
         state.otp.isResending = false;
       })
+      .addCase(requestForgotPassword.pending, (state) => {
+        state.forgotPassword.status = 'loading';
+        state.forgotPassword.error = null;
+        state.forgotPassword.isLoading = true;
+        state.forgotPassword.data = null;
+      })
+      .addCase(requestForgotPassword.fulfilled, (state, action) => {
+        state.forgotPassword.status = 'succeeded';
+        state.forgotPassword.isLoading = false;
+        state.forgotPassword.data = action.payload;
+        state.pendingPasswordReset = action.payload;
+      })
+      .addCase(requestForgotPassword.rejected, (state, action) => {
+        state.forgotPassword.status = 'failed';
+        state.forgotPassword.error = action.payload || 'Failed to send reset code';
+        state.forgotPassword.isLoading = false;
+      })
+      .addCase(resetPasswordWithOtp.pending, (state) => {
+        state.passwordReset.status = 'loading';
+        state.passwordReset.error = null;
+        state.passwordReset.isLoading = true;
+      })
+      .addCase(resetPasswordWithOtp.fulfilled, (state, action) => {
+        state.passwordReset.status = 'succeeded';
+        state.passwordReset.isLoading = false;
+        state.passwordReset.data = action.payload;
+        state.pendingPasswordReset = null;
+      })
+      .addCase(resetPasswordWithOtp.rejected, (state, action) => {
+        state.passwordReset.status = 'failed';
+        state.passwordReset.error = action.payload || 'Password reset failed';
+        state.passwordReset.isLoading = false;
+      })
+      .addCase(resendForgotOtp.pending, (state) => {
+        state.passwordReset.resendStatus = 'loading';
+        state.passwordReset.resendError = null;
+        state.passwordReset.isResending = true;
+      })
+      .addCase(resendForgotOtp.fulfilled, (state, action) => {
+        state.passwordReset.resendStatus = 'succeeded';
+        state.passwordReset.isResending = false;
+        state.passwordReset.data = action.payload;
+        state.pendingPasswordReset = {
+          ...(state.pendingPasswordReset || {}),
+          ...(action.payload || {}),
+        };
+      })
+      .addCase(resendForgotOtp.rejected, (state, action) => {
+        state.passwordReset.resendStatus = 'failed';
+        state.passwordReset.resendError = action.payload || 'Failed to resend OTP';
+        state.passwordReset.isResending = false;
+      })
       // LOGIN FLOW
       .addCase(loginUser.pending, (state) => {
         state.status = 'loading';
@@ -412,6 +581,9 @@ const authSlice = createSlice({
           if (action.payload.pendingRegistration) {
             state.pendingRegistration = action.payload.pendingRegistration;
           }
+          if (action.payload.pendingPasswordReset) {
+            state.pendingPasswordReset = action.payload.pendingPasswordReset;
+          }
           // refreshToken stays in SecureStore (never exposed in Redux)
         }
       })
@@ -451,6 +623,8 @@ const authSlice = createSlice({
 export const {
   clearRegisterState,
   clearOtpState,
+  clearForgotPasswordState,
+  clearPasswordResetState,
   clearLogoutState,
   clearLogoutError,
   setTokens,

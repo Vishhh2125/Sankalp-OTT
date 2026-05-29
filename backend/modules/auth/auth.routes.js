@@ -1,5 +1,17 @@
 import express from 'express';
-import { register, login, registerAdminController, refreshToken, logout, getCurrentUser, verifyOtp, resendOtpController } from './auth.controller.js';
+import {
+  register,
+  login,
+  registerAdminController,
+  refreshToken,
+  logout,
+  getCurrentUser,
+  verifyOtp,
+  resendOtpController,
+  forgotPassword,
+  resendForgotOtpController,
+  resetPassword,
+} from './auth.controller.js';
 import { requireAuth } from '../../middleware/auth.middleware.js';
 
 const router = express.Router();
@@ -31,6 +43,27 @@ router.post('/verify-otp', verifyOtp);
  * Body: { sessionId }
  */
 router.post('/resend-otp', resendOtpController);
+
+/**
+ * POST /auth/forgot-password
+ * Request OTP for password reset (existing account)
+ * Body: { email }
+ */
+router.post('/forgot-password', forgotPassword);
+
+/**
+ * POST /auth/resend-forgot-otp
+ * Resend OTP for password reset session
+ * Body: { sessionId }
+ */
+router.post('/resend-forgot-otp', resendForgotOtpController);
+
+/**
+ * POST /auth/reset-password
+ * Verify OTP and set new password
+ * Body: { sessionId, otp, newPassword }
+ */
+router.post('/reset-password', resetPassword);
 
 /**
  * POST /auth/register-admin

@@ -120,102 +120,102 @@ const refreshApi = axios.create({
   },
 });
 
-api.interceptors.response.use(
-  (response) => {
-    return response;
-  },
-  async (error) => {
-    const originalRequest = error.config;
+// api.interceptors.response.use(
+//   (response) => {
+//     return response;
+//   },
+//   async (error) => {
+//     const originalRequest = error.config;
 
-    // Only try to refresh on 401
-    if (error.response?.status !== 401) {
-      return Promise.reject(error);
-    }
+//     // Only try to refresh on 401
+//     if (error.response?.status !== 401) {
+//       return Promise.reject(error);
+//     }
 
-    // Prevent infinite loops (mark retried requests)
-    if (originalRequest._retried) {
-      return Promise.reject(error);
-    }
+//     // Prevent infinite loops (mark retried requests)
+//     if (originalRequest._retried) {
+//       return Promise.reject(error);
+//     }
 
-    /**
-     * If already refreshing, queue this request
-     */
-    if (requestQueue.isRefreshing) {
-      return new Promise((resolve, reject) => {
-        requestQueue.add({
-          resolve: (token) => {
-            originalRequest.headers.Authorization = `Bearer ${token}`;
-            resolve(api(originalRequest));
-          },
-          reject: (error) => {
-            reject(error);
-          },
-        });
-      });
-    }
+//     /**
+//      * If already refreshing, queue this request
+//      */
+//     if (requestQueue.isRefreshing) {
+//       return new Promise((resolve, reject) => {
+//         requestQueue.add({
+//           resolve: (token) => {
+//             originalRequest.headers.Authorization = `Bearer ${token}`;
+//             resolve(api(originalRequest));
+//           },
+//           reject: (error) => {
+//             reject(error);
+//           },
+//         });
+//       });
+//     }
 
-    /**
-     * First 401: attempt refresh
-     */
-    requestQueue.isRefreshing = true;
+//     /**
+//      * First 401: attempt refresh
+//      */
+//     requestQueue.isRefreshing = true;
 
-    try {
-      const refreshTokenValue = await authService.getRefreshToken();
+//     try {
+//       const refreshTokenValue = await authService.getRefreshToken();
 
-      if (!refreshTokenValue) {
-        throw new Error('No refresh token available');
-      }
+//       if (!refreshTokenValue) {
+//         throw new Error('No refresh token available');
+//       }
 
-      // Call refresh endpoint using separate instance (no interceptors)
-      const response = await refreshApi.get('/auth/refresh-token', {
-        headers: {
-          'x-client-type': authService.getClientType(),
-          Authorization: `Bearer ${refreshTokenValue}`,
-        },
-      });
+//       // Call refresh endpoint using separate instance (no interceptors)
+//       const response = await refreshApi.get('/auth/refresh-token', {
+//         headers: {
+//           'x-client-type': authService.getClientType(),
+//           Authorization: `Bearer ${refreshTokenValue}`,
+//         },
+//       });
 
-      const { accessToken, refreshToken: newRefreshToken } = response.data.data;
+//       const { accessToken, refreshToken: newRefreshToken } = response.data.data;
 
-      // Update tokens in storage and Redux
-      if (store) {
-        // Save tokens via authService (refreshToken goes to SecureStore)
-        await authService.saveTokens(accessToken, newRefreshToken);
+//       // Update tokens in storage and Redux
+//       if (store) {
+//         // Save tokens via authService (refreshToken goes to SecureStore)
+//         await authService.saveTokens(accessToken, newRefreshToken);
 
-        if (authActions) {
-          // ✅ Dispatch Redux action using proper action creator (Prasen's pattern)
-          store.dispatch(authActions.setTokens({ accessToken }));
-        } else {
-          // Fallback: raw type string (Samyak's fallback)
-          store.dispatch({ type: 'auth/setTokens', payload: { accessToken } });
-        }
-      }
+//         if (authActions) {
+//           // ✅ Dispatch Redux action using proper action creator (Prasen's pattern)
+//           store.dispatch(authActions.setTokens({ accessToken }));
+//         } else {
+//           // Fallback: raw type string (Samyak's fallback)
+//           store.dispatch({ type: 'auth/setTokens', payload: { accessToken } });
+//         }
+//       }
 
-      // Update original request with new token
-      originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-      originalRequest._retried = true;
+//       // Update original request with new token
+//       originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+//       originalRequest._retried = true;
 
-      // Resolve all queued requests with new token
-      requestQueue.resolveAll(accessToken);
+//       // Resolve all queued requests with new token
+//       requestQueue.resolveAll(accessToken);
 
-      // Retry original request
-      return api(originalRequest);
-    } catch (refreshError) {
-      console.error('[API Interceptor] Token refresh failed:', refreshError);
+//       // Retry original request
+//       return api(originalRequest);
+//     } catch (refreshError) {
+//       console.error('[API Interceptor] Token refresh failed:', refreshError);
 
-      // Logout user on refresh failure
-      if (store) {
-        if (authActions) {
-          // ✅ Dispatch Redux action using proper action creator (Prasen's pattern)
-          store.dispatch(authActions.logout());
-        } else {
-          store.dispatch({ type: 'auth/logout' });
-        }
-      }
+//       // Logout user on refresh failure
+//       if (store) {
+//         if (authActions) {
+//           // ✅ Dispatch Redux action using proper action creator (Prasen's pattern)
+//           store.dispatch(authActions.logout());
+//         } else {
+//           store.dispatch({ type: 'auth/logout' });
+//         }
+//       }
 
-      // Reject all queued requests
-      requestQueue.rejectAll(refreshError);
+//       // Reject all queued requests
+//       requestQueue.rejectAll(refreshError);
 
-      return Promise.reject(refreshError);
-    }
-  }
-);
+//       return Promise.reject(refreshError);
+//     }
+//   }
+// );

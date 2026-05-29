@@ -11,8 +11,18 @@ import {
   initiateRegistration,
   verifyOtpAndCreateUser,
   resendOTP,
+  requestForgotPassword,
+  resendForgotOtp,
+  verifyForgotOtpAndResetPassword,
 } from './auth.service.js';
-import { validateRegister, validateLogin, validateClientType } from './auth.validation.js';
+import {
+  validateRegister,
+  validateLogin,
+  validateClientType,
+  validateForgotPasswordEmail,
+  validateResetPassword,
+  validateSessionId,
+} from './auth.validation.js';
 import { asyncHandler } from '../../utils/asyncHandler.js';
 import { ApiResponse } from '../../utils/ApiResponse.js';
 import { ApiError } from '../../utils/ApiError.js';
@@ -209,6 +219,66 @@ export const resendOtpController = asyncHandler(async (req, res, next) => {
   return res.status(200).json(
     new ApiResponse(200, result, result.message)
   );
+});
+
+/**
+ * Forgot password - Step 1: send OTP to registered email
+ * Body: { email }
+ */
+export const forgotPassword = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  const validation = validateForgotPasswordEmail({ email });
+  if (!validation.isValid) {
+    throw new ApiError(400, 'Validation failed', validation.errors);
+  }
+
+  const sanitizedEmail = String(email).toLowerCase().trim();
+  const result = await requestForgotPassword(sanitizedEmail);
+
+  logger.info('Forgot password OTP sent', { sessionId: result.sessionId });
+
+  return res.status(200).json(
+    new ApiResponse(200, result, 'OTP sent to your email. Enter the code and your new password.')
+  );
+});
+
+/**
+ * Resend OTP for forgot-password session
+ * Body: { sessionId }
+ */
+export const resendForgotOtpController = asyncHandler(async (req, res) => {
+  const { sessionId } = req.body;
+
+  const sessionValidation = validateSessionId(sessionId);
+  if (!sessionValidation.isValid) {
+    throw new ApiError(400, 'Validation failed', sessionValidation.errors);
+  }
+
+  const result = await resendForgotOtp(sessionId);
+
+  return res.status(200).json(new ApiResponse(200, result, result.message));
+});
+
+/**
+ * Reset password after OTP verification
+ * Body: { sessionId, otp, newPassword }
+ */
+export const resetPassword = asyncHandler(async (req, res) => {
+  const { sessionId, otp, newPassword } = req.body;
+
+  const validation = validateResetPassword({ sessionId, otp, newPassword });
+  if (!validation.isValid) {
+    throw new ApiError(400, 'Validation failed', validation.errors);
+  }
+
+  const result = await verifyForgotOtpAndResetPassword({
+    sessionId,
+    otp: String(otp).trim(),
+    newPassword: String(newPassword),
+  });
+
+  return res.status(200).json(new ApiResponse(200, null, result.message));
 });
 
 /**

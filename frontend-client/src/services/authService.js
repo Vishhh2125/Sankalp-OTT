@@ -14,6 +14,7 @@
 import * as SecureStore from 'expo-secure-store';
 
 const PENDING_REGISTRATION_KEY = 'pendingRegistration';
+const PENDING_PASSWORD_RESET_KEY = 'pendingPasswordReset';
 
 /**
  * Get refresh token from SecureStore
@@ -116,6 +117,7 @@ export const clearTokens = async () => {
     await SecureStore.deleteItemAsync('refreshToken');
     await SecureStore.deleteItemAsync('userData');
     await SecureStore.deleteItemAsync(PENDING_REGISTRATION_KEY);
+    await SecureStore.deleteItemAsync(PENDING_PASSWORD_RESET_KEY);
     console.log('[authService] Refresh token and user data removed from SecureStore');
   } catch (error) {
     console.error('[authService] Error clearing tokens:', error);
@@ -164,6 +166,37 @@ export const clearPendingRegistration = async () => {
     await SecureStore.deleteItemAsync(PENDING_REGISTRATION_KEY);
   } catch (error) {
     console.error('[authService] Error clearing pending registration:', error);
+  }
+};
+
+export const savePendingPasswordReset = async (resetData) => {
+  try {
+    if (!resetData) return;
+    await SecureStore.setItemAsync(
+      PENDING_PASSWORD_RESET_KEY,
+      JSON.stringify(resetData)
+    );
+  } catch (error) {
+    console.error('[authService] Error saving pending password reset:', error);
+    throw error;
+  }
+};
+
+export const getPendingPasswordReset = async () => {
+  try {
+    const pending = await SecureStore.getItemAsync(PENDING_PASSWORD_RESET_KEY);
+    return pending ? JSON.parse(pending) : null;
+  } catch (error) {
+    console.error('[authService] Error getting pending password reset:', error);
+    return null;
+  }
+};
+
+export const clearPendingPasswordReset = async () => {
+  try {
+    await SecureStore.deleteItemAsync(PENDING_PASSWORD_RESET_KEY);
+  } catch (error) {
+    console.error('[authService] Error clearing pending password reset:', error);
   }
 };
 

@@ -119,3 +119,53 @@ export const validateSessionId = (sessionId) => {
     errors
   };
 };
+
+export const validateForgotPasswordEmail = (data) => {
+  const errors = [];
+  const MAX_EMAIL_LENGTH = 255;
+
+  if (!data.email || typeof data.email !== 'string') {
+    errors.push('Email is required');
+  } else if (data.email.length > MAX_EMAIL_LENGTH) {
+    errors.push(`Email must not exceed ${MAX_EMAIL_LENGTH} characters`);
+  } else {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(data.email)) {
+      errors.push('Invalid email format');
+    }
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+};
+
+export const validateResetPassword = (data) => {
+  const errors = [];
+  const MIN_PASSWORD_LENGTH = 6;
+  const MAX_PASSWORD_LENGTH = 128;
+
+  const sessionValidation = validateSessionId(data.sessionId);
+  if (!sessionValidation.isValid) {
+    errors.push(...sessionValidation.errors);
+  }
+
+  const otpValidation = validateOtp(data.otp);
+  if (!otpValidation.isValid) {
+    errors.push(...otpValidation.errors);
+  }
+
+  if (!data.newPassword || typeof data.newPassword !== 'string') {
+    errors.push('New password is required');
+  } else if (data.newPassword.length < MIN_PASSWORD_LENGTH) {
+    errors.push(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`);
+  } else if (data.newPassword.length > MAX_PASSWORD_LENGTH) {
+    errors.push(`Password must not exceed ${MAX_PASSWORD_LENGTH} characters`);
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+};
