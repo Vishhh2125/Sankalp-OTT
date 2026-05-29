@@ -14,6 +14,7 @@ import {
   disconnectDatabase,
 } from './config/db.js';
 import { setupMinioBuckets } from './config/minio-setup.js';
+import { initializeMembershipExpiryScheduler } from './workers/membership-expiry.job.js';
 
 const PORT =  3000;
 
@@ -33,6 +34,9 @@ async function startServer() {
 
     // MinIO setup (MAIN)
     await setupMinioBuckets();
+
+    // Initialize background schedulers (membership expiry, etc.)
+    initializeMembershipExpiryScheduler();
 
     // 3. Start HTTP server
     server = app.listen(PORT, "0.0.0.0", () => {
