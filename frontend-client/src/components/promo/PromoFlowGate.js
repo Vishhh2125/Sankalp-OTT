@@ -1,10 +1,18 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, AppState } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
+import axios from 'axios';
 
 import DailyCheckinPopup from '../rewards/DailyCheckinPopup';
 import DramaBannerPopup from '../home/DramaBannerPopup';
 import AnnouncementPopup from '../home/AnnouncementPopup';
+import MembershipExpiryPopup from '../membership/MembershipExpiryPopup';
+import { getMembershipExpiryReminder } from '../membership/membershipExpiryUtils';
+import {
+  markMembershipExpiryDismissedToday,
+  wasMembershipExpiryDismissedToday,
+} from '../membership/membershipExpiryStorage';
 import {
   fetchCheckinStatus,
   claimDailyCheckin,
@@ -28,7 +36,9 @@ import {
   markWelcomePromoCompleted,
 } from './promoFlowStorage';
 import { setPendingHomeBanner } from '../../redux/slices/promoFlowSlice';
-import { setCoins } from '../../redux/slices/authSlice';
+import { patchUserProfile, setCoins } from '../../redux/slices/authSlice';
+import { API_BASE_URL } from '../../constants/config';
+import { ROUTES } from '../../constants/routes';
 import * as authService from '../../services/authService';
 
 const MODAL_SETTLE_MS = 120;
@@ -41,18 +51,22 @@ function pause(ms = MODAL_SETTLE_MS) {
  * Logged-in promo sequence:
  * - New user (first session): daily → banner → notification → Home
  * - First app open today (returning): daily → banner → notification → Home
- * - Later opens same day: banner → notification → Home
+ * - Later opens same day: banner → notification → membership expiry (if 3/2 days left) → Home
  */
 export default function PromoFlowGate({ children }) {
   const dispatch = useDispatch();
+  const navigation = useNavigation();
   const accessToken = useSelector((s) => s.auth?.accessToken);
   const userId = useSelector((s) => s.auth?.userId);
+  const plan = useSelector((s) => s.auth?.plan);
+  const membership = useSelector((s) => s.auth?.membership);
 
   const [step, setStep] = useState(null);
   const [checkinStatus, setCheckinStatus] = useState(null);
   const [claiming, setClaiming] = useState(false);
   const [banners, setBanners] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
+  const [membershipReminder, setMembershipReminder] = useState(null);
 
   const proceedRef = useRef(null);
   const runningRef = useRef(false);
@@ -81,6 +95,33 @@ export default function PromoFlowGate({ children }) {
     const user = await authService.getUserData();
     return user?.id ?? null;
   }, []);
+
+  const refreshMembershipProfile = useCallback(async () => {
+    if (!accessToken) return { plan, membership };
+    try {
+      const res = await axios.get(`${API_BASE_URL}/api/v1/auth/me`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        timeout: 5000,
+      });
+      const user = res.data?.data;
+      if (!user) return { plan, membership };
+      const nextPlan = user.plan ?? plan;
+      const nextMembership = user.membership ?? null;
+      dispatch(
+        patchUserProfile({
+          plan: nextPlan,
+          membership: nextMembership,
+        })
+      );
+      await authService.patchUserDataInStore({
+        plan: nextPlan,
+        membership: nextMembership,
+      });
+      return { plan: nextPlan, membership: nextMembership };
+    } catch {
+      return { plan, membership };
+    }
+  }, [accessToken, dispatch, plan, membership]);
 
   const runPromoFlow = useCallback(async () => {
     if (!accessToken || runningRef.current) return;
@@ -154,6 +195,22 @@ export default function PromoFlowGate({ children }) {
         await waitForClose();
       }
 
+      const profile = await refreshMembershipProfile();
+      const reminder = getMembershipExpiryReminder({
+        plan: profile.plan,
+        membership: profile.membership,
+      });
+      if (
+        reminder &&
+        uid &&
+        !(await wasMembershipExpiryDismissedToday(uid, reminder.daysLeft))
+      ) {
+        setMembershipReminder(reminder);
+        setStep('membershipExpiry');
+        await pause();
+        await waitForClose();
+      }
+
       if (isWelcomeSession && uid) {
         await markWelcomePromoCompleted(uid);
       }
@@ -161,9 +218,10 @@ export default function PromoFlowGate({ children }) {
       setStep(null);
       setBanners([]);
       setAnnouncements([]);
+      setMembershipReminder(null);
       runningRef.current = false;
     }
-  }, [accessToken, resolveUserId]);
+  }, [accessToken, resolveUserId, refreshMembershipProfile]);
 
   useEffect(() => {
     if (!accessToken) return undefined;
@@ -252,6 +310,28 @@ export default function PromoFlowGate({ children }) {
     advance();
   };
 
+  const onMembershipExpiryDismiss = async () => {
+    const uid = await resolveUserId();
+    if (uid && membershipReminder?.daysLeft) {
+      await markMembershipExpiryDismissedToday(uid, membershipReminder.daysLeft);
+    }
+    setMembershipReminder(null);
+    advance();
+  };
+
+  const onMembershipExtend = async () => {
+    const uid = await resolveUserId();
+    if (uid && membershipReminder?.daysLeft) {
+      await markMembershipExpiryDismissedToday(uid, membershipReminder.daysLeft);
+    }
+    setMembershipReminder(null);
+    advance();
+    navigation.navigate(ROUTES.MAIN_TABS, {
+      screen: ROUTES.PROFILE,
+      params: { screen: ROUTES.MEMBERSHIP },
+    });
+  };
+
   return (
     <>
       {children}
@@ -272,6 +352,12 @@ export default function PromoFlowGate({ children }) {
         visible={step === 'notification'}
         announcements={announcements}
         onDismiss={onNotificationDismiss}
+      />
+      <MembershipExpiryPopup
+        visible={step === 'membershipExpiry'}
+        reminder={membershipReminder}
+        onExtend={onMembershipExtend}
+        onDismiss={onMembershipExpiryDismiss}
       />
     </>
   );
