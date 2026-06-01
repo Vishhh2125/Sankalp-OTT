@@ -21,6 +21,7 @@ import {
   packPlanTitle,
   simulatePurchase,
 } from '../components/wallet/topUpApi';
+import CoinIcon from '../components/CoinIcon';
 import { ROUTES } from '../constants/routes';
 import { setCoins } from '../redux/slices/authSlice';
 import * as authService from '../services/authService';
@@ -188,11 +189,7 @@ const WalletScreen = () => {
                   >
                     <View style={styles.packLeft}>
                       <View style={styles.coinBadge}>
-                        <Ionicons
-                          name="logo-bitcoin"
-                          size={18}
-                          color="#FFD700"
-                        />
+                        <CoinIcon size={18} color="#FFD700" />
                       </View>
 
                       <View style={{ flex: 1 }}>
@@ -242,11 +239,7 @@ const WalletScreen = () => {
             {selectedPack ? (
               <View style={styles.selectedPackContainer}>
                 <View style={styles.selectedPackBadge}>
-                  <Ionicons
-                    name="logo-bitcoin"
-                    size={18}
-                    color="#FFD700"
-                  />
+                  <CoinIcon size={18} color="#FFD700" />
                 </View>
 
                 <View>

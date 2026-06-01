@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useDispatch, useSelector } from 'react-redux';
 
+import CoinIcon from '../components/CoinIcon';
 import GuestAccessPrompt from '../components/GuestAccessPrompt';
 import {
   fetchCheckinStatus,
@@ -49,8 +50,7 @@ function DayCard({ day, coins, state }) {
         Day {day}
       </Text>
       <View style={styles.coinRow}>
-        <Ionicons
-          name="logo-bitcoin"
+        <CoinIcon
           size={14}
           color={isCurrent ? theme.gold : theme.gray}
         />
@@ -171,7 +171,7 @@ export default function EarnRewardsScreen() {
         <View style={styles.balanceCard}>
           <Text style={styles.balanceLabel}>Your balance</Text>
           <View style={styles.balanceRow}>
-            <Ionicons name="logo-bitcoin" size={28} color={theme.gold} />
+            <CoinIcon size={28} color={theme.gold} />
             <Text style={styles.balanceValue}>{coins ?? status?.coins ?? 0}</Text>
             <Text style={styles.balanceUnit}>coins</Text>
           </View>

@@ -145,12 +145,17 @@ export default function ForYouScreen() {
   }, [dispatch, selectedDrama]);
 
   const handleCloseSheet = useCallback(() => {
+    const returnToPlayer = sheetSession?.returnToPlayer;
     dispatch(setForYouReopenSheetAfterPlayer(false));
-    dispatch(clearForYouDramaSheetSession());
     setSheetVisible(false);
     setSelectedDrama(null);
+    dispatch(clearForYouDramaSheetSession());
     dispatch(clearShowMode());
-  }, [dispatch]);
+
+    if (returnToPlayer) {
+      navigation.navigate(ROUTES.SHOW_PLAYER, { fromForYou: true });
+    }
+  }, [dispatch, navigation, sheetSession?.returnToPlayer]);
 
   const handleEpisodePress = useCallback((episode) => {
     if (!selectedDrama || !showMode) return;

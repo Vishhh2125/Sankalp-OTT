@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 
+import CoinIcon from '../components/CoinIcon';
 import GuestAccessPrompt from '../components/GuestAccessPrompt';
 import { theme } from '../constants/theme';
 import { ROUTES } from '../constants/routes';
@@ -223,10 +224,10 @@ export default function ProfileScreen({ navigation }) {
             </View>
           </View>
         </View>
-        <View style={styles.coinsChip}>
-          <Ionicons name="logo-bitcoin" size={16} color={theme.gold} />
+        <Pressable style={styles.coinsChip} onPress={goToMyWallet} hitSlop={8}>
+          <CoinIcon size={16} color={theme.gold} />
           <Text style={styles.coinsText}>{coins ?? 0}</Text>
-        </View>
+        </Pressable>
       </View>
 
       {!isPaid && (

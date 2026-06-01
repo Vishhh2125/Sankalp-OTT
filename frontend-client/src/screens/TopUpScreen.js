@@ -1,8 +1,9 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useLayoutEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,22 +11,47 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 
+import CoinIcon from '../components/CoinIcon';
 import {
   fetchTopUpOptions,
   packPlanSubtitle,
   packPlanTitle,
   simulatePurchase,
 } from '../components/wallet/topUpApi';
+import { ROUTES } from '../constants/routes';
 import { theme } from '../constants/theme';
 import { setCoins } from '../redux/slices/authSlice';
 import * as authService from '../services/authService';
 
 export default function TopUpScreen() {
+  const navigation = useNavigation();
+  const route = useRoute();
   const dispatch = useDispatch();
   const accessToken = useSelector((s) => s.auth?.accessToken);
   const coins = useSelector((s) => s.auth?.coins);
+
+  const returnToShowPlayer = !!route.params?.returnToShowPlayer;
+
+  const handleBackToPlayer = useCallback(() => {
+    navigation.navigate(ROUTES.SHOW_PLAYER, {
+      fromHome: !!route.params?.fromHome,
+      fromForYou: !!route.params?.fromForYou,
+    });
+  }, [navigation, route.params?.fromHome, route.params?.fromForYou]);
+
+  useLayoutEffect(() => {
+    if (!returnToShowPlayer) return;
+    navigation.setOptions({
+      headerLeft: () => (
+        <Pressable onPress={handleBackToPlayer} hitSlop={12} style={{ paddingLeft: 4 }}>
+          <Ionicons name="chevron-back" size={26} color={theme.white} />
+        </Pressable>
+      ),
+    });
+  }, [navigation, returnToShowPlayer, handleBackToPlayer]);
 
   const [packs, setPacks] = useState([]);
   const [loadingPacks, setLoadingPacks] = useState(true);
@@ -80,7 +106,11 @@ export default function TopUpScreen() {
       await authService.patchUserDataInStore({ coins: data.coins });
       setConfirmOpen(false);
       setSelectedPack(null);
-      Alert.alert('Success', 'Coins have been added to your wallet.');
+      if (returnToShowPlayer) {
+        handleBackToPlayer();
+      } else {
+        Alert.alert('Success', 'Coins have been added to your wallet.');
+      }
     } catch (err) {
       setPurchaseError(
         err?.response?.data?.message || err?.message || 'Purchase failed'
@@ -95,7 +125,7 @@ export default function TopUpScreen() {
       <View style={styles.balanceCard}>
         <Text style={styles.balanceLabel}>Your balance</Text>
         <View style={styles.balanceRow}>
-          <Ionicons name="logo-bitcoin" size={28} color="#FFD700" />
+          <CoinIcon size={28} color="#FFD700" />
           <Text style={styles.balanceValue}>{String(coins ?? 0)}</Text>
           <Text style={styles.balanceUnit}>coins</Text>
         </View>
@@ -128,7 +158,7 @@ export default function TopUpScreen() {
             >
               <View style={styles.packLeft}>
                 <View style={styles.coinBadge}>
-                  <Ionicons name="logo-bitcoin" size={20} color="#FFD700" />
+                  <CoinIcon size={20} color="#FFD700" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.packTitle}>{packPlanTitle(p)}</Text>
@@ -161,7 +191,7 @@ export default function TopUpScreen() {
             <Text style={styles.confirmTitle}>Confirm top-up</Text>
             {selectedPack ? (
               <View style={styles.selectedPackBox}>
-                <Ionicons name="logo-bitcoin" size={22} color="#FFD700" />
+                <CoinIcon size={22} color="#FFD700" />
                 <View style={{ marginLeft: 12, flex: 1 }}>
                   <Text style={styles.selectedPackText}>{packPlanTitle(selectedPack)}</Text>
                   <Text style={styles.selectedPackSub}>

@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useIsFocused, useFocusEffect } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 
+import CoinIcon from '../components/CoinIcon';
 import DramaDetailsSheetConnected from '../components/DramaDetailsSheetConnected';
 import { ROUTES } from '../constants/routes';
 import { clearPendingHomeBanner } from '../redux/slices/promoFlowSlice';
@@ -260,12 +261,17 @@ export default function PopularScreen() {
   };
 
   const handleCloseSheet = () => {
+    const returnToPlayer = homeSession?.returnToPlayer;
     dispatch(setHomeReopenSheetAfterPlayer(false));
-    dispatch(clearHomeDramaSheetSession());
     setSheetVisible(false);
     setSelected(null);
     setShowDetails(null);
     setShowDetailsError(null);
+    dispatch(clearHomeDramaSheetSession());
+
+    if (returnToPlayer) {
+      navigation.navigate(ROUTES.SHOW_PLAYER, { fromHome: true });
+    }
   };
 
   return (

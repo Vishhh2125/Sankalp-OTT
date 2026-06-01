@@ -77,6 +77,11 @@ export const styles = StyleSheet.create({
   },
 
   progressContainer: { marginBottom: 12 },
+  progressBarHitArea: {
+    paddingVertical: 12,
+    marginVertical: -8,
+    justifyContent: 'center',
+  },
   progressBarTrack: {
     height: 4,
     backgroundColor: 'rgba(255,255,255,0.2)',

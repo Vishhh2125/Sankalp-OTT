@@ -181,16 +181,22 @@ export default function ShowPlayerScreen({ navigation }) {
   const returnToDramaSheet = useCallback(
     (reelItem, initialTab) => {
       if (dramaSheetSource === 'forYou') {
-        dispatch(setForYouDramaSheetSession({ item: reelItem, initialTab }));
+        dispatch(
+          setForYouDramaSheetSession({
+            item: reelItem,
+            initialTab,
+            returnToPlayer: true,
+          })
+        );
       } else if (dramaSheetSource === 'home') {
         dispatch(
           setHomeDramaSheetSession({
             selectedItem: reelItemToHomeSelected(reelItem),
             initialTab,
+            returnToPlayer: true,
           })
         );
       }
-      dispatch(clearShowPlayer());
       navigation.goBack();
     },
     [dispatch, navigation, dramaSheetSource]
@@ -242,6 +248,9 @@ export default function ShowPlayerScreen({ navigation }) {
             itemHeight={itemHeight}
             renderTopOverlay={() => null}
             onReturnToDramaSheet={dramaSheetSource ? returnToDramaSheet : undefined}
+            walletReturnParams={
+              fromHome ? { fromHome: true } : fromForYou ? { fromForYou: true } : null
+            }
             // Seek to saved progress on first render of the starting episode
             initialSeekSec={
               index === startIndex && !hasSeenRef.current

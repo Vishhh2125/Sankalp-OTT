@@ -59,6 +59,7 @@ export default function ShortVideoReelItem({
   showPlaybackSpeedControl = false,
   showOttOverlayControls = false,
   onReturnToDramaSheet,
+  walletReturnParams = null,
 }) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -367,6 +368,7 @@ export default function ShortVideoReelItem({
           accessToken={accessToken}
           navigation={navigation}
           dispatch={dispatch}
+          walletReturnParams={walletReturnParams}
         />
       ) : null}
 
@@ -569,7 +571,7 @@ export default function ShortVideoReelItem({
   );
 }
 
-function LockOverlay({ item, accessToken, navigation, dispatch }) {
+function LockOverlay({ item, accessToken, navigation, dispatch, walletReturnParams }) {
   const { openSignUp } = useGuestAuth();
   const isAuthenticated = !!accessToken;
   const coins = useSelector((s) => s.auth?.coins) ?? 0;
@@ -586,12 +588,18 @@ function LockOverlay({ item, accessToken, navigation, dispatch }) {
     openSignUp();
   }, [openSignUp]);
 
-  const goToWallet = useCallback(() => {
+  const goToTopUp = useCallback(() => {
     navigation.navigate(ROUTES.MAIN_TABS, {
       screen: ROUTES.PROFILE,
-      params: { screen: ROUTES.MY_WALLET },
+      params: {
+        screen: ROUTES.TOP_UP,
+        params: {
+          returnToShowPlayer: true,
+          ...(walletReturnParams || {}),
+        },
+      },
     });
-  }, [navigation]);
+  }, [navigation, walletReturnParams]);
 
   const episodeId = item.episode_id || item.id;
 
@@ -661,7 +669,7 @@ function LockOverlay({ item, accessToken, navigation, dispatch }) {
           </Text>
         )}
       </TouchableOpacity>
-      <TouchableOpacity style={styles.lockSecondaryButton} onPress={goToWallet}>
+      <TouchableOpacity style={styles.lockSecondaryButton} onPress={goToTopUp}>
         <Text style={styles.lockSecondaryText}>Get Coins</Text>
       </TouchableOpacity>
     </View>

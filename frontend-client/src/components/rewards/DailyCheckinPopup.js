@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+import CoinIcon from '../CoinIcon';
 import { theme } from '../../constants/theme';
 
 function MiniDayPill({ day, coins, state }) {
@@ -79,7 +80,7 @@ export default function DailyCheckinPopup({
           <View style={styles.rewardBox}>
             <Text style={styles.rewardLabel}>Today&apos;s reward</Text>
             <View style={styles.rewardRow}>
-              <Ionicons name="logo-bitcoin" size={24} color={theme.gold} />
+              <CoinIcon size={24} color={theme.gold} />
               <Text style={styles.rewardAmount}>{todayReward}</Text>
               <Text style={styles.rewardUnit}>coins</Text>
             </View>
