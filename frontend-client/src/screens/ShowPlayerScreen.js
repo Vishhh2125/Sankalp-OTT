@@ -260,7 +260,6 @@ export default function ShowPlayerScreen({ navigation }) {
                 : null
             }
             showPlaybackSpeedControl
-            showOttOverlayControls
           />
         )}
         pagingEnabled

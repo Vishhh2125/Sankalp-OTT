@@ -258,6 +258,7 @@ export default function ShortVideoReelItem({
       {/* Video player */}
       {streamUrl && !isLocked ? (
         showOttOverlayControls ? (
+          console.log(`🎬 OTT MODE (showOttOverlayControls=true) - Episode: ${item.episode_num}, resizeMode: cover`),
           <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
             <Video
               key={item.episode_id}
@@ -282,6 +283,7 @@ export default function ShortVideoReelItem({
             />
           </View>
         ) : (
+          console.log(`🎬 NON-OTT MODE (showOttOverlayControls=false) - Episode: ${item.episode_num}, resizeMode: contain`),
           <TouchableWithoutFeedback onPress={togglePlayback}>
             <View style={StyleSheet.absoluteFill}>
               <Video
@@ -319,6 +321,28 @@ export default function ShortVideoReelItem({
             </View>
           </View>
         </TouchableWithoutFeedback>
+      ) : null}
+
+      {/* Non-OTT play/pause button (consistent with OTT controls) */}
+      {!showOttOverlayControls && isActive && streamUrl && !isLocked && firstFrameReady ? (
+        <View style={styles.ottChromeRoot} pointerEvents="box-none">
+          {(controlsVisible || manuallyPaused) ? (
+            <View style={styles.ottCenterWrap} pointerEvents="box-none">
+              <Pressable
+                style={styles.ottPlayPauseFab}
+                onPress={() => setManualPaused(!manuallyPaused)}
+                hitSlop={16}
+              >
+                <Ionicons
+                  name={manuallyPaused ? 'play' : 'pause'}
+                  size={44}
+                  color="#fff"
+                  style={manuallyPaused ? styles.playIconNudge : undefined}
+                />
+              </Pressable>
+            </View>
+          ) : null}
+        </View>
       ) : null}
 
       {/* Locked-content overlay */}
