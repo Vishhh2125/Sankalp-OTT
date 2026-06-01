@@ -326,6 +326,21 @@ export default function ShortVideoReelItem({
       {/* Non-OTT play/pause button (consistent with OTT controls) */}
       {!showOttOverlayControls && isActive && streamUrl && !isLocked && firstFrameReady ? (
         <View style={styles.ottChromeRoot} pointerEvents="box-none">
+          <View style={[styles.ottTopBar, { paddingTop: insets.top + 8 }]} pointerEvents="box-none">
+            <View style={{ flex: 1 }} />
+            {showPlaybackSpeedControl ? (
+              <Pressable
+                style={styles.speedChipTop}
+                onPress={() => setSpeedModalVisible(true)}
+                hitSlop={10}
+              >
+                <Text style={styles.speedChipText}>
+                  {playbackRate === 1 ? '1x' : `${playbackRate}x`}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
+
           {(controlsVisible || manuallyPaused) ? (
             <View style={styles.ottCenterWrap} pointerEvents="box-none">
               <Pressable
