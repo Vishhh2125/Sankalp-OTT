@@ -289,7 +289,7 @@ export default function ShortVideoReelItem({
                 ref={videoRef}
                 source={{ uri: streamUrl }}
                 style={[StyleSheet.absoluteFill, { opacity: firstFrameReady ? 1 : 0 }]}
-                resizeMode="cover"
+                resizeMode="contain"
                 paused={paused}
                 rate={playbackRate}
                 repeat={true}
