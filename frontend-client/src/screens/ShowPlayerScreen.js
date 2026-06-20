@@ -121,14 +121,23 @@ export default function ShowPlayerScreen({ navigation }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const fetchedRangesRef = useRef(new Set());
+
   // Ensure episode streams are loaded (My List seeds hls_url: null until fetch completes)
   useEffect(() => {
     if (!showId || loading) return;
-    const needsFetch = episodes.length === 0 || episodes.some((ep) => !ep.hls_url);
-    if (!needsFetch) return;
 
     const targetEp = episodes[startIndex]?.episode_num || episodes[0]?.episode_num || 1;
     const fromEp = Math.max(1, Math.floor((targetEp - 1) / PLAYER_PAGE_SIZE) * PLAYER_PAGE_SIZE + 1);
+
+    if (fetchedRangesRef.current.has(fromEp)) {
+      return;
+    }
+
+    const needsFetch = episodes.length === 0 || episodes.some((ep) => !ep.hls_url && ep.video_source !== 'YOUTUBE');
+    if (!needsFetch) return;
+
+    fetchedRangesRef.current.add(fromEp);
     dispatch(fetchShowPlayerPage({ showId, fromEp, limit: PLAYER_PAGE_SIZE }));
   }, [showId, episodes, loading, startIndex, dispatch]);
 

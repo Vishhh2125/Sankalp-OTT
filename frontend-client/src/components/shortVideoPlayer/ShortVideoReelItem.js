@@ -459,7 +459,7 @@ export default function ShortVideoReelItem({
         showOttOverlayControls ? (
           <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
             {isYouTube && !isLocked ? (
-              <View style={[StyleSheet.absoluteFill, { opacity: videoIsVisible ? 1 : 0 }]} pointerEvents="auto">
+              <View style={[StyleSheet.absoluteFill, { opacity: videoIsVisible ? 1 : 0.01 }]} pointerEvents="auto">
                 <YoutubePlayer
                   height={windowHeight}
                   width={windowWidth}
@@ -478,6 +478,7 @@ export default function ShortVideoReelItem({
                     rel: false,
                     modestbranding: true,
                   }}
+                  webViewStyle={{ opacity: 0.99 }}
                   volume={effectiveMuted ? 0 : volume * 100}
                 />
               </View>
@@ -525,7 +526,7 @@ export default function ShortVideoReelItem({
               }
             >
               {isYouTube && !isLocked ? (
-                <View style={[StyleSheet.absoluteFill, { opacity: videoIsVisible ? 1 : 0 }]} pointerEvents="auto">
+                <View style={[StyleSheet.absoluteFill, { opacity: videoIsVisible ? 1 : 0.01 }]} pointerEvents="auto">
                   <YoutubePlayer
                     height={isLandscapeActive ? landscapeHeight : dramaVideoHeight}
                     width={isLandscapeActive ? landscapeWidth : windowWidth}
@@ -545,6 +546,7 @@ export default function ShortVideoReelItem({
                       rel: false,
                       modestbranding: true,
                     }}
+                    webViewStyle={{ opacity: 0.99 }}
                     volume={effectiveMuted ? 0 : volume * 100}
                   />
                 </View>
