@@ -264,6 +264,11 @@ model ShowTag {
   @@map("show_tags")
 }
 
+enum VideoSource {
+  UPLOAD
+  YOUTUBE
+}
+
 model Episode {
   id                 String          @id @default(uuid()) @db.Uuid
   show_id            String          @db.Uuid
@@ -276,6 +281,8 @@ model Episode {
   status             String          @default("processing") @db.VarChar(20)
   total_profiles     Int             @default(4)
   completed_profiles Int             @default(0)
+  video_source       VideoSource     @default(UPLOAD)
+  youtube_video_id   String?         @db.VarChar(20)
   created_at         DateTime        @default(now())
 
   show               Show            @relation(fields: [show_id], references: [id], onDelete: Cascade)

@@ -36,6 +36,8 @@
     "react-native-svg": "^15.15.5",
     "react-native-video": "^6.19.1",
     "react-native-web": "^0.21.0",
+    "react-native-webview": "^13.16.1",
+    "react-native-youtube-iframe": "^2.4.1",
     "react-redux": "^9.2.0"
   },
   "private": true,

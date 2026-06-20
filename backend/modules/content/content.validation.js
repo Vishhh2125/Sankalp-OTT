@@ -51,6 +51,11 @@ const createEpisodeSchema = Joi.object({
   is_free: Joi.boolean().default(false),
   coin_cost: Joi.number().integer().min(0).default(0),
   duration_sec: Joi.number().integer().min(0).default(0),
+  video_source: Joi.string().valid('UPLOAD', 'YOUTUBE').default('UPLOAD'),
+  youtube_video_id: Joi.string().max(20).allow('', null).when('video_source', {
+    is: 'YOUTUBE',
+    then: Joi.required(),
+  }),
 });
 
 const updateEpisodeSchema = Joi.object({
@@ -59,6 +64,11 @@ const updateEpisodeSchema = Joi.object({
   is_free: Joi.boolean(),
   coin_cost: Joi.number().integer().min(0),
   duration_sec: Joi.number().integer().min(0),
+  video_source: Joi.string().valid('UPLOAD', 'YOUTUBE'),
+  youtube_video_id: Joi.string().max(20).allow('', null).when('video_source', {
+    is: 'YOUTUBE',
+    then: Joi.required(),
+  }),
 }).min(1);
 
 export {
