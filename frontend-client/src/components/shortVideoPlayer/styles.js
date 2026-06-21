@@ -159,6 +159,33 @@ export const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: '#000',
   },
+  youtubeVideoFrame: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    overflow: 'hidden',
+    backgroundColor: '#000',
+  },
+  youtubeFullscreenHint: {
+    position: 'absolute',
+    alignSelf: 'center',
+    maxWidth: '88%',
+    zIndex: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.58)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+  youtubeFullscreenHintText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
+  },
 
   pauseOverlay: {
     ...StyleSheet.absoluteFillObject,
