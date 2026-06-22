@@ -30,10 +30,15 @@ async function createNewEpisodes(showId, episodes, existingEpisodeIds) {
         is_free:      ep.is_free ?? true,
         coin_cost:    ep.coin_cost || 0,
         duration_sec: parseDuration(ep.duration),
+        video_source: ep.video_source || 'UPLOAD',
+        youtube_video_id: ep.youtube_video_id || null,
       })
       console.log('Episode created:', epRes.data.id)
 
-      if (ep.videoFile) {
+      if (ep.video_source === 'YOUTUBE') {
+        // Skip MinIO upload for YouTube videos
+        console.log('YouTube video configured for episode:', epRes.data.id);
+      } else if (ep.videoFile) {
         try {
           await uploadEpisodeVideo(showId, epRes.data.id, ep.videoFile)
           console.log('Video uploaded for episode:', epRes.data.id)
@@ -101,6 +106,8 @@ export const loadDramas = createAsyncThunk(
                 is_free:   ep.is_free,
                 coin_cost: ep.coin_cost,
                 status:    ep.status,
+                video_source: ep.video_source || 'UPLOAD',
+                youtube_video_id: ep.youtube_video_id || null,
                 views:     0,
               })),
             }

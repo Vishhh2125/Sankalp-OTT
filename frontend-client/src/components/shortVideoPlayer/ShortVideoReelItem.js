@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import Video from 'react-native-video';
+import YoutubePlayer from 'react-native-youtube-iframe';
 import { CaptureProtection, useCaptureProtection } from 'react-native-capture-protection';
 
 import ProgressBar from './ProgressBar';
@@ -140,7 +141,9 @@ export default function ShortVideoReelItem({
   }, [accessToken, bookmarksLoaded, dispatch]);
 
   const isLocked = item.is_locked;
+  const isYouTube = item.video_source === 'YOUTUBE';
   const streamUrl = !isLocked && item.hls_url ? `${streamBase}${item.hls_url}` : null;
+  const hasYouTubeVideo = isYouTube && Boolean(item.youtube_video_id);
   
   useEffect(() => {
     CaptureProtection.prevent({
@@ -188,7 +191,7 @@ export default function ShortVideoReelItem({
     episodeId: item.episode_id,
     accessToken,
   });
-  const shouldRenderVideo = Boolean((isActive || shouldPreload) && isFocused && streamUrl && !isLocked);
+  const shouldRenderVideo = Boolean((isActive || shouldPreload) && isFocused && !isLocked && (streamUrl || hasYouTubeVideo));
   const videoIsVisible = isActive && shouldRenderVideo && firstFrameReady;
   const showActiveBuffering = isActive && shouldRenderVideo && !firstFrameReady;
   const {
@@ -205,9 +208,22 @@ export default function ShortVideoReelItem({
     && showPortraitChrome
     && isActive
     && !isLocked
+    && !isYouTube
     && firstFrameReady;
   const showMainOverlay = showOttOverlayControls || controlsVisible || manuallyPaused;
   const effectiveMuted = muted || volume <= 0;
+  const youtubePortraitHeight = Math.min(windowWidth * (9 / 16), layoutHeight);
+  const youtubePortraitTop = Math.max(
+    insets.top,
+    (layoutHeight - bottomControlsPadding - youtubePortraitHeight) / 2
+  );
+  const youtubeHintTop = Math.max(insets.top + 44, youtubePortraitTop - 38);
+  const youtubeFrameStyle = isLandscapeActive
+    ? [StyleSheet.absoluteFill, { backgroundColor: '#000' }]
+    : [
+        styles.youtubeVideoFrame,
+        { top: youtubePortraitTop, height: youtubePortraitHeight },
+      ];
 
   useEffect(() => {
     if (isBeingRecorded) {
@@ -258,6 +274,14 @@ export default function ShortVideoReelItem({
       onFirstFrameReady();
     }
   }, [originalOnReadyForDisplay, onFirstFrameReady, item.episode_num]);
+
+  const handleYouTubeReady = useCallback(() => {
+    setFirstFrameReady(true);
+    originalOnReadyForDisplay();
+    if (onFirstFrameReady) {
+      onFirstFrameReady();
+    }
+  }, [onFirstFrameReady, originalOnReadyForDisplay, setFirstFrameReady]);
 
   const handleSkipBack = useCallback(() => {
     seekTo(Math.max(0, (currentTime || 0) - 10));
@@ -455,47 +479,32 @@ export default function ShortVideoReelItem({
       {shouldRenderVideo ? (
         showOttOverlayControls ? (
           <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-            <Video
-              key={item.episode_id}
-              ref={videoRef}
-              source={{ uri: streamUrl }}
-              style={[StyleSheet.absoluteFill, { opacity: videoIsVisible ? 1 : 0 }]}
-              resizeMode={videoResizeMode}
-              paused={paused}
-              rate={playbackRate}
-              repeat={repeatPlayback && !autoAdvanceOnEnd}
-              muted={effectiveMuted}
-              volume={volume}
-              controls={false}
-              selectedVideoTrack={firstFrameReady ? AUTO_VIDEO_TRACK : STARTUP_VIDEO_TRACK}
-              maxBitRate={maxBitRate}
-              progressUpdateInterval={500}
-              onLoad={wrappedOnLoad}
-              onProgress={onProgress}
-              onEnd={handlePlaybackEnd}
-              onReadyForDisplay={onReadyForDisplay}
-              onError={(e) => {
-                const msg = e?.error?.localizedDescription || e?.error?.code || 'Playback error';
-                console.log(`❌ Video error - Episode: ${item.episode_num}, Error: ${msg}`);
-                setVideoError(String(msg));
-              }}
-              allowsExternalPlayback={false}
-              preventsDisplaySleepDuringVideoPlayback={true}
-            />
-          </View>
-        ) : (
-          //console.log(`🎬 NON-OTT MODE (showOttOverlayControls=false) - Episode: ${item.episode_num}, resizeMode: contain`),
-          <TouchableWithoutFeedback onPress={handleNonOttVideoPress}>
-            <View
-              style={
-                isLandscapeActive
-                  ? [StyleSheet.absoluteFill, { backgroundColor: '#000' }]
-                  : [
-                      styles.dramaVideoFrame,
-                      { top: dramaVideoTop, height: dramaVideoHeight },
-                    ]
-              }
-            >
+            {isYouTube && !isLocked ? (
+              <View style={[youtubeFrameStyle, { opacity: videoIsVisible ? 1 : 0.01 }]} pointerEvents="auto">
+                <YoutubePlayer
+                  height={youtubePortraitHeight}
+                  width={windowWidth}
+                  videoId={item.youtube_video_id}
+                  play={isActive && isFocused && !isLocked}
+                  onReady={handleYouTubeReady}
+                  onChangeState={(state) => {
+                    if (state === 'ended') {
+                      handlePlaybackEnd();
+                    }
+                  }}
+                  initialPlayerParams={{
+                    controls: true,
+                    rel: false,
+                    modestbranding: true,
+                  }}
+                  webViewProps={{
+                    nestedScrollEnabled: true,
+                  }}
+                  webViewStyle={{ opacity: 0.99 }}
+                  volume={effectiveMuted ? 0 : volume * 100}
+                />
+              </View>
+            ) : (
               <Video
                 key={item.episode_id}
                 ref={videoRef}
@@ -523,8 +532,77 @@ export default function ShortVideoReelItem({
                 allowsExternalPlayback={false}
                 preventsDisplaySleepDuringVideoPlayback={true}
               />
+            )}
+          </View>
+        ) : (
+          //console.log(`🎬 NON-OTT MODE (showOttOverlayControls=false) - Episode: ${item.episode_num}, resizeMode: contain`),
+          isYouTube && !isLocked ? (
+            <View style={[youtubeFrameStyle, { opacity: videoIsVisible ? 1 : 0.01 }]} pointerEvents="auto">
+              <YoutubePlayer
+                height={isLandscapeActive ? landscapeHeight : youtubePortraitHeight}
+                width={isLandscapeActive ? landscapeWidth : windowWidth}
+                videoId={item.youtube_video_id}
+                play={isActive && isFocused && !isLocked}
+                onReady={handleYouTubeReady}
+                onChangeState={(state) => {
+                  if (state === 'ended') {
+                    handlePlaybackEnd();
+                  }
+                }}
+                initialPlayerParams={{
+                  controls: true,
+                  rel: false,
+                  modestbranding: true,
+                }}
+                webViewProps={{
+                  nestedScrollEnabled: true,
+                }}
+                webViewStyle={{ opacity: 0.99 }}
+                volume={effectiveMuted ? 0 : volume * 100}
+              />
             </View>
-          </TouchableWithoutFeedback>
+          ) : (
+            <TouchableWithoutFeedback onPress={handleNonOttVideoPress}>
+              <View
+                style={
+                  isLandscapeActive
+                    ? [StyleSheet.absoluteFill, { backgroundColor: '#000' }]
+                    : [
+                        styles.dramaVideoFrame,
+                        { top: dramaVideoTop, height: dramaVideoHeight },
+                      ]
+                }
+              >
+                <Video
+                  key={item.episode_id}
+                  ref={videoRef}
+                  source={{ uri: streamUrl }}
+                  style={[StyleSheet.absoluteFill, { opacity: videoIsVisible ? 1 : 0 }]}
+                  resizeMode={videoResizeMode}
+                  paused={paused}
+                  rate={playbackRate}
+                  repeat={repeatPlayback && !autoAdvanceOnEnd}
+                  muted={effectiveMuted}
+                  volume={volume}
+                  controls={false}
+                  selectedVideoTrack={firstFrameReady ? AUTO_VIDEO_TRACK : STARTUP_VIDEO_TRACK}
+                  maxBitRate={maxBitRate}
+                  progressUpdateInterval={500}
+                  onLoad={wrappedOnLoad}
+                  onProgress={onProgress}
+                  onEnd={handlePlaybackEnd}
+                  onReadyForDisplay={onReadyForDisplay}
+                  onError={(e) => {
+                    const msg = e?.error?.localizedDescription || e?.error?.code || 'Playback error';
+                    console.log(`❌ Video error - Episode: ${item.episode_num}, Error: ${msg}`);
+                    setVideoError(String(msg));
+                  }}
+                  allowsExternalPlayback={false}
+                  preventsDisplaySleepDuringVideoPlayback={true}
+                />
+              </View>
+            </TouchableWithoutFeedback>
+          )
         )
       ) : null}
 
@@ -602,6 +680,18 @@ export default function ShortVideoReelItem({
       {isActive && shouldRenderVideo && videoError ? (
         <View style={styles.errorOverlay}>
           <Text style={styles.errorOverlayText} numberOfLines={3}>{videoError}</Text>
+        </View>
+      ) : null}
+
+      {showPortraitChrome && isActive && hasYouTubeVideo && !isLocked && firstFrameReady ? (
+        <View
+          style={[styles.youtubeFullscreenHint, { top: youtubeHintTop }]}
+          pointerEvents="none"
+        >
+          <MaterialCommunityIcons name="fullscreen" size={15} color="#fff" />
+          <Text style={styles.youtubeFullscreenHintText} numberOfLines={1}>
+            Tap YouTube fullscreen for best view
+          </Text>
         </View>
       ) : null}
 
@@ -865,7 +955,7 @@ export default function ShortVideoReelItem({
               ) : null}
             </View>
 
-            {!isLocked && firstFrameReady ? (
+            {!isLocked && firstFrameReady && !isYouTube ? (
               <ProgressBar
                 currentTime={currentTime}
                 duration={duration}

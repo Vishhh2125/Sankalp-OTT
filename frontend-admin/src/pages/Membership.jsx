@@ -15,7 +15,10 @@ function PlanModal({ open, onClose, onSave, initial, loading }) {
   useEffect(() => {
     if (!open) return
     categoriesApi.getAll()
-      .then((res) => setCategories(res.data?.data || []))
+      .then((res) => {
+        const payload = res.data
+        setCategories(Array.isArray(payload) ? payload : payload?.data || [])
+      })
       .catch(() => setCategories([]))
   }, [open])
   

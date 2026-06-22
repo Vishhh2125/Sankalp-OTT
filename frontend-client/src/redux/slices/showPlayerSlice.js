@@ -230,6 +230,8 @@ function mapEpisode(ep, showId, showTitle, thumbnailUrl, streamBase, totalEpisod
     is_free: ep.is_free,
     coin_cost: ep.coin_cost,
     status: ep.status,
+    video_source: ep.video_source || 'UPLOAD',
+    youtube_video_id: ep.youtube_video_id || null,
     tags: [],
     view_count: 0,
     total_episodes: totalEpisodes || 0,

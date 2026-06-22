@@ -87,7 +87,14 @@ const ALL_TAGS = ['Romance', 'CEO', 'Revenge', 'Comedy', 'School', 'Thriller', '
 
 const tagColor = { Romance:'badge-pink', Trending:'badge-amber', CEO:'badge-blue', Revenge:'badge-red', Comedy:'badge-green', School:'badge-blue', Thriller:'badge-red', Action:'badge-amber', Billionaire:'badge-purple', 'Strong Heroine':'badge-pink', 'Hidden Identity':'badge-blue', Fantasy:'badge-purple' }
 const emptyDrama = { title:'', synopsis:'', category:'', status:'Published', tags:[], episodes:[], feed_position:0, manual_view_count:0 }
-const emptyEp = { title:'', duration:'', is_free:true, coin_cost:0, videoFile:null, uploadProgress:0 }
+const emptyEp = { title:'', duration:'', is_free:true, coin_cost:0, videoFile:null, uploadProgress:0, video_source:'UPLOAD', youtube_video_id:null, raw_youtube_url:'' }
+
+function extractYoutubeVideoId(urlOrId) {
+  if (!urlOrId) return null;
+  if (/^[a-zA-Z0-9_-]{11}$/.test(urlOrId)) return urlOrId;
+  const match = urlOrId.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([\w-]{11})/);
+  return match ? match[1] : null;
+}
 
 function DramaModal({ open, onClose, onSave, initial, initialStep = 0, autoAddEp = false, categories = [] }) {
   const isEdit = !!initial?.id
@@ -129,7 +136,18 @@ function DramaModal({ open, onClose, onSave, initial, initialStep = 0, autoAddEp
 
   const addEpisode = () => {
     if (!newEp.title.trim()) return
-    const ep = { ...newEp, id: `E${Date.now()}`, ep: episodes.length + 1, views: 0, status: newEp.videoFile ? 'processing' : 'no-video' }
+    
+    // For YouTube, extract ID
+    if (newEp.video_source === 'YOUTUBE') {
+      const yid = extractYoutubeVideoId(newEp.raw_youtube_url);
+      if (!yid) {
+        alert('Invalid YouTube URL or ID');
+        return;
+      }
+      newEp.youtube_video_id = yid;
+    }
+
+    const ep = { ...newEp, id: `E${Date.now()}`, ep: episodes.length + 1, views: 0, status: newEp.video_source === 'YOUTUBE' ? 'ready' : (newEp.videoFile ? 'processing' : 'no-video') }
     // Simulate upload progress if a video file is attached
     if (newEp.videoFile) {
       setNewEp(p => ({ ...p, uploadProgress: 0 }))
@@ -309,8 +327,11 @@ function DramaModal({ open, onClose, onSave, initial, initialStep = 0, autoAddEp
                     ? <span style={{ color:'var(--accent2)' }}>uploading {ep.uploadProgress}%</span>
                     : ep.status === 'processing'
                     ? <span style={{ color:'var(--amber)' }}>processing</span>
+                    : ep.video_source === 'YOUTUBE' 
+                    ? <span style={{ color:'var(--green)' }}>ready (YouTube)</span>
                     : <span>{ep.status}</span>
                   }
+                  {ep.video_source === 'YOUTUBE' && <span style={{ color:'var(--text3)', marginLeft:6 }}>· ▶️ YouTube</span>}
                   {ep.videoFile && <span style={{ color:'var(--text3)', marginLeft:6 }}>· 📹 {ep.videoFile.name}</span>}
                 </div>
                 {ep.status === 'uploading' && ep.uploadProgress !== undefined && (
@@ -353,29 +374,47 @@ function DramaModal({ open, onClose, onSave, initial, initialStep = 0, autoAddEp
                   </FormGroup>
                 )}
               </div>
-              <FormGroup label="Video file">
-                <VideoDropzone
-                  file={newEp.videoFile}
-                  uploadProgress={newEp.uploadProgress}
-                  onFileChange={f => {
-                    setNewEp(p => ({ ...p, videoFile: f, uploadProgress: 0 }))
-                    // Auto-detect video duration
-                    if (f) {
-                      const video = document.createElement('video')
-                      video.preload = 'metadata'
-                      video.onloadedmetadata = () => {
-                        const totalSec = Math.round(video.duration)
-                        const mins = Math.floor(totalSec / 60)
-                        const secs = totalSec % 60
-                        const formatted = `${mins}:${String(secs).padStart(2, '0')}`
-                        setNewEp(p => ({ ...p, duration: formatted }))
-                        URL.revokeObjectURL(video.src)
-                      }
-                      video.src = URL.createObjectURL(f)
-                    }
-                  }}
-                />
+              <FormGroup label="Video Source">
+                <div style={{ display:'flex', gap:8, marginBottom:16 }}>
+                  <button className={`chip${newEp.video_source === 'UPLOAD' ?' chip-active':''}`} onClick={() => setNewEp(p=>({...p, video_source:'UPLOAD'}))}>📁 Upload File</button>
+                  <button className={`chip${newEp.video_source === 'YOUTUBE' ?' chip-active':''}`} onClick={() => setNewEp(p=>({...p, video_source:'YOUTUBE'}))}>▶️ YouTube Link</button>
+                </div>
               </FormGroup>
+              
+              {newEp.video_source === 'UPLOAD' ? (
+                <FormGroup label="Video file">
+                  <VideoDropzone
+                    file={newEp.videoFile}
+                    uploadProgress={newEp.uploadProgress}
+                    onFileChange={f => {
+                      setNewEp(p => ({ ...p, videoFile: f, uploadProgress: 0 }))
+                      if (f) {
+                        const video = document.createElement('video')
+                        video.preload = 'metadata'
+                        video.onloadedmetadata = () => {
+                          const totalSec = Math.round(video.duration)
+                          const mins = Math.floor(totalSec / 60)
+                          const secs = totalSec % 60
+                          const formatted = `${mins}:${String(secs).padStart(2, '0')}`
+                          setNewEp(p => ({ ...p, duration: formatted }))
+                          URL.revokeObjectURL(video.src)
+                        }
+                        video.src = URL.createObjectURL(f)
+                      }
+                    }}
+                  />
+                </FormGroup>
+              ) : (
+                <FormGroup label="YouTube URL">
+                  <input className="input" style={{ width: '100%', marginBottom: 8 }} placeholder="https://www.youtube.com/watch?v=..." value={newEp.raw_youtube_url} onChange={e => setNewEp(p=>({...p, raw_youtube_url: e.target.value}))}/>
+                  {newEp.raw_youtube_url && extractYoutubeVideoId(newEp.raw_youtube_url) && (
+                    <div style={{ marginTop: 8 }}>
+                      <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>PREVIEW</div>
+                      <img src={`https://img.youtube.com/vi/${extractYoutubeVideoId(newEp.raw_youtube_url)}/hqdefault.jpg`} style={{ width: 160, height: 90, borderRadius: 6, objectFit: 'cover' }} />
+                    </div>
+                  )}
+                </FormGroup>
+              )}
               <div style={{ display:'flex', gap:8, marginTop:12 }}>
                 <button className="btn btn-primary" onClick={addEpisode} disabled={!newEp.title.trim()}>
                   <Plus size={13}/> Add Episode

@@ -160,7 +160,7 @@ async function getPlayUrl(episodeId, { userId = null, isGuest = false } = {}) {
     include: { show: { select: { category_id: true } } },
   });
   if (!episode) throw new AppError('Episode not found', 404);
-  if (!episode.hls_master_url) throw new AppError('Video not available yet', 404);
+  if (episode.video_source !== 'YOUTUBE' && !episode.hls_master_url) throw new AppError('Video not available yet', 404);
   if (episode.status !== 'ready') throw new AppError(`Video is ${episode.status}`, 400);
 
   const access = await checkEpisodeAccess(
@@ -174,8 +174,21 @@ async function getPlayUrl(episodeId, { userId = null, isGuest = false } = {}) {
     throw new AppError('Episode is locked', 403);
   }
 
+  if (episode.video_source === 'YOUTUBE') {
+    return {
+      stream_url: null,
+      video_source: 'YOUTUBE',
+      youtube_video_id: episode.youtube_video_id,
+      duration_sec: episode.duration_sec,
+      episode_id: episode.id,
+      episode_num: episode.episode_num,
+      status: episode.status,
+    };
+  }
+
   return {
     stream_url: getSignedEpisodeHlsPath(episode),
+    video_source: 'UPLOAD',
     duration_sec: episode.duration_sec,
     episode_id: episode.id,
     episode_num: episode.episode_num,
@@ -193,10 +206,20 @@ async function getTranscodeStatus(episodeId) {
       hls_master_url: true,
       duration_sec: true,
       total_profiles: true,
-      completed_profiles: true
+      completed_profiles: true,
+      video_source: true
     },
   });
   if (!episode) throw new AppError('Episode not found', 404);
+
+  if (episode.video_source === 'YOUTUBE') {
+    return {
+      ...episode,
+      progress_percentage: 100,
+      profiles_completed: 4,
+      profiles_total: 4,
+    };
+  }
 
   const progress = episode.total_profiles > 0
     ? Math.round((episode.completed_profiles / episode.total_profiles) * 100)

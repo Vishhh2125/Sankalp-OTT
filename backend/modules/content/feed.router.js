@@ -54,7 +54,11 @@ router.get('/for-you', allowGuest, async (req, res, next) => {
 
       // Only provide HLS URL if episode is unlocked
       let streamUrl = null;
-      if (!is_locked) {
+      let youtubeVideoId = null;
+      
+      if (ep1.video_source === 'YOUTUBE') {
+        youtubeVideoId = ep1.youtube_video_id;
+      } else if (!is_locked) {
         streamUrl = getSignedEpisodeHlsPath(ep1);
       }
 
@@ -65,6 +69,8 @@ router.get('/for-you', allowGuest, async (req, res, next) => {
         thumbnail_url: show.thumbnail_url ? `/api/media/image/${show.id}/thumbnail` : null,
         episode_id: ep1.id,
         episode_num: 1,
+        video_source: ep1.video_source || 'UPLOAD',
+        youtube_video_id: youtubeVideoId,
         hls_url: streamUrl,
         duration_sec: ep1.duration_sec,
         view_count: displayedViewCount(show),
@@ -128,7 +134,9 @@ router.get('/show/:showId', allowGuest, async (req, res, next) => {
         coin_cost: ep.coin_cost,
         duration_sec: ep.duration_sec,
         status: ep.status,
-        hls_url: !is_locked ? getSignedEpisodeHlsPath(ep) : null,
+        video_source: ep.video_source || 'UPLOAD',
+        youtube_video_id: ep.video_source === 'YOUTUBE' ? ep.youtube_video_id : null,
+        hls_url: (!is_locked && ep.video_source !== 'YOUTUBE') ? getSignedEpisodeHlsPath(ep) : null,
         is_locked,
         lock_reason,
       };

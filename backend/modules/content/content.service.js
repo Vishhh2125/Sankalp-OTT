@@ -512,6 +512,15 @@ async function getEpisodesByShow(showId) {
   });
 }
 
+function extractYoutubeVideoId(urlOrId) {
+  if (!urlOrId) return null;
+  // If it's already an 11-character ID, return it
+  if (/^[a-zA-Z0-9_-]{11}$/.test(urlOrId)) return urlOrId;
+  // Match various YouTube URL formats
+  const match = urlOrId.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([\w-]{11})/);
+  return match ? match[1] : null;
+}
+
 async function createEpisode(data) {
   const show = await prisma.show.findUnique({ where: { id: data.show_id } });
   if (!show) throw new AppError('Show not found', 404);
@@ -525,12 +534,21 @@ async function createEpisode(data) {
     data.episode_num = (lastEp?.episode_num || 0) + 1;
   }
 
-  // New episodes should start pending until a video upload is confirmed
+  const isYouTube = data.video_source === 'YOUTUBE';
+  const youtubeId = isYouTube ? extractYoutubeVideoId(data.youtube_video_id) : null;
+  if (isYouTube && !youtubeId) {
+    throw new AppError('Invalid YouTube video ID or URL', 400);
+  }
+
+  // New episodes should start pending until a video upload is confirmed,
+  // EXCEPT for YouTube videos which are instantly ready.
   const episodeData = {
     ...data,
-    status: data.status || 'pending',
+    status: isYouTube ? 'ready' : (data.status || 'pending'),
     total_profiles: data.total_profiles ?? 4,
     completed_profiles: data.completed_profiles ?? 0,
+    video_source: isYouTube ? 'YOUTUBE' : 'UPLOAD',
+    youtube_video_id: youtubeId,
   };
 
   return prisma.episode.create({ data: episodeData });
@@ -539,7 +557,18 @@ async function createEpisode(data) {
 async function updateEpisode(id, data) {
   const ep = await prisma.episode.findUnique({ where: { id } });
   if (!ep) throw new AppError('Episode not found', 404);
-  return prisma.episode.update({ where: { id }, data });
+
+  const updateData = { ...data };
+  
+  if (updateData.video_source === 'YOUTUBE' || (updateData.youtube_video_id && ep.video_source === 'YOUTUBE')) {
+    const youtubeId = extractYoutubeVideoId(updateData.youtube_video_id || ep.youtube_video_id);
+    if (!youtubeId) throw new AppError('Invalid YouTube video ID or URL', 400);
+    updateData.youtube_video_id = youtubeId;
+    updateData.status = 'ready';
+    updateData.video_source = 'YOUTUBE';
+  }
+
+  return prisma.episode.update({ where: { id }, data: updateData });
 }
 
 async function deleteEpisode(id) {

@@ -4,7 +4,7 @@
     "slug": "7k-jn6muufwro7lpffei5ms",
     "scheme": "7k",
     "version": "1.0.0",
-    "orientation": "default",
+    "orientation": "portrait",
     "icon": "./assets/logo.png",
     "userInterfaceStyle": "light",
     "splash": {
@@ -74,12 +74,6 @@
           "ios": {
             "deploymentTarget": "15.1"
           }
-        }
-      ],
-      [
-        "expo-screen-orientation",
-        {
-          "initialOrientation": "PORTRAIT"
         }
       ]
     ],
