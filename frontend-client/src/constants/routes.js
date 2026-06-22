@@ -15,4 +15,6 @@ export const ROUTES = {
   EARN_REWARDS: 'EarnRewards',
   PROFILE: 'Profile',
   SHOW_PLAYER: 'ShowPlayer',
+  LIVE: 'Live',
+  LIVE_VIEWER: 'LiveViewer',
 };

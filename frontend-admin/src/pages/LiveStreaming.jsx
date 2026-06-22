@@ -1,0 +1,304 @@
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { Plus, Copy, Radio, Monitor, Smartphone, RefreshCw, Square } from 'lucide-react'
+import Modal, { FormGroup, ModalSection } from '../components/ui/Modal.jsx'
+import { ConfirmDialog } from '../components/ui/Controls.jsx'
+import { liveApi } from '../services/api.js'
+import { publishViaWhip, isWhipEnvironmentSupported } from '../utils/whipPublisher.js'
+
+const STATUS_BADGE = {
+  SCHEDULED: 'badge-gray',
+  LIVE: 'badge-green',
+  ENDED: 'badge-red',
+}
+
+function CopyField({ label, value }) {
+  const [copied, setCopied] = useState(false)
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(value)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      alert('Copy failed — select and copy manually')
+    }
+  }
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>{label}</div>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <input className="input" readOnly value={value} style={{ flex: 1, fontFamily: 'var(--mono)', fontSize: 12 }} />
+        <button type="button" className="btn btn-ghost btn-sm" onClick={copy}>
+          <Copy size={12} /> {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+export default function LiveStreaming() {
+  const [streams, setStreams] = useState([])
+  const [selected, setSelected] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [title, setTitle] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [whipError, setWhipError] = useState(null)
+  const [whipPublishing, setWhipPublishing] = useState(false)
+  const [confirmEnd, setConfirmEnd] = useState(null)
+  const whipRef = useRef(null)
+  const whipSupported = isWhipEnvironmentSupported()
+
+  const loadStreams = useCallback(async () => {
+    try {
+      const res = await liveApi.getAll()
+      const list = res.data?.data || []
+      setStreams(list)
+      if (selected?.id) {
+        const fresh = list.find((s) => s.id === selected.id)
+        if (fresh) setSelected(fresh)
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to load streams')
+    } finally {
+      setLoading(false)
+    }
+  }, [selected?.id])
+
+  useEffect(() => {
+    loadStreams()
+  }, [loadStreams])
+
+  useEffect(() => {
+    if (!selected?.id) return undefined
+    const t = setInterval(async () => {
+      try {
+        const res = await liveApi.getById(selected.id)
+        if (res.data?.data) setSelected(res.data.data)
+      } catch { /* ignore poll errors */ }
+    }, 3000)
+    return () => clearInterval(t)
+  }, [selected?.id])
+
+  const createStream = async () => {
+    if (!title.trim()) return
+    setSaving(true)
+    setError(null)
+    try {
+      const res = await liveApi.create({ title: title.trim() })
+      const data = res.data?.data
+      setModalOpen(false)
+      setTitle('')
+      await loadStreams()
+      if (data?.stream) {
+        setSelected({
+          ...data.stream,
+          rtmp_url: data.rtmp_url,
+          whip_url: data.whip_url,
+        })
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to create stream')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const selectStream = async (stream) => {
+    setWhipError(null)
+    setSelected(stream)
+  }
+
+  const startWhip = async () => {
+    if (!selected?.whip_url && !selected?.stream_key) return
+    setWhipError(null)
+    setWhipPublishing(true)
+    try {
+      const whipUrl =
+        selected.whip_url ||
+        `${window.location.protocol}//${window.location.hostname}:8889/live/${selected.stream_key}/whip`
+      const session = await publishViaWhip(whipUrl)
+      whipRef.current = session
+    } catch (err) {
+      setWhipError(err.message || 'WHIP connection failed')
+    } finally {
+      setWhipPublishing(false)
+    }
+  }
+
+  const stopWhip = () => {
+    whipRef.current?.stop?.()
+    whipRef.current = null
+  }
+
+  const endStream = async (id) => {
+    try {
+      stopWhip()
+      await liveApi.end(id)
+      setConfirmEnd(null)
+      setSelected(null)
+      await loadStreams()
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to end stream')
+    }
+  }
+
+  const ingest = selected?.rtmp_url
+    ? { rtmp_url: selected.rtmp_url, stream_key: selected.stream_key }
+    : null
+
+  return (
+    <div className="page-enter">
+      {error && (
+        <div style={{ background: 'rgba(220,38,38,0.1)', border: '1px solid rgb(220,38,38)', color: 'rgb(220,38,38)', padding: '12px 16px', borderRadius: 6, marginBottom: 16, fontSize: 13 }}>
+          {error}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: 18 }}>Live Streaming</h2>
+          <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text3)' }}>
+            OBS (RTMP) or browser (WHIP) — viewers watch via the mobile Live tab
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-ghost btn-sm" onClick={loadStreams}><RefreshCw size={14} /></button>
+          <button className="btn btn-primary" onClick={() => setModalOpen(true)}><Plus size={14} /> Create stream</button>
+        </div>
+      </div>
+
+      {!whipSupported && (
+        <div className="card" style={{ padding: 12, marginBottom: 16, borderColor: 'var(--amber)', fontSize: 12 }}>
+          <strong>HTTPS required for browser go-live.</strong> WHIP needs a secure context (HTTPS or localhost).
+          Use OBS over RTMP on HTTP, or open the admin panel via HTTPS / Cloudflare.
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: 16 }}>
+        <div className="card" style={{ padding: 0 }}>
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontWeight: 600, fontSize: 13 }}>Streams</div>
+          {loading ? (
+            <div style={{ padding: 24, textAlign: 'center', color: 'var(--text3)' }}>Loading…</div>
+          ) : streams.length === 0 ? (
+            <div style={{ padding: 24, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>No streams yet</div>
+          ) : (
+            streams.map((s) => (
+              <div
+                key={s.id}
+                onClick={() => selectStream(s)}
+                style={{
+                  padding: '12px 16px',
+                  borderBottom: '1px solid var(--border)',
+                  cursor: 'pointer',
+                  background: selected?.id === s.id ? 'var(--bg3)' : 'transparent',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 500, fontSize: 13 }}>{s.title}</span>
+                  <span className={`badge ${STATUS_BADGE[s.status] || 'badge-gray'}`}>{s.status}</span>
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
+                  {new Date(s.created_at).toLocaleString()}
+                  {s.source_protocol ? ` · ${s.source_protocol}` : ''}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="card" style={{ padding: 16 }}>
+          {!selected ? (
+            <div style={{ color: 'var(--text3)', fontSize: 13, textAlign: 'center', padding: 40 }}>
+              Select a stream or create a new one
+            </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 16 }}>{selected.title}</h3>
+                  <span className={`badge ${STATUS_BADGE[selected.status]}`} style={{ marginTop: 6 }}>{selected.status}</span>
+                </div>
+                {selected.status !== 'ENDED' && (
+                  <button className="btn btn-danger btn-sm" onClick={() => setConfirmEnd(selected)}>
+                    <Square size={12} /> End stream
+                  </button>
+                )}
+              </div>
+
+              <ModalSection title={<><Monitor size={14} style={{ verticalAlign: -2, marginRight: 6 }} />OBS / RTMP</>}>
+                <p style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>
+                  In OBS: Settings → Stream → Custom. Server = RTMP URL, Stream key = key below.
+                </p>
+                <CopyField label="RTMP server" value={ingest?.rtmp_url || 'Create stream to get URL'} />
+                <CopyField label="Stream key" value={selected.stream_key || '—'} />
+              </ModalSection>
+
+              <ModalSection title={<><Smartphone size={14} style={{ verticalAlign: -2, marginRight: 6 }} />Browser / WHIP</>}>
+                <p style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>
+                  Go live from this device (desktop or mobile browser). Test on a real phone over HTTPS for cellular NAT.
+                </p>
+                {selected.whip_url && <CopyField label="WHIP endpoint" value={selected.whip_url} />}
+                {whipError && (
+                  <div style={{ color: 'var(--red)', fontSize: 12, marginBottom: 8 }}>{whipError}</div>
+                )}
+                {selected.status !== 'ENDED' && (
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    {!whipRef.current ? (
+                      <button
+                        className="btn btn-primary btn-sm"
+                        disabled={!whipSupported || whipPublishing || selected.status === 'ENDED'}
+                        onClick={startWhip}
+                      >
+                        <Radio size={12} /> {whipPublishing ? 'Connecting…' : 'Go live from this device'}
+                      </button>
+                    ) : (
+                      <button className="btn btn-ghost btn-sm" onClick={stopWhip}>Stop browser broadcast</button>
+                    )}
+                  </div>
+                )}
+              </ModalSection>
+
+              {selected.status === 'LIVE' && (
+                <div style={{ marginTop: 12, padding: 10, background: 'rgba(76,175,80,0.12)', borderRadius: 8, fontSize: 12 }}>
+                  <strong>Live now</strong> — viewers can watch in the app Live tab.
+                  {selected.started_at && (
+                    <span> Started {new Date(selected.started_at).toLocaleTimeString()}</span>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      <Modal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title="Create live stream"
+        width={420}
+        footer={
+          <>
+            <button className="btn btn-ghost" onClick={() => setModalOpen(false)} disabled={saving}>Cancel</button>
+            <button className="btn btn-primary" onClick={createStream} disabled={saving || !title.trim()}>
+              {saving ? 'Creating…' : 'Create'}
+            </button>
+          </>
+        }
+      >
+        <FormGroup label="Title *">
+          <input className="input" placeholder="e.g. Friday night premiere" value={title} onChange={(e) => setTitle(e.target.value)} disabled={saving} />
+        </FormGroup>
+      </Modal>
+
+      <ConfirmDialog
+        open={!!confirmEnd}
+        danger
+        title="End stream"
+        message={`End "${confirmEnd?.title}"? Viewers will no longer see it as live.`}
+        onConfirm={() => endStream(confirmEnd.id)}
+        onCancel={() => setConfirmEnd(null)}
+      />
+    </div>
+  )
+}

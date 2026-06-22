@@ -328,3 +328,13 @@ export const heroBannersApi = {
   toggle: (id) => api.patch(`/v1/admin/hero-banners/${id}/toggle`),
   reorder: (orderedIds) => api.put('/v1/admin/hero-banners/reorder', { ordered_ids: orderedIds }),
 };
+
+// ── Live streaming ──
+export const liveApi = {
+  create: (data) => api.post('/live/streams', data),
+  getAll: () => api.get('/live/streams'),
+  getById: (id) => api.get(`/live/streams/${id}`),
+  end: (id) => api.delete(`/live/streams/${id}`),
+  getActive: () => api.get('/live/active'),
+  getPlayUrl: (id) => api.get(`/live/${id}/play`),
+};

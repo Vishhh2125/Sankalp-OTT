@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import BottomTabNavigator from './BottomTabNavigator';
 import ShowPlayerScreen from '../screens/ShowPlayerScreen';
+import LiveViewerScreen from '../screens/LiveViewerScreen';
 import { ROUTES } from '../constants/routes';
 import { theme } from '../constants/theme';
 
@@ -24,6 +25,14 @@ export default function AppNavigator() {
           animation: 'slide_from_bottom',
           gestureEnabled: true,
           gestureDirection: 'vertical',
+        }}
+      />
+      <Stack.Screen
+        name={ROUTES.LIVE_VIEWER}
+        component={LiveViewerScreen}
+        options={{
+          animation: 'slide_from_right',
+          gestureEnabled: true,
         }}
       />
     </Stack.Navigator>

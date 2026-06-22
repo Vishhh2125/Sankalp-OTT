@@ -16,6 +16,7 @@ export const ADMIN_SECTIONS = [
   'analytics',
   'roles',
   'cms',
+  'live',
 ];
 
 export const SECTION_LABELS = {
@@ -32,6 +33,7 @@ export const SECTION_LABELS = {
   analytics: 'Analytics & Reports',
   roles: 'Roles & Permissions',
   cms: 'CMS Pages',
+  live: 'Live Streaming',
 };
 
 export function isValidSection(section) {

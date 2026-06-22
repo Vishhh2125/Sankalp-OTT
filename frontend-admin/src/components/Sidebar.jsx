@@ -99,6 +99,12 @@ const NAV_ICONS = {
       <rect x="4" y="10" width="4" height="1" rx=".5" fill="currentColor" opacity=".4"/>
     </>
   ),
+  live: (
+    <>
+      <circle cx="8" cy="8" r="5" fill="currentColor" opacity=".25"/>
+      <circle cx="8" cy="8" r="2.5" fill="currentColor"/>
+    </>
+  ),
 }
 
 function NavIcon({ id }) {

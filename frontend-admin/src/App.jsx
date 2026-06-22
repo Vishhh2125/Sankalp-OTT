@@ -22,6 +22,7 @@ import Coins         from './pages/Coins.jsx'
 import Notifications from './pages/Notifications.jsx'
 import Analytics     from './pages/Analytics.jsx'
 import Roles         from './pages/Roles.jsx'
+import LiveStreaming from './pages/LiveStreaming.jsx'
 import CMS           from './pages/CMS.jsx'
 
 const ROUTES = {
@@ -38,6 +39,7 @@ const ROUTES = {
   analytics:     Analytics,
   roles:         Roles,
   cms:           CMS,
+  live:          LiveStreaming,
 }
 
 function AccessDenied() {

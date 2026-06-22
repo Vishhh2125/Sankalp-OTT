@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import ReelsScreen from '../screens/ReelsScreen';
 import ForYouScreen from '../screens/ForYouScreen';
+import LiveScreen from '../screens/LiveScreen';
 import MyListScreen from '../screens/MyListScreen';
 import ProfileStackNavigator from './ProfileStackNavigator';
 import { ROUTES } from '../constants/routes';
@@ -16,6 +17,7 @@ const Tab = createBottomTabNavigator();
 const TAB_ICONS = {
   [ROUTES.HOME]: { active: 'home', inactive: 'home-outline' },
   [ROUTES.FOR_YOU]: { active: 'play-circle', inactive: 'play-circle-outline' },
+  [ROUTES.LIVE]: { active: 'radio', inactive: 'radio-outline' },
   [ROUTES.MY_LIST]: { active: 'bookmark', inactive: 'bookmark-outline' },
   [ROUTES.PROFILE]: { active: 'person-circle', inactive: 'person-circle-outline' },
 };
@@ -61,6 +63,11 @@ export default function BottomTabNavigator() {
         name={ROUTES.FOR_YOU}
         component={ForYouScreen}
         options={{ tabBarLabel: 'For You' }}
+      />
+      <Tab.Screen
+        name={ROUTES.LIVE}
+        component={LiveScreen}
+        options={{ tabBarLabel: 'Live' }}
       />
       <Tab.Screen
         name={ROUTES.MY_LIST}

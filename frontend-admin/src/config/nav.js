@@ -14,6 +14,7 @@ export const NAV_CONFIG = [
       { id: 'categories', label: 'Categories & Tags',  badge: null },
       { id: 'banners',       label: 'Banners & Popups',   badge: null },
       { id: 'hero_banners',  label: 'Hero Section',       badge: null },
+      { id: 'live',          label: 'Live Streaming',     badge: null },
     ],
   },
   {
@@ -52,4 +53,5 @@ export const PAGE_META = {
   analytics:     { title: 'Analytics & Reports',  subtitle: 'Growth & performance reports' },
   roles:         { title: 'Roles & Permissions',  subtitle: 'Admin access control' },
   cms:           { title: 'CMS Pages',            subtitle: 'Static content pages' },
+  live:          { title: 'Live Streaming',       subtitle: 'Broadcast live to viewers' },
 }

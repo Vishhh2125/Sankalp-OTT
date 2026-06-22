@@ -30,6 +30,12 @@ enum MembershipStatus {
   EXPIRED
 }
 
+enum LiveStreamStatus {
+  SCHEDULED
+  LIVE
+  ENDED
+}
+
 // ──────────────────────────────────────
 // USERS
 // ──────────────────────────────────────
@@ -60,6 +66,7 @@ model User {
   payments          PaymentTransaction[]
   ratings           Rating[]
   activity_logs     AdminActivityLog[]
+  live_streams      LiveStream[]
 
   @@map("users")
 }
@@ -582,4 +589,29 @@ model CmsPage {
   updated_at DateTime @updatedAt
 
   @@map("cms_pages")
+}
+
+// ──────────────────────────────────────
+// LIVE STREAMING (parallel to VOD — no Episode/MinIO link in v1)
+// Monetization fields (coin_cost, is_free, etc.) deferred — follow Episode pattern later.
+// ──────────────────────────────────────
+
+model LiveStream {
+  id               String           @id @default(uuid()) @db.Uuid
+  title            String           @db.VarChar(255)
+  thumbnail_url    String?          @db.VarChar(500)
+  stream_key       String           @unique @db.VarChar(64)
+  status           LiveStreamStatus @default(SCHEDULED)
+  source_protocol  String?          @db.VarChar(10) // RTMP | WHIP (informational)
+  created_by       String           @db.Uuid
+  scheduled_at     DateTime?
+  started_at       DateTime?
+  ended_at         DateTime?
+  created_at       DateTime         @default(now())
+
+  creator User @relation(fields: [created_by], references: [id], onDelete: Cascade)
+
+  @@index([status, created_at(sort: Desc)], name: "idx_live_streams_status_created")
+  @@index([created_by], name: "idx_live_streams_created_by")
+  @@map("live_streams")
 }

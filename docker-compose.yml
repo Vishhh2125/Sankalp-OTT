@@ -29,10 +29,12 @@ services:
       - nginx_hls_cache:/var/cache/nginx/hls
       # Persist the thumbnail/banner cache across nginx restarts.
       - nginx_image_cache:/var/cache/nginx/images
+      - nginx_live_hls_cache:/var/cache/nginx/live_hls
 
     depends_on:
       - admin
       - backend
+      - mediamtx
 
     # Nginx is I/O-bound (proxying + cache reads), 1 core is plenty.
     # worker_processes auto inside nginx.conf uses all allocated CPUs.
@@ -47,7 +49,7 @@ services:
 
   admin:
     build: ./frontend-admin
-    container_name: ott-admin
+    container_name: ott-admin-v2
 
     deploy:
       resources:
@@ -106,6 +108,13 @@ services:
       - SERVER_ORIGIN=http://${LOCAL_IP}:8080
       - HLS_SIGNING_SECRET=0cc3d9a7f14d3cfe6eb43055be850b6a066b57c6564416ae18dc16573c75a6d5
       - HLS_SIGNED_URL_TTL=7200
+      - MEDIAMTX_RTMP_HOST=mediamtx
+      - MEDIAMTX_RTMP_PORT=1935
+      - MEDIAMTX_WHIP_HOST=${LOCAL_IP}
+      - MEDIAMTX_WHIP_PORT=8889
+      - MEDIAMTX_HLS_HOST=mediamtx
+      - MEDIAMTX_HLS_PORT=8888
+      - LIVE_PUBLIC_BASE_URL=http://${LOCAL_IP}:8080
 
     depends_on:
       - postgres
@@ -160,6 +169,32 @@ services:
         limits:
           cpus: '3.0'
           memory: 8g    # transcode worker downloads full video to /tmp
+
+    restart: unless-stopped
+    logging: *default-logging
+
+  # Live ingest (RTMP + WHIP) — parallel to VOD/MinIO pipeline (Part 1)
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    container_name: ott-mediamtx
+
+    volumes:
+      - ./mediamtx/mediamtx.yml:/mediamtx.yml:ro
+
+    ports:
+      - "1935:1935"       # RTMP (OBS)
+      - "8888:8888"       # HLS (viewer segments — nginx proxies in Part 3)
+      - "8889:8889"       # WebRTC/WHIP HTTP signaling
+      - "8189:8189/udp"   # WebRTC ICE/media (must be reachable for mobile NAT)
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1g
+
+    depends_on:
+      - backend
 
     restart: unless-stopped
     logging: *default-logging
@@ -271,3 +306,4 @@ volumes:
   minio_data:
   nginx_hls_cache:    # persistent nginx HLS cache
   nginx_image_cache:  # persistent nginx thumbnail/banner cache
+  nginx_live_hls_cache:
