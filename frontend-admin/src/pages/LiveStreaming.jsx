@@ -144,6 +144,7 @@ export default function LiveStreaming() {
   const [whipPublishing, setWhipPublishing] = useState(false)
   const [confirmEnd, setConfirmEnd] = useState(null)
   const [viewers, setViewers] = useState({ viewer_count: 0, viewers: [] })
+  const [isScreenSharing, setIsScreenSharing] = useState(false)
   const whipRef = useRef(null)
   const whipSupported = isWhipEnvironmentSupported()
 
@@ -220,7 +221,8 @@ export default function LiveStreaming() {
     setSelected(stream)
   }
 
-  const startWhip = async () => {
+  const startWhip = async (options = {}) => {
+    const { screenShare = false } = options
     if (!selected?.whip_url && !selected?.stream_key) return
     setWhipError(null)
     setWhipPublishing(true)
@@ -228,8 +230,16 @@ export default function LiveStreaming() {
       const whipUrl =
         selected.whip_url ||
         `${window.location.protocol}//${window.location.hostname}:8889/live/${selected.stream_key}/whip`
-      const session = await publishViaWhip(whipUrl, { video: true, audio: true })
+      const session = await publishViaWhip(whipUrl, { video: true, audio: true, screenShare })
       whipRef.current = session
+      setIsScreenSharing(screenShare)
+
+      if (screenShare) {
+        session.onStop = () => {
+          handleSwitchToCamera()
+        }
+      }
+
       await liveApi.markLive(selected.stream_key, 'webrtc')
       setSelected((current) => current?.id === selected.id
         ? {
@@ -252,6 +262,7 @@ export default function LiveStreaming() {
     const streamKey = selected?.stream_key
     whipRef.current?.stop?.()
     whipRef.current = null
+    setIsScreenSharing(false)
     if (markEnded && streamKey) {
       try {
         await liveApi.markEnded(streamKey)
@@ -262,6 +273,133 @@ export default function LiveStreaming() {
       } catch (err) {
         setWhipError(err.response?.data?.message || err.message || 'Failed to stop browser broadcast')
       }
+    }
+  }
+
+  const handleSwitchToCamera = async () => {
+    if (!whipRef.current) return
+    setWhipPublishing(true)
+    setWhipError(null)
+    try {
+      // 1. Get new camera/mic stream
+      const cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 960, max: 960 },
+          height: { ideal: 540, max: 960 }
+        },
+        audio: true,
+      })
+
+      const videoTrack = cameraStream.getVideoTracks()[0]
+      const audioTrack = cameraStream.getAudioTracks()[0]
+
+      // 2. Replace tracks in active peer connection
+      await whipRef.current.replaceTracks(videoTrack, audioTrack)
+
+      // 3. Stop old tracks to release resources
+      const oldStream = whipRef.current.mediaStream
+      oldStream.getTracks().forEach((t) => t.stop())
+      if (whipRef.current.displayStream) {
+        whipRef.current.displayStream.getTracks().forEach((t) => t.stop())
+      }
+      if (whipRef.current.micStream) {
+        whipRef.current.micStream.getTracks().forEach((t) => t.stop())
+      }
+      if (whipRef.current.audioContext && whipRef.current.audioContext.state !== 'closed') {
+        whipRef.current.audioContext.close().catch(() => {})
+      }
+
+      // 4. Update session references
+      whipRef.current.mediaStream = cameraStream
+      whipRef.current.displayStream = null
+      whipRef.current.micStream = null
+      whipRef.current.audioContext = null
+
+      setIsScreenSharing(false)
+    } catch (err) {
+      setWhipError('Switching to camera failed: ' + err.message)
+    } finally {
+      setWhipPublishing(false)
+    }
+  }
+
+  const handleSwitchToScreen = async () => {
+    if (!whipRef.current) return
+    setWhipPublishing(true)
+    setWhipError(null)
+    try {
+      // 1. Get display media stream
+      const displayStream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          width: { max: 960 },
+          height: { max: 960 }
+        },
+        audio: true,
+      })
+
+      // 2. Get microphone stream
+      let micStream = null
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+          },
+          video: false,
+        })
+      } catch (micErr) {
+        console.warn('Microphone access failed for screen sharing switch, proceeding with screen audio only:', micErr)
+      }
+
+      // 3. Mix audio using Web Audio API
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+      const destination = audioCtx.createMediaStreamDestination()
+
+      let displayHasAudio = displayStream.getAudioTracks().length > 0
+      let micHasAudio = micStream && micStream.getAudioTracks().length > 0
+
+      if (displayHasAudio) {
+        const displaySource = audioCtx.createMediaStreamSource(new MediaStream([displayStream.getAudioTracks()[0]]))
+        displaySource.connect(destination)
+      }
+
+      if (micHasAudio) {
+        const micSource = audioCtx.createMediaStreamSource(new MediaStream([micStream.getAudioTracks()[0]]))
+        micSource.connect(destination)
+      }
+
+      const mixedStream = new MediaStream()
+      displayStream.getVideoTracks().forEach((track) => mixedStream.addTrack(track))
+      if (displayHasAudio || micHasAudio) {
+        destination.stream.getAudioTracks().forEach((track) => mixedStream.addTrack(track))
+      }
+
+      const videoTrack = mixedStream.getVideoTracks()[0]
+      const audioTrack = mixedStream.getAudioTracks()[0]
+
+      // 4. Replace tracks in active peer connection
+      await whipRef.current.replaceTracks(videoTrack, audioTrack)
+
+      // 5. Setup native stop sharing listener
+      videoTrack.onended = () => {
+        handleSwitchToCamera()
+      }
+
+      // 6. Stop old camera stream tracks to release device
+      const oldStream = whipRef.current.mediaStream
+      oldStream.getTracks().forEach((t) => t.stop())
+
+      // 7. Update session references
+      whipRef.current.mediaStream = mixedStream
+      whipRef.current.displayStream = displayStream
+      whipRef.current.micStream = micStream
+      whipRef.current.audioContext = audioCtx
+
+      setIsScreenSharing(true)
+    } catch (err) {
+      setWhipError('Switching to screen sharing failed: ' + err.message)
+    } finally {
+      setWhipPublishing(false)
     }
   }
 
@@ -377,17 +515,60 @@ export default function LiveStreaming() {
                   <div style={{ color: 'var(--red)', fontSize: 12, marginBottom: 8 }}>{whipError}</div>
                 )}
                 {selected.status !== 'ENDED' && (
-                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
                     {!whipRef.current ? (
-                      <button
-                        className="btn btn-primary btn-sm"
-                        disabled={!whipSupported || whipPublishing || selected.status === 'ENDED'}
-                        onClick={startWhip}
-                      >
-                        <Radio size={12} /> {whipPublishing ? 'Connecting…' : 'Go live from this device'}
-                      </button>
+                      <>
+                        <button
+                          className="btn btn-primary btn-sm"
+                          disabled={!whipSupported || whipPublishing || selected.status === 'ENDED'}
+                          onClick={() => startWhip({ screenShare: false })}
+                        >
+                          <Radio size={12} style={{ marginRight: 4 }} /> {whipPublishing && !isScreenSharing ? 'Connecting…' : 'Go live (Camera)'}
+                        </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          disabled={!whipSupported || whipPublishing || selected.status === 'ENDED'}
+                          onClick={() => startWhip({ screenShare: true })}
+                          style={{
+                            background: 'var(--bg3)',
+                            border: '1px solid var(--border)',
+                            color: 'var(--text)'
+                          }}
+                        >
+                          <Monitor size={12} style={{ marginRight: 4 }} /> {whipPublishing && isScreenSharing ? 'Connecting…' : 'Share screen'}
+                        </button>
+                      </>
                     ) : (
-                      <button className="btn btn-ghost btn-sm" onClick={stopWhip}>Stop browser broadcast</button>
+                      <>
+                        {isScreenSharing ? (
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            disabled={whipPublishing}
+                            onClick={handleSwitchToCamera}
+                            style={{
+                              background: 'var(--bg3)',
+                              border: '1px solid var(--border)',
+                              color: 'var(--text)'
+                            }}
+                          >
+                            <Radio size={12} style={{ marginRight: 4 }} /> Switch to Camera
+                          </button>
+                        ) : (
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            disabled={whipPublishing}
+                            onClick={handleSwitchToScreen}
+                            style={{
+                              background: 'var(--bg3)',
+                              border: '1px solid var(--border)',
+                              color: 'var(--text)'
+                            }}
+                          >
+                            <Monitor size={12} style={{ marginRight: 4 }} /> Switch to Screen
+                          </button>
+                        )}
+                        <button className="btn btn-ghost btn-sm" onClick={() => stopWhip({ markEnded: false })}>Stop browser broadcast</button>
+                      </>
                     )}
                   </div>
                 )}

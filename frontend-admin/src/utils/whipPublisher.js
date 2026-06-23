@@ -3,17 +3,84 @@
  * Requires HTTPS (or localhost) for camera/mic permissions.
  */
 
-export async function publishViaWhip(whipUrl, { video = true, audio = true } = {}) {
+export async function publishViaWhip(whipUrl, { video = true, audio = true, screenShare = false } = {}) {
   if (!whipUrl) throw new Error('WHIP URL is missing');
-  if (!navigator.mediaDevices?.getUserMedia) {
-    throw new Error('Camera/microphone access is not available in this browser');
-  }
 
   let stream = null;
   let pc = null;
+  let displayStream = null;
+  let micStream = null;
+  let audioCtx = null;
 
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ video, audio });
+    if (screenShare) {
+      if (!navigator.mediaDevices?.getDisplayMedia) {
+        throw new Error('Screen sharing is not supported in this browser');
+      }
+
+      displayStream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          width: { max: 960 },
+          height: { max: 960 }
+        },
+        audio: true // system/tab audio
+      });
+
+      if (audio) {
+        try {
+          micStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true
+            },
+            video: false
+          });
+
+          // Mix the screen capture and microphone audio using Web Audio API
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const destination = audioCtx.createMediaStreamDestination();
+
+          let displayHasAudio = displayStream.getAudioTracks().length > 0;
+          let micHasAudio = micStream.getAudioTracks().length > 0;
+
+          if (displayHasAudio) {
+            const displaySource = audioCtx.createMediaStreamSource(new MediaStream([displayStream.getAudioTracks()[0]]));
+            displaySource.connect(destination);
+          }
+
+          if (micHasAudio) {
+            const micSource = audioCtx.createMediaStreamSource(new MediaStream([micStream.getAudioTracks()[0]]));
+            micSource.connect(destination);
+          }
+
+          const mixedStream = new MediaStream();
+          displayStream.getVideoTracks().forEach((track) => mixedStream.addTrack(track));
+          
+          if (displayHasAudio || micHasAudio) {
+            destination.stream.getAudioTracks().forEach((track) => mixedStream.addTrack(track));
+          }
+
+          stream = mixedStream;
+        } catch (micErr) {
+          console.warn('Microphone access failed for screen sharing, using screen audio only:', micErr);
+          stream = displayStream;
+        }
+      } else {
+        stream = displayStream;
+      }
+    } else {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error('Camera/microphone access is not available in this browser');
+      }
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: video ? {
+          width: { ideal: 960, max: 960 },
+          height: { ideal: 540, max: 960 }
+        } : false,
+        audio
+      });
+    }
+
     pc = new RTCPeerConnection({
       iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
     });
@@ -68,22 +135,61 @@ export async function publishViaWhip(whipUrl, { video = true, audio = true } = {
     const answerSdp = await res.text();
     await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
 
-    return {
+    const session = {
       peerConnection: pc,
       mediaStream: stream,
+      displayStream,
+      micStream,
+      audioContext: audioCtx,
+      onStop: null,
+      replaceTracks: async (newVideoTrack, newAudioTrack) => {
+        const senders = pc.getSenders();
+        const videoSender = senders.find((s) => s.track?.kind === 'video');
+        const audioSender = senders.find((s) => s.track?.kind === 'audio');
+
+        if (videoSender && newVideoTrack) {
+          await videoSender.replaceTrack(newVideoTrack);
+        }
+        if (audioSender && newAudioTrack) {
+          await audioSender.replaceTrack(newAudioTrack);
+        }
+      },
       stop: () => {
         stream.getTracks().forEach((t) => t.stop());
+        displayStream?.getTracks().forEach((t) => t.stop());
+        micStream?.getTracks().forEach((t) => t.stop());
+        if (audioCtx && audioCtx.state !== 'closed') {
+          audioCtx.close().catch(() => {});
+        }
         pc.close();
       },
     };
+
+    // If screen sharing is stopped using browser native floating UI
+    if (screenShare && displayStream) {
+      displayStream.getVideoTracks().forEach((track) => {
+        track.onended = () => {
+          if (session.onStop) {
+            session.onStop();
+          }
+        };
+      });
+    }
+
+    return session;
   } catch (err) {
     stream?.getTracks().forEach((t) => t.stop());
+    displayStream?.getTracks().forEach((t) => t.stop());
+    micStream?.getTracks().forEach((t) => t.stop());
+    if (audioCtx && audioCtx.state !== 'closed') {
+      audioCtx.close().catch(() => {});
+    }
     pc?.close();
     if (err?.name === 'NotAllowedError') {
-      throw new Error('Camera/microphone permission denied. Allow access and try again.');
+      throw new Error('Permission denied. Allow access and try again.');
     }
     if (err?.name === 'NotFoundError') {
-      throw new Error('No camera or microphone found on this device.');
+      throw new Error('No input sources found on this device.');
     }
     throw err;
   }
