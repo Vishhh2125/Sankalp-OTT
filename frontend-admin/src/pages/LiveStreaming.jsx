@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Plus, Copy, Radio, Monitor, Smartphone, RefreshCw, Square } from 'lucide-react'
+import { Plus, Copy, Radio, Monitor, Smartphone, RefreshCw, Square, Users, Eye } from 'lucide-react'
 import Modal, { FormGroup, ModalSection } from '../components/ui/Modal.jsx'
 import { ConfirmDialog } from '../components/ui/Controls.jsx'
 import { liveApi } from '../services/api.js'
@@ -35,6 +35,103 @@ function CopyField({ label, value }) {
   )
 }
 
+function timeAgo(date) {
+  const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
+  if (seconds < 60) return `${seconds}s ago`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  return `${hours}h ${minutes % 60}m ago`
+}
+
+function ViewerAvatar({ name }) {
+  const letter = (name || 'G').charAt(0).toUpperCase()
+  return (
+    <div style={{
+      width: 28,
+      height: 28,
+      borderRadius: '50%',
+      background: 'var(--primary)',
+      color: '#fff',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: 12,
+      fontWeight: 600,
+      flexShrink: 0,
+    }}>
+      {letter}
+    </div>
+  )
+}
+
+function ViewerPanel({ viewers }) {
+  if (!viewers || viewers.viewer_count === 0) {
+    return (
+      <div style={{
+        marginTop: 12,
+        padding: 12,
+        background: 'var(--bg3)',
+        borderRadius: 8,
+        fontSize: 12,
+        color: 'var(--text3)',
+        textAlign: 'center',
+      }}>
+        <Eye size={14} style={{ verticalAlign: -2, marginRight: 4 }} />
+        No viewers yet
+      </div>
+    )
+  }
+
+  return (
+    <div style={{
+      marginTop: 12,
+      border: '1px solid var(--border)',
+      borderRadius: 8,
+      overflow: 'hidden',
+    }}>
+      <div style={{
+        padding: '8px 12px',
+        background: 'var(--bg3)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        borderBottom: '1px solid var(--border)',
+        fontSize: 12,
+        fontWeight: 600,
+      }}>
+        <Users size={13} />
+        {viewers.viewer_count} viewer{viewers.viewer_count !== 1 ? 's' : ''} watching
+      </div>
+      <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+        {viewers.viewers.map((v) => (
+          <div
+            key={v.session_id}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '8px 12px',
+              borderBottom: '1px solid var(--border)',
+              fontSize: 12,
+            }}
+          >
+            <ViewerAvatar name={v.name} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {v.name || 'Guest'}
+              </div>
+              <div style={{ color: 'var(--text3)', fontSize: 11 }}>
+                Joined {timeAgo(v.joined_at)}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function LiveStreaming() {
   const [streams, setStreams] = useState([])
   const [selected, setSelected] = useState(null)
@@ -46,6 +143,7 @@ export default function LiveStreaming() {
   const [whipError, setWhipError] = useState(null)
   const [whipPublishing, setWhipPublishing] = useState(false)
   const [confirmEnd, setConfirmEnd] = useState(null)
+  const [viewers, setViewers] = useState({ viewer_count: 0, viewers: [] })
   const whipRef = useRef(null)
   const whipSupported = isWhipEnvironmentSupported()
 
@@ -70,15 +168,28 @@ export default function LiveStreaming() {
   }, [loadStreams])
 
   useEffect(() => {
-    if (!selected?.id) return undefined
+    if (!selected?.id || selected.status === 'ENDED') return undefined
     const t = setInterval(async () => {
       try {
-        const res = await liveApi.getById(selected.id)
-        if (res.data?.data) setSelected(res.data.data)
+        const promises = [liveApi.getById(selected.id)]
+        // Fetch viewers in parallel when stream is LIVE
+        if (selected.status === 'LIVE') {
+          promises.push(liveApi.getViewers(selected.id))
+        }
+        const results = await Promise.all(promises)
+        if (results[0].data?.data) setSelected(results[0].data.data)
+        if (results[1]?.data?.data) setViewers(results[1].data.data)
       } catch { /* ignore poll errors */ }
     }, 3000)
     return () => clearInterval(t)
-  }, [selected?.id])
+  }, [selected?.id, selected?.status])
+
+  // Reset viewers when selecting a different stream or when stream ends
+  useEffect(() => {
+    if (!selected?.id || selected.status !== 'LIVE') {
+      setViewers({ viewer_count: 0, viewers: [] })
+    }
+  }, [selected?.id, selected?.status])
 
   const createStream = async () => {
     if (!title.trim()) return
@@ -117,8 +228,19 @@ export default function LiveStreaming() {
       const whipUrl =
         selected.whip_url ||
         `${window.location.protocol}//${window.location.hostname}:8889/live/${selected.stream_key}/whip`
-      const session = await publishViaWhip(whipUrl)
+      const session = await publishViaWhip(whipUrl, { video: true, audio: true })
       whipRef.current = session
+      await liveApi.markLive(selected.stream_key, 'webrtc')
+      setSelected((current) => current?.id === selected.id
+        ? {
+            ...current,
+            status: 'LIVE',
+            source_protocol: 'WHIP',
+            started_at: current.started_at || new Date().toISOString(),
+          }
+        : current)
+      const res = await liveApi.getById(selected.id)
+      if (res.data?.data) setSelected(res.data.data)
     } catch (err) {
       setWhipError(err.message || 'WHIP connection failed')
     } finally {
@@ -126,14 +248,26 @@ export default function LiveStreaming() {
     }
   }
 
-  const stopWhip = () => {
+  const stopWhip = async ({ markEnded = true } = {}) => {
+    const streamKey = selected?.stream_key
     whipRef.current?.stop?.()
     whipRef.current = null
+    if (markEnded && streamKey) {
+      try {
+        await liveApi.markEnded(streamKey)
+        if (selected?.id) {
+          const res = await liveApi.getById(selected.id)
+          if (res.data?.data) setSelected(res.data.data)
+        }
+      } catch (err) {
+        setWhipError(err.response?.data?.message || err.message || 'Failed to stop browser broadcast')
+      }
+    }
   }
 
   const endStream = async (id) => {
     try {
-      stopWhip()
+      await stopWhip({ markEnded: false })
       await liveApi.end(id)
       setConfirmEnd(null)
       setSelected(null)
@@ -236,7 +370,7 @@ export default function LiveStreaming() {
 
               <ModalSection title={<><Smartphone size={14} style={{ verticalAlign: -2, marginRight: 6 }} />Browser / WHIP</>}>
                 <p style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>
-                  Go live from this device (desktop or mobile browser). Test on a real phone over HTTPS for cellular NAT.
+                  Go live from this device with camera video. Browser live is video-only for mobile HLS compatibility.
                 </p>
                 {selected.whip_url && <CopyField label="WHIP endpoint" value={selected.whip_url} />}
                 {whipError && (
@@ -266,6 +400,10 @@ export default function LiveStreaming() {
                     <span> Started {new Date(selected.started_at).toLocaleTimeString()}</span>
                   )}
                 </div>
+              )}
+
+              {selected.status === 'LIVE' && (
+                <ViewerPanel viewers={viewers} />
               )}
             </>
           )}

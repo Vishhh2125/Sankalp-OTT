@@ -41,10 +41,9 @@ rtmpAddress: :1935
 hls: true
 hlsAddress: :8888
 hlsAllowOrigins: ["*"]
-hlsVariant: lowLatency
-hlsSegmentCount: 7
-hlsSegmentDuration: 1s
-hlsPartDuration: 200ms
+hlsVariant: fmp4
+hlsSegmentCount: 5
+hlsSegmentDuration: 2s
 
 ###############################################
 # WebRTC / WHIP (browser go-live — HTTPS required off localhost)
@@ -63,8 +62,6 @@ webrtcIPsFromInterfaces: true
 pathDefaults:
   source: publisher
   overridePublisher: true
-  runOnReady: curl -fsS -X POST http://backend:3000/api/live/webhook/on-live -H "Content-Type: application/json" -d "{\"path\":\"$MTX_PATH\",\"source_type\":\"$MTX_SOURCE_TYPE\",\"protocol\":\"$MTX_SOURCE_TYPE\"}"
-  runOnNotReady: curl -fsS -X POST http://backend:3000/api/live/webhook/on-ended -H "Content-Type: application/json" -d "{\"path\":\"$MTX_PATH\"}"
 
 paths:
   ~^live/.+$:

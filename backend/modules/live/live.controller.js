@@ -86,6 +86,35 @@ async function webhookOnEnded(req, res, next) {
   }
 }
 
+// ── Viewer Tracking ──
+
+async function joinStream(req, res, next) {
+  try {
+    const data = await service.joinStream(req.params.id, req.user?.id || null);
+    return res.json(new ApiResponse(200, data, 'Joined stream'));
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function leaveStream(req, res, next) {
+  try {
+    const data = await service.leaveStream(req.params.sessionId);
+    return res.json(new ApiResponse(200, data, 'Left stream'));
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function getViewers(req, res, next) {
+  try {
+    const data = await service.getViewers(req.params.id);
+    return res.json(new ApiResponse(200, data, 'Viewers fetched'));
+  } catch (e) {
+    next(e);
+  }
+}
+
 export {
   createStream,
   listStreams,
@@ -96,4 +125,7 @@ export {
   authHook,
   webhookOnLive,
   webhookOnEnded,
+  joinStream,
+  leaveStream,
+  getViewers,
 };

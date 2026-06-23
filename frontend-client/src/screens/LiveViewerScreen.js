@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import Video from 'react-native-video';
 import { Ionicons } from '@expo/vector-icons';
 
 import { theme } from '../constants/theme';
-import { fetchLivePlayUrl } from '../components/live/liveApi';
+import { fetchLivePlayUrl, joinStream, leaveStream } from '../components/live/liveApi';
 
 export default function LiveViewerScreen() {
   const route = useRoute();
@@ -22,6 +22,9 @@ export default function LiveViewerScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [videoError, setVideoError] = useState(null);
+
+  // Viewer tracking session
+  const viewerSessionId = useRef(null);
 
   const loadPlayUrl = useCallback(async () => {
     if (!streamId) {
@@ -46,6 +49,36 @@ export default function LiveViewerScreen() {
   useEffect(() => {
     loadPlayUrl();
   }, [loadPlayUrl]);
+
+  // Join stream after HLS URL is loaded, leave on unmount
+  useEffect(() => {
+    if (!hlsUrl || !streamId) return;
+
+    let sessionId = null;
+
+    const doJoin = async () => {
+      try {
+        const data = await joinStream(streamId);
+        if (data?.session_id) {
+          sessionId = data.session_id;
+          viewerSessionId.current = sessionId;
+        }
+      } catch {
+        // Viewer tracking is non-critical — don't block playback
+      }
+    };
+
+    doJoin();
+
+    return () => {
+      // Leave stream on unmount
+      const sid = sessionId || viewerSessionId.current;
+      if (sid) {
+        leaveStream(sid).catch(() => {});
+        viewerSessionId.current = null;
+      }
+    };
+  }, [hlsUrl, streamId]);
 
   return (
     <View style={styles.screen}>

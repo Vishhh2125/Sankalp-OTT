@@ -13,6 +13,68 @@ function generateStreamKey() {
   return randomBytes(16).toString('hex');
 }
 
+const MEDIAMTX_API_URL = (process.env.MEDIAMTX_API_URL || 'http://mediamtx:9997').replace(/\/$/, '');
+
+function protocolFromMediaMtxPath(pathInfo) {
+  const type = String(pathInfo?.source?.type || '').toLowerCase();
+  if (type.includes('webrtc')) return 'WHIP';
+  if (type.includes('rtmp')) return 'RTMP';
+  return null;
+}
+
+async function getMediaMtxPathMap() {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 1500);
+
+  try {
+    const res = await fetch(`${MEDIAMTX_API_URL}/v3/paths/list`, {
+      signal: controller.signal,
+    });
+    if (!res.ok) return new Map();
+
+    const data = await res.json();
+    return new Map((data.items || []).map((item) => [item.name, item]));
+  } catch {
+    return new Map();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function reconcileStreamWithMediaMtx(stream, pathMap = null) {
+  if (!stream || stream.status === 'ENDED') return stream;
+
+  const paths = pathMap || await getMediaMtxPathMap();
+  const pathInfo = paths.get(`live/${stream.stream_key}`);
+  const isOnline = Boolean(pathInfo?.ready || pathInfo?.online || pathInfo?.available);
+
+  if (isOnline && stream.status !== 'LIVE') {
+    return prisma.liveStream.update({
+      where: { id: stream.id },
+      data: {
+        status: 'LIVE',
+        started_at: stream.started_at || new Date(pathInfo.readyTime || pathInfo.onlineTime || Date.now()),
+        source_protocol: protocolFromMediaMtxPath(pathInfo) || stream.source_protocol,
+        ended_at: null,
+      },
+      include: { creator: { select: { id: true, name: true } } },
+    });
+  }
+
+  if (isOnline) {
+    const sourceProtocol = protocolFromMediaMtxPath(pathInfo);
+    if (sourceProtocol && stream.source_protocol !== sourceProtocol) {
+      return prisma.liveStream.update({
+        where: { id: stream.id },
+        data: { source_protocol: sourceProtocol },
+        include: { creator: { select: { id: true, name: true } } },
+      });
+    }
+  }
+
+  return stream;
+}
+
 function formatStream(stream, includeIngest = false) {
   const base = {
     id: stream.id,
@@ -72,7 +134,9 @@ export async function listStreams() {
     take: 100,
     include: { creator: { select: { id: true, name: true } } },
   });
-  return streams.map((s) => formatStream(s, true));
+  const pathMap = await getMediaMtxPathMap();
+  const reconciled = await Promise.all(streams.map((s) => reconcileStreamWithMediaMtx(s, pathMap)));
+  return reconciled.map((s) => formatStream(s, true));
 }
 
 export async function getStreamById(id) {
@@ -81,33 +145,40 @@ export async function getStreamById(id) {
     include: { creator: { select: { id: true, name: true } } },
   });
   if (!stream) throw new AppError('Stream not found', 404);
-  return formatStream(stream, true);
+  const reconciled = await reconcileStreamWithMediaMtx(stream);
+  return formatStream(reconciled, true);
 }
 
 export async function getActiveStreams() {
-  const streams = await prisma.liveStream.findMany({
-    where: { status: 'LIVE' },
+  const candidates = await prisma.liveStream.findMany({
+    where: { status: { in: ['SCHEDULED', 'LIVE'] } },
     orderBy: { started_at: 'desc' },
     include: { creator: { select: { id: true, name: true } } },
   });
-  return streams.map((s) => ({
+  const pathMap = await getMediaMtxPathMap();
+  const streams = await Promise.all(candidates.map((s) => reconcileStreamWithMediaMtx(s, pathMap)));
+  return streams.filter((s) => s.status === 'LIVE').map((s) => ({
     ...formatStream(s),
     is_live: true,
   }));
 }
 
 export async function getPlayUrl(streamId) {
-  const stream = await prisma.liveStream.findUnique({ where: { id: streamId } });
+  const stream = await prisma.liveStream.findUnique({
+    where: { id: streamId },
+    include: { creator: { select: { id: true, name: true } } },
+  });
   if (!stream) throw new AppError('Stream not found', 404);
-  if (stream.status !== 'LIVE') {
+  const reconciled = await reconcileStreamWithMediaMtx(stream);
+  if (reconciled.status !== 'LIVE') {
     throw new AppError('Stream is not live', 404);
   }
 
   return {
-    stream_id: stream.id,
-    title: stream.title,
-    hls_url: getViewerHlsUrl(stream.stream_key),
-    status: stream.status,
+    stream_id: reconciled.id,
+    title: reconciled.title,
+    hls_url: getViewerHlsUrl(reconciled.stream_key),
+    status: reconciled.status,
   };
 }
 
@@ -211,4 +282,87 @@ export async function handleOnEnded(payload) {
   });
 
   return { ok: true, stream_id: stream.id };
+}
+
+// ──────────────────────────────────────
+// VIEWER TRACKING
+// ──────────────────────────────────────
+
+export async function joinStream(streamId, userId) {
+  // Validate stream exists
+  const stream = await prisma.liveStream.findUnique({ where: { id: streamId } });
+  if (!stream) throw new AppError('Stream not found', 404);
+
+  // If authenticated user, check for existing active session
+  if (userId) {
+    const existing = await prisma.liveViewerSession.findFirst({
+      where: {
+        stream_id: streamId,
+        user_id: userId,
+        is_active: true,
+      },
+    });
+    if (existing) {
+      return { session_id: existing.id, already_joined: true };
+    }
+  }
+
+  // Create new session
+  const session = await prisma.liveViewerSession.create({
+    data: {
+      stream_id: streamId,
+      user_id: userId || null,
+      guest_name: userId ? null : 'Guest',
+    },
+  });
+
+  return { session_id: session.id, already_joined: false };
+}
+
+export async function leaveStream(sessionId) {
+  const session = await prisma.liveViewerSession.findUnique({
+    where: { id: sessionId },
+  });
+
+  if (!session || !session.is_active) {
+    return { ok: true, already_left: true };
+  }
+
+  await prisma.liveViewerSession.update({
+    where: { id: sessionId },
+    data: {
+      is_active: false,
+      left_at: new Date(),
+    },
+  });
+
+  return { ok: true };
+}
+
+export async function getViewers(streamId) {
+  const sessions = await prisma.liveViewerSession.findMany({
+    where: {
+      stream_id: streamId,
+      is_active: true,
+    },
+    orderBy: { joined_at: 'asc' },
+    include: {
+      user: {
+        select: { id: true, name: true },
+      },
+    },
+  });
+
+  const viewers = sessions.map((s) => ({
+    session_id: s.id,
+    user_id: s.user_id,
+    name: s.user?.name || s.guest_name || 'Guest',
+    avatar_url: null,
+    joined_at: s.joined_at,
+  }));
+
+  return {
+    viewer_count: viewers.length,
+    viewers,
+  };
 }

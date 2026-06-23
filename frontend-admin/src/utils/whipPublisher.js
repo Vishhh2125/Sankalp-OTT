@@ -18,7 +18,20 @@ export async function publishViaWhip(whipUrl, { video = true, audio = true } = {
       iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
     });
 
-    stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+    stream.getTracks().forEach((track) => {
+      const transceiver = pc.addTransceiver(track, {
+        direction: 'sendonly',
+        streams: [stream],
+      });
+
+      if (track.kind === 'video' && RTCRtpSender.getCapabilities) {
+        const capabilities = RTCRtpSender.getCapabilities('video');
+        const codecs = capabilities?.codecs || [];
+        const h264 = codecs.filter((codec) => codec.mimeType?.toLowerCase() === 'video/h264');
+        const rest = codecs.filter((codec) => codec.mimeType?.toLowerCase() !== 'video/h264');
+        if (h264.length) transceiver.setCodecPreferences([...h264, ...rest]);
+      }
+    });
 
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);

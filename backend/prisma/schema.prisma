@@ -67,6 +67,7 @@ model User {
   ratings           Rating[]
   activity_logs     AdminActivityLog[]
   live_streams      LiveStream[]
+  viewer_sessions   LiveViewerSession[]
 
   @@map("users")
 }
@@ -617,8 +618,29 @@ model LiveStream {
   created_at       DateTime         @default(now())
 
   creator User @relation(fields: [created_by], references: [id], onDelete: Cascade)
+  viewerSessions LiveViewerSession[]
 
   @@index([status, created_at(sort: Desc)], name: "idx_live_streams_status_created")
   @@index([created_by], name: "idx_live_streams_created_by")
   @@map("live_streams")
+}
+
+// ──────────────────────────────────────
+// LIVE VIEWER SESSIONS (who is watching a live stream)
+// ──────────────────────────────────────
+
+model LiveViewerSession {
+  id         String    @id @default(uuid()) @db.Uuid
+  stream_id  String    @db.Uuid
+  user_id    String?   @db.Uuid
+  guest_name String?   @db.VarChar(50)
+  joined_at  DateTime  @default(now())
+  left_at    DateTime?
+  is_active  Boolean   @default(true)
+
+  stream LiveStream @relation(fields: [stream_id], references: [id], onDelete: Cascade)
+  user   User?      @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([stream_id, is_active], name: "idx_lvs_stream_active")
+  @@map("live_viewer_sessions")
 }
