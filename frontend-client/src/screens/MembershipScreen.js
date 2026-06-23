@@ -14,6 +14,7 @@ import { useRoute } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 
 import GuestAccessPrompt from '../components/GuestAccessPrompt';
+import { PlanCardSkeleton } from '../components/skeletons';
 import {
   fetchMembershipPlans,
   simulateMembershipPurchase,
@@ -247,8 +248,8 @@ export default function MembershipScreen({ navigation }) {
 
   if (loading) {
     return (
-      <View style={[styles.screen, styles.centered]}>
-        <ActivityIndicator size="large" color={theme.crimson} />
+      <View style={styles.screen}>
+        <PlanCardSkeleton count={3} />
       </View>
     );
   }

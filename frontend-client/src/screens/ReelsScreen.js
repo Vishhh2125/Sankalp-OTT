@@ -24,6 +24,7 @@ import CoinIcon from '../components/CoinIcon';
 import DramaDetailsSheetConnected from '../components/DramaDetailsSheetConnected';
 import HomeHeroSlider from '../components/home/HomeHeroSlider';
 import HomeShowSection from '../components/home/HomeShowSection';
+import { GridSkeleton } from '../components/skeletons';
 import { fetchHeroBanners } from '../components/home/homePromoApi';
 import { ROUTES } from '../constants/routes';
 import { theme } from '../constants/theme';
@@ -776,9 +777,7 @@ export default function PopularScreen() {
       )}
 
       {loading && shows.length === 0 ? (
-        <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color="#FF2D55" />
-        </View>
+        <GridSkeleton />
       ) : isSearchActive ? (
         <FlatList
           data={shows}

@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 import { formatCount } from './shortVideoPlayer/utils';
+import { DetailsSkeleton } from './skeletons';
 import { theme } from '../constants/theme';
 import { API_BASE_URL } from '../constants/config';
 
@@ -33,7 +34,7 @@ const EPISODE_GAP = 6;
 const EPISODES_PER_PAGE = 30;
 const SHEET_HORIZONTAL_PADDING = 16;
 const RELATED_GAP = 8;
-const RELATED_CARD_WIDTH = '31%' ;
+const RELATED_CARD_WIDTH = '31%';
 const RELATED_LIMIT = 6;
 
 function resolveThumbnailUrl(url) {
@@ -260,152 +261,158 @@ export default function DramaDetailsSheetConnected({
         <Pressable style={styles.backdrop} onPress={onClose} />
 
         <View style={styles.sheet}>
-          <View style={styles.topRow}>
-            <View style={styles.posterRow}>
-              {posterSource ? (
-                <Image
-                  source={posterSource}
-                  style={styles.poster}
-                  resizeMode="cover"
-                  onLoad={() => console.log('[Image-onLoad] Poster loaded successfully')}
-                  onError={(err) => console.log('[Image-onError] Failed to load poster:', err.error)}
-                />
-              ) : (
-                <View style={[styles.poster, styles.posterFallback]} />
-              )}
-              <View style={styles.posterMeta}>
-                <Text style={styles.title} numberOfLines={1}>
-                  {title}
-                </Text>
-                {viewsLabel ? (
-                  <Text style={styles.metaText}>{viewsLabel}</Text>
-                ) : null}
-              </View>
-            </View>
-            <Pressable onPress={onClose} hitSlop={15}>
-              <Ionicons name="close" size={26} color={theme.white} />
-            </Pressable>
-          </View>
-
-          <View style={styles.tabsRow}>
-            <Pressable onPress={() => setTab('synopsis')} style={styles.tabBtn}>
-              <Text style={[styles.tabText, tab === 'synopsis' && styles.tabTextActive]}>
-                Synopsis
-              </Text>
-              {tab === 'synopsis' && <View style={styles.tabUnderline} />}
-            </Pressable>
-            <Pressable onPress={() => setTab('episodes')} style={styles.tabBtn}>
-              <Text style={[styles.tabText, tab === 'episodes' && styles.tabTextActive]}>
-                Episodes
-              </Text>
-              {tab === 'episodes' && <View style={styles.tabUnderline} />}
-            </Pressable>
-          </View>
-
-          <ScrollView
-            ref={scrollRef}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.content}
-          >
-            {tab === 'synopsis' ? (
-              <View>
-                <Text style={styles.sectionTitle}>Synopsis</Text>
-                <Text style={styles.synopsis}>{synopsisText}</Text>
-                {tags.length > 0 ? (
-                  <View style={styles.tagsRow}>
-                    {tags.map((tag) => (
-                      <Tag key={tag} label={tag} />
-                    ))}
+          {loading && !details ? (
+            <DetailsSkeleton />
+          ) : (
+            <>
+              <View style={styles.topRow}>
+                <View style={styles.posterRow}>
+                  {posterSource ? (
+                    <Image
+                      source={posterSource}
+                      style={styles.poster}
+                      resizeMode="cover"
+                      onLoad={() => console.log('[Image-onLoad] Poster loaded successfully')}
+                      onError={(err) => console.log('[Image-onError] Failed to load poster:', err.error)}
+                    />
+                  ) : (
+                    <View style={[styles.poster, styles.posterFallback]} />
+                  )}
+                  <View style={styles.posterMeta}>
+                    <Text style={styles.title} numberOfLines={1}>
+                      {title}
+                    </Text>
+                    {viewsLabel ? (
+                      <Text style={styles.metaText}>{viewsLabel}</Text>
+                    ) : null}
                   </View>
-                ) : null}
-
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.startWatchingBtn,
-                    pressed && styles.startWatchingBtnPressed,
-                  ]}
-                  onPress={() => onStartWatching && onStartWatching()}
-                >
-                  <Ionicons name="play" size={18} color={theme.white} />
-                  <Text style={styles.startWatchingText}>Start Watching</Text>
+                </View>
+                <Pressable onPress={onClose} hitSlop={15}>
+                  <Ionicons name="close" size={26} color={theme.white} />
                 </Pressable>
               </View>
-            ) : (
-              <View>
-                {ranges.length > 0 ? (
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.rangeRow}
-                  >
-                    {ranges.map((range) => (
-                      <Pressable key={range.key} onPress={() => handleRangePress(range.start)}>
-                        <Text style={[styles.rangeText, activeRangeStart === range.start && styles.rangeTextActive]}>
-                          {range.label}
-                        </Text>
-                        {activeRangeStart === range.start && <View style={styles.rangeUnderline} />}
-                      </Pressable>
-                    ))}
-                  </ScrollView>
-                ) : null}
 
-                {loading ? (
-                  <View style={styles.stateBlock}>
-                    <ActivityIndicator size="small" color={theme.white} />
-                    <Text style={styles.stateText}>Loading episodes...</Text>
-                  </View>
-                ) : error ? (
-                  <View style={styles.stateBlock}>
-                    <Text style={styles.stateText}>{error}</Text>
-                    <Pressable style={styles.retryButton} onPress={handleRetry}>
-                      <Text style={styles.retryButtonText}>Try again</Text>
+              <View style={styles.tabsRow}>
+                <Pressable onPress={() => setTab('synopsis')} style={styles.tabBtn}>
+                  <Text style={[styles.tabText, tab === 'synopsis' && styles.tabTextActive]}>
+                    Synopsis
+                  </Text>
+                  {tab === 'synopsis' && <View style={styles.tabUnderline} />}
+                </Pressable>
+                <Pressable onPress={() => setTab('episodes')} style={styles.tabBtn}>
+                  <Text style={[styles.tabText, tab === 'episodes' && styles.tabTextActive]}>
+                    Episodes
+                  </Text>
+                  {tab === 'episodes' && <View style={styles.tabUnderline} />}
+                </Pressable>
+              </View>
+
+              <ScrollView
+                ref={scrollRef}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.content}
+              >
+                {tab === 'synopsis' ? (
+                  <View>
+                    <Text style={styles.sectionTitle}>Synopsis</Text>
+                    <Text style={styles.synopsis}>{synopsisText}</Text>
+                    {tags.length > 0 ? (
+                      <View style={styles.tagsRow}>
+                        {tags.map((tag) => (
+                          <Tag key={tag} label={tag} />
+                        ))}
+                      </View>
+                    ) : null}
+
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.startWatchingBtn,
+                        pressed && styles.startWatchingBtnPressed,
+                      ]}
+                      onPress={() => onStartWatching && onStartWatching()}
+                    >
+                      <Ionicons name="play" size={18} color={theme.white} />
+                      <Text style={styles.startWatchingText}>Start Watching</Text>
                     </Pressable>
                   </View>
-                ) : currentEpisodes.length > 0 ? (
-                  <View style={styles.episodesGrid}>
-                    {currentEpisodes.map((episode) => (
-                      <EpisodeCell
-                        key={episode.episode_id}
-                        episode={episode}
-                        isCurrentEpisode={episode.episode_num === currentEpisode}
-                        onPress={onEpisodePress}
-                      />
-                    ))}
-                  </View>
                 ) : (
-                  <View style={styles.stateBlock}>
-                    <Text style={styles.stateText}>No episodes available yet.</Text>
+                  <View>
+                    {ranges.length > 0 ? (
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.rangeRow}
+                      >
+                        {ranges.map((range) => (
+                          <Pressable key={range.key} onPress={() => handleRangePress(range.start)}>
+                            <Text style={[styles.rangeText, activeRangeStart === range.start && styles.rangeTextActive]}>
+                              {range.label}
+                            </Text>
+                            {activeRangeStart === range.start && <View style={styles.rangeUnderline} />}
+                          </Pressable>
+                        ))}
+                      </ScrollView>
+                    ) : null}
+
+                    {loading ? (
+                      <View style={styles.stateBlock}>
+                        <ActivityIndicator size="small" color={theme.white} />
+                        <Text style={styles.stateText}>Loading episodes...</Text>
+                      </View>
+                    ) : error ? (
+                      <View style={styles.stateBlock}>
+                        <Text style={styles.stateText}>{error}</Text>
+                        <Pressable style={styles.retryButton} onPress={handleRetry}>
+                          <Text style={styles.retryButtonText}>Try again</Text>
+                        </Pressable>
+                      </View>
+                    ) : currentEpisodes.length > 0 ? (
+                      <View style={styles.episodesGrid}>
+                        {currentEpisodes.map((episode) => (
+                          <EpisodeCell
+                            key={episode.episode_id}
+                            episode={episode}
+                            isCurrentEpisode={episode.episode_num === currentEpisode}
+                            onPress={onEpisodePress}
+                          />
+                        ))}
+                      </View>
+                    ) : (
+                      <View style={styles.stateBlock}>
+                        <Text style={styles.stateText}>No episodes available yet.</Text>
+                      </View>
+                    )}
                   </View>
                 )}
-              </View>
-            )}
 
-            {(relatedLoading || relatedShows.length > 0) && tags.length > 0 ? (
-              <View style={styles.relatedSection}>
-                <Text style={styles.sectionTitle}>Recommendations</Text>
-                {relatedLoading ? (
-                  <ActivityIndicator size="small" color={theme.white} style={styles.relatedLoader} />
-                ) : (
-                  <View style={styles.relatedGrid}>
-                    {relatedShows.map((drama, index) => {
-                      const isThirdColumn = (index + 1) % 3 === 0;
+                {(relatedLoading || relatedShows.length > 0) && tags.length > 0 ? (
+                  <View style={styles.relatedSection}>
+                    <Text style={styles.sectionTitle}>Recommendations</Text>
+                    {relatedLoading ? (
+                      <ActivityIndicator size="small" color={theme.white} style={styles.relatedLoader} />
+                    ) : (
+                      <View style={styles.relatedGrid}>
+                        {relatedShows.map((drama, index) => {
+                          const isThirdColumn = (index + 1) % 3 === 0;
 
-                      return (
-                        <RelatedDramaCard
-                          key={drama.id}
-                          drama={drama}
-                          style={{
-                            marginRight: isThirdColumn ? 0 : RELATED_GAP,
-                          }}
-                          onPress={() => onRelatedPress?.(drama)}
-                        />
-                      );
-                    })}
+                          return (
+                            <RelatedDramaCard
+                              key={drama.id}
+                              drama={drama}
+                              style={{
+                                marginRight: isThirdColumn ? 0 : RELATED_GAP,
+                              }}
+                              onPress={() => onRelatedPress?.(drama)}
+                            />
+                          );
+                        })}
+                      </View>
+                    )}
                   </View>
-                )}
-              </View>
-            ) : null}
-          </ScrollView>
+                ) : null}
+              </ScrollView>
+            </>
+          )}
         </View>
       </View>
     </Modal>

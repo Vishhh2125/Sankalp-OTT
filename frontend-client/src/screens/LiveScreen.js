@@ -10,7 +10,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { LiveStreamSkeleton } from '../components/skeletons';
 import { theme } from '../constants/theme';
 import { ROUTES } from '../constants/routes';
 import { fetchActiveLiveStreams } from '../components/live/liveApi';
@@ -19,6 +21,7 @@ const POLL_MS = 15000;
 
 export default function LiveScreen() {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const [streams, setStreams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -55,14 +58,18 @@ export default function LiveScreen() {
 
   if (loading && !refreshing) {
     return (
-      <View style={[styles.screen, styles.centered]}>
-        <ActivityIndicator size="large" color={theme.crimson} />
+      <View style={[styles.screen, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Live</Text>
+          <Text style={styles.headerSub}>Watch streams happening now</Text>
+        </View>
+        <LiveStreamSkeleton />
       </View>
     );
   }
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Live</Text>
         <Text style={styles.headerSub}>Watch streams happening now</Text>
@@ -117,10 +124,10 @@ export default function LiveScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.deepBlack },
   centered: { justifyContent: 'center', alignItems: 'center' },
-  header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 },
+  header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16 },
   headerTitle: { color: theme.white, fontSize: 26, fontWeight: '800' },
-  headerSub: { color: theme.gray, fontSize: 13, marginTop: 4 },
-  list: { padding: 16, gap: 12 },
+  headerSub: { color: theme.gray, fontSize: 13, marginTop: 4, marginBottom: 16 },
+  list: { paddingHorizontal: 16, paddingBottom: 16, gap: 14 },
   emptyWrap: { flexGrow: 1, justifyContent: 'center' },
   empty: { alignItems: 'center', paddingHorizontal: 32 },
   emptyTitle: { color: theme.white, fontSize: 17, fontWeight: '700', marginTop: 12 },
@@ -131,7 +138,6 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: theme.border,
-    marginBottom: 12,
   },
   liveBadge: {
     flexDirection: 'row',

@@ -15,6 +15,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 
 import CoinIcon from '../components/CoinIcon';
+import { PlanCardSkeleton } from '../components/skeletons';
 import {
   fetchTopUpOptions,
   packPlanSubtitle,
@@ -161,7 +162,9 @@ export default function TopUpScreen() {
       <Text style={styles.sectionTitle}>Top-up plans</Text>
 
       {loadingPacks ? (
-        <ActivityIndicator color={theme.crimson} style={{ marginTop: 40 }} />
+        <View style={{ marginTop: 20 }}>
+          <PlanCardSkeleton count={3} />
+        </View>
       ) : packsError ? (
         <View style={styles.errorBox}>
           <Text style={styles.errorText}>{packsError}</Text>
