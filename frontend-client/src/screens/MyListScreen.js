@@ -19,7 +19,6 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 
 import GuestAccessPrompt from '../components/GuestAccessPrompt';
-import { ListSkeleton } from '../components/skeletons';
 import { theme } from '../constants/theme';
 import { ROUTES } from '../constants/routes';
 import { API_BASE_URL } from '../constants/config';
@@ -513,7 +512,9 @@ export default function MyListScreen() {
 
       {/* ── Content ── */}
       {isLoading ? (
-        <ListSkeleton />
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator size="large" color={theme.crimson} />
+        </View>
       ) : activeTab === TAB_SAVED ? (
         // ── Saved / Bookmarks tab ──────────────────────────────
         bookmarks.length === 0 ? (

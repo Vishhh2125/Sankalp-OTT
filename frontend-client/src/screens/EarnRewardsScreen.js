@@ -15,7 +15,6 @@ import { useDispatch, useSelector } from 'react-redux';
 
 import CoinIcon from '../components/CoinIcon';
 import GuestAccessPrompt from '../components/GuestAccessPrompt';
-import { RewardsSkeleton } from '../components/skeletons';
 import {
   fetchCheckinStatus,
   claimDailyCheckin,
@@ -183,8 +182,8 @@ export default function EarnRewardsScreen({ navigation }) {
 
   if (loading && !refreshing) {
     return (
-      <View style={styles.screen}>
-        <RewardsSkeleton />
+      <View style={[styles.screen, styles.centered]}>
+        <ActivityIndicator size="large" color={theme.crimson} />
       </View>
     );
   }

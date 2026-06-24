@@ -13,7 +13,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 import { formatCount } from './shortVideoPlayer/utils';
-import { DetailsSkeleton } from './skeletons';
 import { theme } from '../constants/theme';
 import { API_BASE_URL } from '../constants/config';
 
@@ -262,7 +261,9 @@ export default function DramaDetailsSheetConnected({
 
         <View style={styles.sheet}>
           {loading && !details ? (
-            <DetailsSkeleton />
+            <View style={[styles.stateBlock, { height: SHEET_HEIGHT * 0.8 }]}>
+              <ActivityIndicator size="large" color={theme.crimson} />
+            </View>
           ) : (
             <>
               <View style={styles.topRow}>
