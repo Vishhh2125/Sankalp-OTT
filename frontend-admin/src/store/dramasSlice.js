@@ -13,7 +13,15 @@ function parseDuration(str) {
 }
 
 async function uploadEpisodeVideo(showId, episodeId, file) {
-  await mediaApi.uploadVideoFile(showId, episodeId, file)
+  // 1. Get presigned URL pointing to uat.ventaott.com
+  const urlRes = await mediaApi.getVideoUploadUrl(showId, episodeId);
+  const uploadUrl = urlRes.data.upload_url;
+
+  // 2. PUT file directly to MinIO
+  await mediaApi.uploadToMinio(uploadUrl, file);
+
+  // 3. Confirm upload with backend to queue transcode jobs
+  await mediaApi.confirmVideo(episodeId);
 }
 
 async function createNewEpisodes(showId, episodes, existingEpisodeIds) {

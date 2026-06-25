@@ -10,7 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
 
-import { TransactionSkeleton } from '../components/skeletons';
+
 import {
   fetchWalletTransactions,
   walletApiErrorMessage,
@@ -187,8 +187,8 @@ export default function TransactionHistoryScreen() {
 
   if (loading && !refreshing) {
     return (
-      <View style={{ flex: 1, backgroundColor: theme.deepBlack }}>
-        <TransactionSkeleton count={6} />
+      <View style={{ flex: 1, backgroundColor: theme.deepBlack, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={theme.crimson} />
       </View>
     );
   }

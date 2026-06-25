@@ -33,6 +33,10 @@ export default function LiveViewerScreen() {
   const controlsOpacity = useRef(new Animated.Value(1)).current;
   const hideControlsTimerRef = useRef(null);
 
+  const videoRef = useRef(null);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+
   const { isLandscapeActive, enterLandscape, exitLandscape } = useLandscapePlayback({
     isActive: true,
     enabled: true,
@@ -95,57 +99,68 @@ export default function LiveViewerScreen() {
     };
   }, [hlsUrl, streamId]);
 
-  const showControls = useCallback(() => {
-    setControlsVisible(true);
-    Animated.timing(controlsOpacity, {
-      toValue: 1,
-      duration: 200,
-      useNativeDriver: true,
-    }).start();
-
+  // ─── Controls show/hide logic (matches OTT player) ───
+  const clearHideControlsTimer = useCallback(() => {
     if (hideControlsTimerRef.current) {
       clearTimeout(hideControlsTimerRef.current);
+      hideControlsTimerRef.current = null;
     }
+  }, []);
 
-    if (!paused) {
-      hideControlsTimerRef.current = setTimeout(() => {
-        Animated.timing(controlsOpacity, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }).start(() => {
-          setControlsVisible(false);
-        });
-      }, 3000);
-    }
-  }, [controlsOpacity, paused]);
-
+  // Animate controls opacity to match controlsVisible state
   useEffect(() => {
-    showControls();
-    return () => {
-      if (hideControlsTimerRef.current) clearTimeout(hideControlsTimerRef.current);
-    };
-  }, [showControls]);
+    Animated.timing(controlsOpacity, {
+      toValue: (controlsVisible || paused) ? 1 : 0,
+      duration: (controlsVisible || paused) ? 180 : 240,
+      useNativeDriver: true,
+    }).start();
+  }, [controlsOpacity, controlsVisible, paused]);
 
-  const handleVideoPress = () => {
-    if (controlsVisible) {
-      if (hideControlsTimerRef.current) clearTimeout(hideControlsTimerRef.current);
-      Animated.timing(controlsOpacity, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start(() => {
-        setControlsVisible(false);
-      });
-    } else {
-      showControls();
-    }
-  };
+  // Auto-hide controls after 3 seconds (matching OTT 3s delay)
+  useEffect(() => {
+    clearHideControlsTimer();
+    if (!controlsVisible || paused) return undefined;
 
-  const togglePlayPause = () => {
+    hideControlsTimerRef.current = setTimeout(() => {
+      setControlsVisible(false);
+    }, 3000);
+
+    return clearHideControlsTimer;
+  }, [controlsVisible, paused, clearHideControlsTimer]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return clearHideControlsTimer;
+  }, [clearHideControlsTimer]);
+
+  const handleVideoPress = useCallback(() => {
+    setControlsVisible(true);
+  }, []);
+
+  const togglePlayPause = useCallback(() => {
     setPaused((p) => !p);
-    showControls();
-  };
+    setControlsVisible(true);
+  }, []);
+
+  const handleSkipBack = useCallback(() => {
+    if (videoRef.current) {
+      const target = Math.max(0, currentTime - 10);
+      videoRef.current.seek(target);
+      setCurrentTime(target);
+    }
+    setControlsVisible(true);
+  }, [currentTime]);
+
+  const handleSkipForward = useCallback(() => {
+    if (videoRef.current) {
+      const target = Math.min(duration, currentTime + 10);
+      videoRef.current.seek(target);
+      setCurrentTime(target);
+    }
+    setControlsVisible(true);
+  }, [currentTime, duration]);
+
+  const showMainOverlay = controlsVisible || paused;
 
   return (
     <View style={styles.screen}>
@@ -176,11 +191,22 @@ export default function LiveViewerScreen() {
             </View>
           ) : hlsUrl ? (
             <Video
+              ref={videoRef}
               source={{ uri: hlsUrl }}
               style={styles.video}
               resizeMode="contain"
               controls={false}
               paused={paused}
+              progressUpdateInterval={500}
+              onProgress={(data) => {
+                setCurrentTime(data.currentTime);
+                if (data.seekableDuration > duration) {
+                  setDuration(data.seekableDuration);
+                }
+              }}
+              onLoad={(data) => {
+                setDuration(data.duration || data.seekableDuration || 0);
+              }}
               onError={(e) => {
                 setVideoError(e?.error?.errorString || e?.error?.localizedDescription || 'Playback failed');
               }}
@@ -193,44 +219,122 @@ export default function LiveViewerScreen() {
 
           {/* Custom Overlay Controls */}
           {(!loading && !error && hlsUrl) && (
-            <Animated.View 
-              style={[
-                styles.controlsOverlay, 
-                { opacity: controlsOpacity },
-                !controlsVisible && { pointerEvents: 'none' }
-              ]}
-            >
-              {isLandscapeActive && (
-                <View style={[styles.landscapeTopBar, { paddingTop: Math.max(insets.left, insets.right, 16) }]}>
+            <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+
+              {/* Dim overlay (only when controls visible) — matches OTT ottDim */}
+              {controlsVisible ? (
+                <Animated.View
+                  style={[styles.dimOverlay, { opacity: controlsOpacity }]}
+                  pointerEvents="none"
+                />
+              ) : paused ? (
+                <View style={styles.dimOverlayPaused} pointerEvents="none" />
+              ) : null}
+
+              {/* Tap zone — scrim press to show controls */}
+              <Pressable
+                style={styles.tapZone}
+                onPress={handleVideoPress}
+              />
+
+              {/* Landscape top bar (back + title) — only in landscape, fades with controls */}
+              {isLandscapeActive && showMainOverlay ? (
+                <Animated.View
+                  style={[
+                    styles.landscapeTopBar,
+                    { paddingTop: Math.max(insets.left, insets.right, 16), opacity: controlsOpacity },
+                  ]}
+                >
                   <Pressable style={styles.landscapeBackBtn} onPress={exitLandscape} hitSlop={12}>
                     <Ionicons name="chevron-back" size={26} color={theme.white} />
                   </Pressable>
                   <Text style={styles.landscapeTitle} numberOfLines={1}>{title || 'Live stream'}</Text>
-                </View>
-              )}
+                </Animated.View>
+              ) : null}
 
-              <View style={styles.centerControls}>
-                <Pressable onPress={togglePlayPause} hitSlop={20} style={styles.playPauseBtn}>
-                  <Ionicons name={paused ? "play" : "pause"} size={48} color="#fff" />
-                </Pressable>
-              </View>
+              {/* Center controls (seek ±10 + play/pause) — show on tap, hide after 3s */}
+              {showMainOverlay ? (
+                <Animated.View
+                  style={[styles.centerControlsWrap, { opacity: controlsOpacity }]}
+                  pointerEvents={showMainOverlay ? 'box-none' : 'none'}
+                >
+                  <View style={styles.centerControls}>
+                    <Pressable style={styles.ottSeekBtn} onPress={handleSkipBack} hitSlop={12}>
+                      <MaterialCommunityIcons name="rewind" size={18} color="#fff" />
+                      <Text style={styles.ottSeekText}>10</Text>
+                    </Pressable>
+                    <Pressable
+                      style={styles.ottPlayPauseFab}
+                      onPress={togglePlayPause}
+                      hitSlop={16}
+                    >
+                      <Ionicons
+                        name={paused ? 'play' : 'pause'}
+                        size={38}
+                        color="#fff"
+                        style={paused ? styles.playIconNudge : undefined}
+                      />
+                    </Pressable>
+                    <Pressable style={styles.ottSeekBtn} onPress={handleSkipForward} hitSlop={12}>
+                      <Text style={styles.ottSeekText}>10</Text>
+                      <MaterialCommunityIcons name="fast-forward" size={18} color="#fff" />
+                    </Pressable>
+                  </View>
+                </Animated.View>
+              ) : null}
 
-              <View style={[styles.bottomControls, isLandscapeActive && styles.bottomControlsLandscape]}>
+              {/* Fullscreen button — ALWAYS visible, top-right */}
+              <View
+                style={[
+                  styles.fullscreenBtnWrap,
+                  isLandscapeActive
+                    ? {
+                        top: Math.max(insets.left, insets.right, 16),
+                        right: Math.max(insets.right, 24),
+                      }
+                    : {
+                        top: 4,
+                        right: 12,
+                      },
+                ]}
+              >
                 <Pressable
                   style={styles.fullscreenBtn}
                   onPress={isLandscapeActive ? exitLandscape : enterLandscape}
                   hitSlop={12}
                 >
-                  <MaterialCommunityIcons 
-                    name={isLandscapeActive ? "fullscreen-exit" : "fullscreen"} 
-                    size={24} 
-                    color="#fff" 
+                  <MaterialCommunityIcons
+                    name={isLandscapeActive ? "fullscreen-exit" : "fullscreen"}
+                    size={24}
+                    color="#fff"
                   />
                 </Pressable>
               </View>
-              
-              <LiveProgressBar isLandscape={isLandscapeActive} />
-            </Animated.View>
+
+              {/* Live progress bar — ALWAYS visible, raised above safe area */}
+              <View
+                style={[
+                  styles.progressBarWrap,
+                  isLandscapeActive
+                    ? styles.progressBarWrapLandscape
+                    : { bottom: Math.max(insets.bottom, 10) + 20 },
+                ]}
+                pointerEvents="box-none"
+              >
+                <LiveProgressBar
+                  isLandscape={isLandscapeActive}
+                  currentTime={currentTime}
+                  duration={duration}
+                  paused={paused}
+                  onSeek={(t) => {
+                    if (videoRef.current) {
+                      videoRef.current.seek(t);
+                      setCurrentTime(t);
+                    }
+                  }}
+                />
+              </View>
+            </View>
           )}
         </View>
       </TouchableWithoutFeedback>
@@ -268,13 +372,26 @@ const styles = StyleSheet.create({
   videoError: { position: 'absolute', top: 60, alignSelf: 'center', color: '#ff6b6b', fontSize: 12, padding: 12, textAlign: 'center', backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 8 },
   loadingShimmer: { flex: 1, backgroundColor: '#1A0020' },
   shimmerBox: { flex: 1, backgroundColor: '#2A0038', opacity: 0.5 },
-  
-  controlsOverlay: {
+
+  // Dim overlay (matches ottDim from ShortVideoReelItem)
+  dimOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    zIndex: 1,
   },
+  dimOverlayPaused: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.15)',
+    zIndex: 1,
+  },
+
+  // Tap zone for toggling controls visibility
+  tapZone: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 2,
+  },
+
+  // Landscape top bar
   landscapeTopBar: {
     position: 'absolute',
     top: 0,
@@ -284,37 +401,83 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
     paddingVertical: 16,
+    zIndex: 10,
   },
   landscapeBackBtn: { padding: 4, marginRight: 12 },
   landscapeTitle: { color: theme.white, fontSize: 18, fontWeight: '700', flex: 1 },
+
+  // Center controls wrapper (absolutely centered)
+  centerControlsWrap: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
   centerControls: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 16,
   },
-  playPauseBtn: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
+  ottSeekBtn: {
+    minWidth: 58,
+    height: 34,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.26)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.24)',
   },
-  bottomControls: {
+  ottSeekText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  ottPlayPauseFab: {
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingLeft: 2,
+  },
+  playIconNudge: {
+    paddingLeft: 2,
+  },
+
+  // Fullscreen button — always visible, positioned top-right
+  fullscreenBtnWrap: {
     position: 'absolute',
-    bottom: 48, // Above the progress bar
-    right: 16,
-  },
-  bottomControlsLandscape: {
-    bottom: 40,
-    right: 44,
+    zIndex: 20,
   },
   fullscreenBtn: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
+    borderRadius: 8,
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.24)',
+  },
+
+  // Progress bar wrapper — always visible, raised above safe area
+  progressBarWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 20,
+  },
+  progressBarWrapLandscape: {
+    bottom: 26,
+    left: 44,
+    right: 44,
   },
 });

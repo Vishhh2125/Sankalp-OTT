@@ -12,7 +12,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { LiveStreamSkeleton } from '../components/skeletons';
 import { theme } from '../constants/theme';
 import { ROUTES } from '../constants/routes';
 import { fetchActiveLiveStreams } from '../components/live/liveApi';
@@ -63,7 +62,9 @@ export default function LiveScreen() {
           <Text style={styles.headerTitle}>Live</Text>
           <Text style={styles.headerSub}>Watch streams happening now</Text>
         </View>
-        <LiveStreamSkeleton />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={theme.crimson} />
+        </View>
       </View>
     );
   }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { StatusBar } from 'react-native';
+import { StatusBar, BackHandler } from 'react-native';
 import * as ScreenOrientation from 'expo-screen-orientation';
 
 import { useLandscapePlaybackContext } from '../../context/LandscapePlaybackContext';
@@ -49,6 +49,21 @@ export default function useLandscapePlayback({ isActive, enabled = true }) {
   }, [setIsLandscape]);
 
   const isLandscapeActive = isLandscape && isActive;
+
+  useEffect(() => {
+    if (!isLandscapeActive) return undefined;
+
+    const onBackPress = () => {
+      exitLandscape();
+      return true;
+    };
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+
+    return () => {
+      subscription.remove();
+    };
+  }, [isLandscapeActive, exitLandscape]);
 
   return {
     isLandscapeActive,
