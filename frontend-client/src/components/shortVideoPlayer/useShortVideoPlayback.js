@@ -129,7 +129,7 @@ export default function useShortVideoPlayback({
     }
 
     // View count: accumulate active play time, fire API once at threshold.
-    // Uses wall-clock delta between onProgress ticks (500ms interval).
+    // Uses wall-clock delta between onProgress ticks (5Gs interval).
     // Pausing resets the tick clock so paused time is never counted.
     // Cap per-tick delta at 1s to guard against background/resume spikes.
     if (!paused && showId && !viewFiredRef.current) {

@@ -24,6 +24,18 @@ async function uploadEpisodeVideo(showId, episodeId, file) {
   await mediaApi.confirmVideo(episodeId);
 }
 
+async function uploadShowImage(type, showId, file) {
+  // 1. Get presigned URL for image pointing to uat.ventaott.com
+  const urlRes = await mediaApi.getImageUploadUrl(type, showId);
+  const { upload_url, object_name } = urlRes.data;
+
+  // 2. PUT file directly to MinIO
+  await mediaApi.uploadToMinio(upload_url, file);
+
+  // 3. Confirm upload with backend to update DB with public URL
+  await mediaApi.confirmImage(type, showId, object_name);
+}
+
 async function createNewEpisodes(showId, episodes, existingEpisodeIds) {
   for (let i = 0; i < episodes.length; i++) {
     const ep = episodes[i]
@@ -32,21 +44,16 @@ async function createNewEpisodes(showId, episodes, existingEpisodeIds) {
     console.log(`Creating episode ${ep.ep || i + 1}: "${ep.title}" for show ${showId}`)
     try {
       const epRes = await episodesApi.create({
-        show_id:      showId,
-        episode_num:  ep.ep || i + 1,
-        title:        ep.title,
-        is_free:      ep.is_free ?? true,
-        coin_cost:    ep.coin_cost || 0,
+        show_id: showId,
+        episode_num: ep.ep || i + 1,
+        title: ep.title,
+        is_free: ep.is_free ?? true,
+        coin_cost: ep.coin_cost || 0,
         duration_sec: parseDuration(ep.duration),
-        video_source: ep.video_source || 'UPLOAD',
-        youtube_video_id: ep.youtube_video_id || null,
       })
       console.log('Episode created:', epRes.data.id)
 
-      if (ep.video_source === 'YOUTUBE') {
-        // Skip MinIO upload for YouTube videos
-        console.log('YouTube video configured for episode:', epRes.data.id);
-      } else if (ep.videoFile) {
+      if (ep.videoFile) {
         try {
           await uploadEpisodeVideo(showId, epRes.data.id, ep.videoFile)
           console.log('Video uploaded for episode:', epRes.data.id)
@@ -64,10 +71,9 @@ async function createNewEpisodes(showId, episodes, existingEpisodeIds) {
     } catch (epErr) {
       console.error(`Episode "${ep.title}" failed:`, epErr.response?.data || epErr.message)
       alert(
-        `Episode "${ep.title}" failed: ${
-          epErr.response?.data?.error ||
-          epErr.response?.data?.details?.map(d => d.message).join(', ') ||
-          epErr.message
+        `Episode "${ep.title}" failed: ${epErr.response?.data?.error ||
+        epErr.response?.data?.details?.map(d => d.message).join(', ') ||
+        epErr.message
         }`
       )
     }
@@ -90,8 +96,8 @@ export const loadDramas = createAsyncThunk(
       ])
 
       const categories = catsRes.data
-      const tags       = tagsRes.data
-      const showItems  = showsRes.data.items || showsRes.data || []
+      const tags = tagsRes.data
+      const showItems = showsRes.data.items || showsRes.data || []
 
       const withEpisodes = await Promise.all(
         (Array.isArray(showItems) ? showItems : []).map(async (show) => {
@@ -105,18 +111,16 @@ export const loadDramas = createAsyncThunk(
               thumbnailPreview: show.thumbnail_url || null,
               bannerPreview: show.banner_url || null,
               episodes: (epRes.data || []).map((ep) => ({
-                id:        ep.id,
-                title:     ep.title,
-                ep:        ep.episode_num,
-                duration:  ep.duration_sec
+                id: ep.id,
+                title: ep.title,
+                ep: ep.episode_num,
+                duration: ep.duration_sec
                   ? `${Math.floor(ep.duration_sec / 60)}:${String(ep.duration_sec % 60).padStart(2, '0')}`
                   : '—',
-                is_free:   ep.is_free,
+                is_free: ep.is_free,
                 coin_cost: ep.coin_cost,
-                status:    ep.status,
-                video_source: ep.video_source || 'UPLOAD',
-                youtube_video_id: ep.youtube_video_id || null,
-                views:     0,
+                status: ep.status,
+                views: 0,
               })),
             }
           } catch {
@@ -147,10 +151,10 @@ export const createDrama = createAsyncThunk(
 
       console.log('Creating show:', formData.title, 'category:', cat.id)
       const showRes = await showsApi.create({
-        title:               formData.title,
-        synopsis:            formData.synopsis || '',
-        category_id:         cat.id,
-        tag_ids:             tagIds,
+        title: formData.title,
+        synopsis: formData.synopsis || '',
+        category_id: cat.id,
+        tag_ids: tagIds,
         feed_position: parseInt(formData.feed_position) || 0,
         manual_view_count: parseInt(formData.manual_view_count) || 0,
         is_active: true,
@@ -162,7 +166,7 @@ export const createDrama = createAsyncThunk(
       if (formData.thumbnailFile) {
         try {
           console.log('Uploading thumbnail for show:', show.id)
-          await mediaApi.uploadImageFile('thumbnail', show.id, formData.thumbnailFile)
+          await uploadShowImage('thumbnail', show.id, formData.thumbnailFile)
           console.log('Thumbnail uploaded successfully')
         } catch (thumbErr) {
           console.error('Thumbnail upload failed:', thumbErr)
@@ -172,7 +176,7 @@ export const createDrama = createAsyncThunk(
       if (formData.bannerFile) {
         try {
           console.log('Uploading banner for show:', show.id)
-          await mediaApi.uploadImageFile('banner', show.id, formData.bannerFile)
+          await uploadShowImage('banner', show.id, formData.bannerFile)
           console.log('Banner uploaded successfully')
         } catch (bannerErr) {
           console.error('Banner upload failed:', bannerErr)
@@ -196,16 +200,16 @@ export const updateDrama = createAsyncThunk(
     try {
       const { categories, tags, dramas } = getState().dramas
 
-      const cat    = categories.find((c) => c.name === formData.category)
+      const cat = categories.find((c) => c.name === formData.category)
       const tagIds = (formData.tags || [])
         .map((name) => tags.find((t) => t.name === name)?.id)
         .filter(Boolean)
 
       await showsApi.update(id, {
-        title:               formData.title,
-        synopsis:            formData.synopsis || '',
-        category_id:         cat?.id,
-        tag_ids:             tagIds,
+        title: formData.title,
+        synopsis: formData.synopsis || '',
+        category_id: cat?.id,
+        tag_ids: tagIds,
         feed_position: parseInt(formData.feed_position) || 0,
         manual_view_count: parseInt(formData.manual_view_count) || 0,
         is_active: true,
@@ -214,7 +218,7 @@ export const updateDrama = createAsyncThunk(
       if (formData.thumbnailFile) {
         try {
           console.log('Uploading thumbnail for show:', id)
-          await mediaApi.uploadImageFile('thumbnail', id, formData.thumbnailFile)
+          await uploadShowImage('thumbnail', id, formData.thumbnailFile)
           console.log('Thumbnail uploaded successfully')
         } catch (thumbErr) {
           console.error('Thumbnail upload failed:', thumbErr)
@@ -224,7 +228,7 @@ export const updateDrama = createAsyncThunk(
       if (formData.bannerFile) {
         try {
           console.log('Uploading banner for show:', id)
-          await mediaApi.uploadImageFile('banner', id, formData.bannerFile)
+          await uploadShowImage('banner', id, formData.bannerFile)
           console.log('Banner uploaded successfully')
         } catch (bannerErr) {
           console.error('Banner upload failed:', bannerErr)
@@ -233,7 +237,7 @@ export const updateDrama = createAsyncThunk(
 
       const existingDrama = dramas.find(d => d.id === id)
       const existingEpIds = (existingDrama?.episodes || []).map(e => e.id)
-      const formEpIds     = (formData.episodes || []).map(e => e.id)
+      const formEpIds = (formData.episodes || []).map(e => e.id)
 
       // Delete removed episodes
       const deletedEpIds = existingEpIds.filter(epId => !formEpIds.includes(epId))
@@ -291,11 +295,11 @@ export const togglePublish = createAsyncThunk(
 const dramasSlice = createSlice({
   name: 'dramas',
   initialState: {
-    dramas:     [],
+    dramas: [],
     categories: [],
-    tags:       [],
-    loading:    false,
-    error:      null,
+    tags: [],
+    loading: false,
+    error: null,
   },
   reducers: {},
   extraReducers: (builder) => {
@@ -303,17 +307,17 @@ const dramasSlice = createSlice({
     builder
       .addCase(loadDramas.pending, (state) => {
         state.loading = true
-        state.error   = null
+        state.error = null
       })
       .addCase(loadDramas.fulfilled, (state, action) => {
-        state.loading    = false
-        state.dramas     = action.payload.dramas
+        state.loading = false
+        state.dramas = action.payload.dramas
         state.categories = action.payload.categories
-        state.tags       = action.payload.tags
+        state.tags = action.payload.tags
       })
       .addCase(loadDramas.rejected, (state, action) => {
         state.loading = false
-        state.error   = action.payload
+        state.error = action.payload
       })
 
     // deleteDrama — optimistic: remove from list immediately
@@ -334,8 +338,8 @@ const dramasSlice = createSlice({
 export default dramasSlice.reducer
 
 // Selectors
-export const selectDramas     = (state) => state.dramas.dramas
+export const selectDramas = (state) => state.dramas.dramas
 export const selectCategories = (state) => state.dramas.categories
-export const selectTags       = (state) => state.dramas.tags
-export const selectLoading    = (state) => state.dramas.loading
-export const selectError      = (state) => state.dramas.error
+export const selectTags = (state) => state.dramas.tags
+export const selectLoading = (state) => state.dramas.loading
+export const selectError = (state) => state.dramas.error
