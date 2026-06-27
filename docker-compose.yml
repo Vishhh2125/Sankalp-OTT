@@ -181,11 +181,15 @@ services:
     volumes:
       - ./mediamtx/mediamtx.yml:/mediamtx.yml:ro
 
+    environment:
+      - MTX_WEBRTCADDITIONALHOSTS=${LOCAL_IP}
+
     ports:
       - "1935:1935"       # RTMP (OBS)
       - "8888:8888"       # HLS (viewer segments — nginx proxies in Part 3)
       - "8889:8889"       # WebRTC/WHIP HTTP signaling
       - "8189:8189/udp"   # WebRTC ICE/media (must be reachable for mobile NAT)
+      - "8189:8189/tcp"   # WebRTC ICE/media TCP fallback
 
     deploy:
       resources:

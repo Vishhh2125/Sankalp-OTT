@@ -531,6 +531,12 @@ export default function ShortVideoReelItem({
                 }}
                 allowsExternalPlayback={false}
                 preventsDisplaySleepDuringVideoPlayback={true}
+                bufferConfig={{
+                  minBufferMs: 2500,
+                  maxBufferMs: 5000,
+                  bufferForPlaybackMs: 10,
+                  bufferForPlaybackAfterRebufferMs: 500,
+                }}
               />
             )}
           </View>

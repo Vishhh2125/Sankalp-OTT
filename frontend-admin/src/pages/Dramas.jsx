@@ -92,7 +92,7 @@ const emptyEp = { title:'', duration:'', is_free:true, coin_cost:0, videoFile:nu
 function extractYoutubeVideoId(urlOrId) {
   if (!urlOrId) return null;
   if (/^[a-zA-Z0-9_-]{11}$/.test(urlOrId)) return urlOrId;
-  const match = urlOrId.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([\w-]{11})/);
+  const match = urlOrId.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/|live\/))([\w-]{11})/);
   return match ? match[1] : null;
 }
 

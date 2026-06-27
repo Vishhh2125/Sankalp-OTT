@@ -517,7 +517,7 @@ function extractYoutubeVideoId(urlOrId) {
   // If it's already an 11-character ID, return it
   if (/^[a-zA-Z0-9_-]{11}$/.test(urlOrId)) return urlOrId;
   // Match various YouTube URL formats
-  const match = urlOrId.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([\w-]{11})/);
+  const match = urlOrId.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/|live\/))([\w-]{11})/);
   return match ? match[1] : null;
 }
 

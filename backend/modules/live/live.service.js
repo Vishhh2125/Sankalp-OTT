@@ -207,16 +207,21 @@ export async function handleAuthHook(payload) {
   const { action, path } = payload;
   const streamKey = parseStreamKeyFromPath(path);
 
+  console.log(`[MediaMTX AuthHook] action: "${action}", path: "${path}", streamKey: "${streamKey}"`);
+
   if (!streamKey) {
+    console.warn(`[MediaMTX AuthHook] DENIED: unable to parse streamKey from path "${path}"`);
     return { allowed: false };
   }
 
   const readActions = ['read', 'playback'];
   if (readActions.includes(action)) {
+    console.log(`[MediaMTX AuthHook] ALLOWED: action is "${action}"`);
     return { allowed: true };
   }
 
   if (action !== 'publish') {
+    console.warn(`[MediaMTX AuthHook] DENIED: invalid action "${action}" for stream key`);
     return { allowed: false };
   }
 
@@ -226,9 +231,11 @@ export async function handleAuthHook(payload) {
   });
 
   if (!stream || stream.status === 'ENDED') {
+    console.warn(`[MediaMTX AuthHook] DENIED: stream "${streamKey}" status is ${stream ? stream.status : 'NOT_FOUND'}`);
     return { allowed: false };
   }
 
+  console.log(`[MediaMTX AuthHook] ALLOWED: publish for stream "${streamKey}"`);
   return { allowed: true };
 }
 
