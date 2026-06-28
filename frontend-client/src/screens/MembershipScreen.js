@@ -16,7 +16,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import GuestAccessPrompt from '../components/GuestAccessPrompt';
 import {
   fetchMembershipPlans,
-  simulateMembershipPurchase,
+  createSubscriptionPaymentOrder,
+  verifyPaymentOrder,
   formatPlanPrice,
   getDurationLabel,
   formatMembershipEnd,
@@ -25,6 +26,10 @@ import {
   blockingLifetimeMessage,
   isLifetimePlan,
 } from '../components/membership/membershipApi';
+import {
+  launchCashfreeCheckout,
+  CashfreeCheckoutModal,
+} from '../components/payment/cashfreeCheckout';
 import { theme } from '../constants/theme';
 import { ROUTES } from '../constants/routes';
 import { patchUserProfile } from '../redux/slices/authSlice';
@@ -54,6 +59,8 @@ export default function MembershipScreen({ navigation }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
   const [purchaseError, setPurchaseError] = useState(null);
+  const [checkoutSession, setCheckoutSession] = useState(null);
+  const [pendingOrderId, setPendingOrderId] = useState(null);
 
   const isMember = userPlan === 'MEMBER' && memberships.length > 0;
   const returningHomeRef = useRef(false);
@@ -200,38 +207,111 @@ export default function MembershipScreen({ navigation }) {
     setPurchaseError(null);
   };
 
+  const applyMembershipResult = async (data) => {
+    const patch = {
+      plan: data?.plan ?? 'MEMBER',
+      coins: data?.coins,
+      memberships: data?.memberships ?? [],
+      has_all_access: data?.has_all_access ?? false,
+    };
+    dispatch(patchUserProfile(patch));
+    await authService.patchUserDataInStore(patch);
+    setConfirmOpen(false);
+    const purchased = data?.memberships?.find((m) => m.plan_id === selectedPlan);
+    const scope = purchased?.category_name
+      ? purchased.category_name
+      : getPlanUnlockScopeLabel(selectedPlanData);
+    Alert.alert(
+      'Membership active',
+      purchased?.end_date
+        ? `${scope} dramas are unlocked until ${formatMembershipEnd(purchased.end_date)}.`
+        : `You now have lifetime access to ${scope}.`
+    );
+  };
+
+  const finalizePayment = async (orderId) => {
+    const data = await verifyPaymentOrder(orderId);
+    if (data?.payment_status !== 'completed') {
+      throw new Error('Payment was not completed. Please try again.');
+    }
+    await applyMembershipResult(data);
+  };
+
   const onConfirmPurchase = async () => {
     if (!selectedPlan) return;
     setPurchaseError(null);
     setPurchasing(true);
     try {
-      const data = await simulateMembershipPurchase(selectedPlan);
-      const patch = {
-        plan: data?.plan ?? 'MEMBER',
-        coins: data?.coins,
-        memberships: data?.memberships ?? [],
-        has_all_access: data?.has_all_access ?? false,
-      };
-      dispatch(patchUserProfile(patch));
-      await authService.patchUserDataInStore(patch);
+      const orderData = await createSubscriptionPaymentOrder(selectedPlan);
+      if (!orderData?.payment_session_id || !orderData?.order_id) {
+        throw new Error('Invalid payment order response');
+      }
+
+      setPendingOrderId(orderData.order_id);
       setConfirmOpen(false);
-      const purchased = data?.memberships?.find((m) => m.plan_id === selectedPlan);
-      const scope = purchased?.category_name
-        ? purchased.category_name
-        : getPlanUnlockScopeLabel(selectedPlanData);
-      Alert.alert(
-        'Membership active',
-        purchased?.end_date
-          ? `${scope} dramas are unlocked until ${formatMembershipEnd(purchased.end_date)}.`
-          : `You now have lifetime access to ${scope}.`
-      );
+
+      const checkout = await launchCashfreeCheckout({
+        paymentSessionId: orderData.payment_session_id,
+        orderId: orderData.order_id,
+        mode: orderData.cashfree_mode || 'sandbox',
+        onSuccess: async () => {
+          try {
+            await finalizePayment(orderData.order_id);
+          } catch (err) {
+            setPurchaseError(
+              err?.response?.data?.message || err?.message || 'Payment verification failed'
+            );
+            setConfirmOpen(true);
+          } finally {
+            setPurchasing(false);
+            setCheckoutSession(null);
+          }
+        },
+        onFailure: (err) => {
+          setPurchasing(false);
+          setCheckoutSession(null);
+          setPurchaseError(err?.message || 'Payment cancelled or failed');
+          setConfirmOpen(true);
+        },
+      });
+
+      if (checkout.method === 'webview') {
+        setCheckoutSession({
+          paymentSessionId: orderData.payment_session_id,
+          mode: orderData.cashfree_mode || 'sandbox',
+        });
+        setPurchasing(false);
+      }
     } catch (err) {
       setPurchaseError(
         err?.response?.data?.message || err?.message || 'Purchase failed'
       );
-    } finally {
       setPurchasing(false);
     }
+  };
+
+  const onCheckoutModalSuccess = async () => {
+    if (!pendingOrderId) return;
+    setPurchasing(true);
+    try {
+      await finalizePayment(pendingOrderId);
+    } catch (err) {
+      setPurchaseError(
+        err?.response?.data?.message || err?.message || 'Payment verification failed'
+      );
+      setConfirmOpen(true);
+    } finally {
+      setPurchasing(false);
+      setCheckoutSession(null);
+      setPendingOrderId(null);
+    }
+  };
+
+  const onCheckoutModalFailure = (err) => {
+    setCheckoutSession(null);
+    setPendingOrderId(null);
+    setPurchaseError(err?.message || 'Payment cancelled or failed');
+    setConfirmOpen(true);
   };
 
   if (!accessToken) {
@@ -411,7 +491,7 @@ export default function MembershipScreen({ navigation }) {
           <Text style={styles.joinBtnSub}>
             {isLifetimePlan(selectedPlanData)
               ? 'One-time payment'
-              : 'Simulated payment · Cancel anytime'}
+              : 'Secure payment via Cashfree'}
           </Text>
         </Pressable>
       </View>
@@ -465,13 +545,25 @@ export default function MembershipScreen({ navigation }) {
                 {purchasing ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text style={styles.btnPrimaryText}>Purchase</Text>
+                  <Text style={styles.btnPrimaryText}>Pay Now</Text>
                 )}
               </Pressable>
             </View>
           </View>
         </View>
       </Modal>
+
+      <CashfreeCheckoutModal
+        visible={!!checkoutSession}
+        paymentSessionId={checkoutSession?.paymentSessionId}
+        mode={checkoutSession?.mode}
+        onClose={() => {
+          setCheckoutSession(null);
+          setPendingOrderId(null);
+        }}
+        onSuccess={onCheckoutModalSuccess}
+        onFailure={onCheckoutModalFailure}
+      />
     </View>
   );
 }

@@ -164,17 +164,24 @@ model UserMembership {
 }
 
 model PaymentTransaction {
-  id              String   @id @default(uuid()) @db.Uuid
-  user_id         String   @db.Uuid
-  type            String   @db.VarChar(20)
-  amount          Decimal  @db.Decimal(10, 2)
-  currency        String   @default("INR") @db.VarChar(10)
-  gateway         String   @default("nationlink") @db.VarChar(30)
-  gateway_ref     String?  @db.VarChar(255)
-  status          String   @default("pending") @db.VarChar(20)
-  webhook_payload String?  @db.Text
-  created_at      DateTime @default(now())
-  updated_at      DateTime @updatedAt
+  id                  String   @id @default(uuid()) @db.Uuid
+  user_id             String   @db.Uuid
+  type                String   @db.VarChar(20)
+  amount              Decimal  @db.Decimal(10, 2)
+  currency            String   @default("INR") @db.VarChar(10)
+  gateway             String   @default("cashfree") @db.VarChar(30)
+  gateway_ref         String?  @db.VarChar(255)
+  status              String   @default("pending") @db.VarChar(20)
+  plan_id             String?  @db.Uuid
+  topup_plan_id       String?  @db.Uuid
+  wallet_coins        Int?
+  cashfree_order_id   String?  @unique @db.VarChar(255)
+  cashfree_payment_id String?  @db.VarChar(255)
+  payment_method      String?  @db.VarChar(50)
+  webhook_event_id    String?  @unique @db.VarChar(255)
+  webhook_payload     String?  @db.Text
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
 
   user        User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
   memberships UserMembership[]
@@ -182,6 +189,7 @@ model PaymentTransaction {
 
   @@index([status, type, created_at(sort: Desc)], name: "idx_pt_status_type_created")
   @@index([user_id, status, created_at(sort: Desc)], name: "idx_pt_user_status_created")
+  @@index([cashfree_order_id], name: "idx_pt_cashfree_order")
   @@map("payment_transactions")
 }
 

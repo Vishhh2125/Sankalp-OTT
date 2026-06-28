@@ -19,8 +19,13 @@ import {
   fetchTopUpOptions,
   packPlanSubtitle,
   packPlanTitle,
-  simulatePurchase,
+  createWalletPaymentOrder,
+  verifyPaymentOrder,
 } from '../components/wallet/topUpApi';
+import {
+  launchCashfreeCheckout,
+  CashfreeCheckoutModal,
+} from '../components/payment/cashfreeCheckout';
 import { ROUTES } from '../constants/routes';
 import { theme } from '../constants/theme';
 import { setCoins } from '../redux/slices/authSlice';
@@ -86,6 +91,8 @@ export default function TopUpScreen() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
   const [purchaseError, setPurchaseError] = useState(null);
+  const [checkoutSession, setCheckoutSession] = useState(null);
+  const [pendingOrderId, setPendingOrderId] = useState(null);
 
   const loadPacks = useCallback(async () => {
     setPacksError(null);
@@ -119,31 +126,104 @@ export default function TopUpScreen() {
     setPurchaseError(null);
   };
 
+  const applyWalletResult = async (coins) => {
+    dispatch(setCoins(coins));
+    await authService.patchUserDataInStore({ coins });
+    setConfirmOpen(false);
+    setSelectedPack(null);
+    if (returnToShowPlayer || returnToForYou) {
+      handleReturnBack();
+    } else {
+      Alert.alert('Success', 'Coins have been added to your wallet.');
+    }
+  };
+
+  const finalizePayment = async (orderId) => {
+    const data = await verifyPaymentOrder(orderId);
+    if (data?.payment_status !== 'completed') {
+      throw new Error('Payment was not completed. Please try again.');
+    }
+    if (typeof data?.coins !== 'number') {
+      throw new Error('Invalid response from server');
+    }
+    await applyWalletResult(data.coins);
+  };
+
   const onPurchase = async () => {
     if (!selectedPack?.pack_id) return;
     setPurchaseError(null);
     setPurchasing(true);
     try {
-      const data = await simulatePurchase(accessToken, selectedPack.pack_id);
-      if (typeof data?.coins !== 'number') {
-        throw new Error('Invalid response from server');
+      const orderData = await createWalletPaymentOrder(selectedPack.pack_id);
+      if (!orderData?.payment_session_id || !orderData?.order_id) {
+        throw new Error('Invalid payment order response');
       }
-      dispatch(setCoins(data.coins));
-      await authService.patchUserDataInStore({ coins: data.coins });
+
+      setPendingOrderId(orderData.order_id);
       setConfirmOpen(false);
-      setSelectedPack(null);
-      if (returnToShowPlayer || returnToForYou) {
-        handleReturnBack();
-      } else {
-        Alert.alert('Success', 'Coins have been added to your wallet.');
+
+      const checkout = await launchCashfreeCheckout({
+        paymentSessionId: orderData.payment_session_id,
+        orderId: orderData.order_id,
+        mode: orderData.cashfree_mode || 'sandbox',
+        onSuccess: async () => {
+          try {
+            await finalizePayment(orderData.order_id);
+          } catch (err) {
+            setPurchaseError(
+              err?.response?.data?.message || err?.message || 'Payment verification failed'
+            );
+            setConfirmOpen(true);
+          } finally {
+            setPurchasing(false);
+            setCheckoutSession(null);
+          }
+        },
+        onFailure: (err) => {
+          setPurchasing(false);
+          setCheckoutSession(null);
+          setPurchaseError(err?.message || 'Payment cancelled or failed');
+          setConfirmOpen(true);
+        },
+      });
+
+      if (checkout.method === 'webview') {
+        setCheckoutSession({
+          paymentSessionId: orderData.payment_session_id,
+          mode: orderData.cashfree_mode || 'sandbox',
+        });
+        setPurchasing(false);
       }
     } catch (err) {
       setPurchaseError(
         err?.response?.data?.message || err?.message || 'Purchase failed'
       );
-    } finally {
       setPurchasing(false);
     }
+  };
+
+  const onCheckoutModalSuccess = async () => {
+    if (!pendingOrderId) return;
+    setPurchasing(true);
+    try {
+      await finalizePayment(pendingOrderId);
+    } catch (err) {
+      setPurchaseError(
+        err?.response?.data?.message || err?.message || 'Payment verification failed'
+      );
+      setConfirmOpen(true);
+    } finally {
+      setPurchasing(false);
+      setCheckoutSession(null);
+      setPendingOrderId(null);
+    }
+  };
+
+  const onCheckoutModalFailure = (err) => {
+    setCheckoutSession(null);
+    setPendingOrderId(null);
+    setPurchaseError(err?.message || 'Payment cancelled or failed');
+    setConfirmOpen(true);
   };
 
   return (
@@ -191,7 +271,7 @@ export default function TopUpScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.packTitle}>{packPlanTitle(p)}</Text>
                   <Text style={styles.packSubtitle}>
-                    {packPlanSubtitle(p, 'Simulated payment')}
+                    {packPlanSubtitle(p, 'Secure payment')}
                   </Text>
                 </View>
               </View>
@@ -254,6 +334,18 @@ export default function TopUpScreen() {
           </View>
         </View>
       </Modal>
+
+      <CashfreeCheckoutModal
+        visible={!!checkoutSession}
+        paymentSessionId={checkoutSession?.paymentSessionId}
+        mode={checkoutSession?.mode}
+        onClose={() => {
+          setCheckoutSession(null);
+          setPendingOrderId(null);
+        }}
+        onSuccess={onCheckoutModalSuccess}
+        onFailure={onCheckoutModalFailure}
+      />
     </View>
   );
 }

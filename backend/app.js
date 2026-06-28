@@ -9,10 +9,16 @@ import logger from './config/logger.js';
 import { checkDatabaseHealth } from './config/db.js';
 import { errorHandler } from './middleware/error.middleware.js';
 import { ApiResponse } from './utils/ApiResponse.js';
+import { verifyCashfreeWebhook } from './middleware/verifyCashfreeWebhook.js';
+import { handleCashfreeWebhook } from './modules/payment/webhook.controller.js';
 import authRouter from './modules/auth/auth.routes.js';
 import adminRouter from './modules/admin/admin.routes.js';
 import membershipRouter from './modules/membership/membership.routes.js';
 import topupRouter from './modules/topup/topup.routes.js';
+import paymentRouter, {
+  subscriptionRouter,
+  walletRouter,
+} from './modules/payment/payment.routes.js';
 
 // added from admin_ui_v2 (non-conflicting)
 import contentRouter from './modules/content/content.router.js';
@@ -30,6 +36,14 @@ import cors from 'cors';
 const require = createRequire(import.meta.url);
 
 const app = express();
+
+// Cashfree webhook requires raw body for signature verification (before JSON parser)
+app.post(
+  '/api/v1/payments/webhook',
+  express.raw({ type: 'application/json' }),
+  verifyCashfreeWebhook,
+  handleCashfreeWebhook
+);
 
 // ============= MIDDLEWARE =============
 
@@ -155,6 +169,9 @@ app.use('/api/v1/membership', membershipRouter);
 app.use('/api/v1/admin/membership', membershipRouter);
 app.use('/api/v1/topup', topupRouter);
 app.use('/api/v1/admin/topup', topupRouter);
+app.use('/api/v1/payments', paymentRouter);
+app.use('/api/v1/subscription', subscriptionRouter);
+app.use('/api/v1/wallet', walletRouter);
 app.use('/api/content', contentRouter);
 app.use('/api/feed', feedRouter);
 app.use('/api/media', mediaRouter);

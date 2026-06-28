@@ -5,6 +5,22 @@ export async function fetchMembershipPlans() {
   return res.data?.data ?? [];
 }
 
+export async function createSubscriptionPaymentOrder(planId) {
+  const res = await api.post('/payments/create-subscription-order', { plan_id: planId });
+  return res.data?.data;
+}
+
+export async function verifyPaymentOrder(orderId) {
+  const res = await api.post('/payments/verify-order', { order_id: orderId });
+  return res.data?.data;
+}
+
+export async function fetchCurrentSubscription() {
+  const res = await api.get('/subscription/current');
+  return res.data?.data;
+}
+
+/** @deprecated Dev-only simulated purchase — use createSubscriptionPaymentOrder + Cashfree */
 export async function simulateMembershipPurchase(planId) {
   const res = await api.post('/membership/simulate-purchase', { plan_id: planId });
   return res.data?.data;

@@ -1,5 +1,5 @@
 import { API_BASE_URL } from '../../constants/config';
-import { createAuthenticatedApi } from '../../services/api';
+import { api, createAuthenticatedApi } from '../../services/api';
 
 export const userApi = createAuthenticatedApi({
   baseURL: `${API_BASE_URL}/api/user`,
@@ -41,6 +41,25 @@ export async function fetchTopUpOptions(accessToken) {
   return res.data?.data?.packs ?? [];
 }
 
+export async function createWalletPaymentOrder(packId) {
+  const res = await api.post('/payments/create-wallet-order', { pack_id: packId });
+  return res.data?.data;
+}
+
+export async function verifyPaymentOrder(orderId) {
+  const res = await api.post('/payments/verify-order', { order_id: orderId });
+  return res.data?.data;
+}
+
+export async function fetchWalletHistory(accessToken, { limit = 50, offset = 0 } = {}) {
+  const res = await api.get('/wallet/history', {
+    headers: authHeader(accessToken),
+    params: { limit, offset },
+  });
+  return res.data?.data ?? { items: [], total: 0, limit, offset };
+}
+
+/** @deprecated Dev-only simulated purchase */
 export async function simulatePurchase(accessToken, packId) {
   const res = await userApi.post(
     '/wallet/simulate-purchase',
