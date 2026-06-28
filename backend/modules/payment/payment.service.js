@@ -17,6 +17,7 @@ import {
   generateCashfreeOrderId,
   mapCashfreeOrderStatus,
   extractPaymentDetailsFromOrder,
+  getPaymentMethodString,
 } from './cashfree.service.js';
 import { getCashfreeCheckoutMode } from '../../config/cashfree.js';
 
@@ -81,7 +82,11 @@ export async function validateMembershipPurchase(userId, planId) {
  * Activate membership after verified payment (idempotent if payment already completed).
  */
 export async function fulfillMembershipPayment(paymentRecord) {
-  if (paymentRecord.status === 'completed') {
+  const existingMembership = await prisma.userMembership.findFirst({
+    where: { payment_id: paymentRecord.id },
+  });
+
+  if (existingMembership) {
     return getMembershipFulfillmentResult(paymentRecord.user_id);
   }
 
@@ -110,7 +115,11 @@ export async function fulfillMembershipPayment(paymentRecord) {
       throw new ApiError(404, 'Payment record not found');
     }
 
-    if (lockedPayment.status === 'completed') {
+    const existingMembershipInTx = await tx.userMembership.findFirst({
+      where: { payment_id: lockedPayment.id },
+    });
+
+    if (existingMembershipInTx) {
       return;
     }
 
@@ -178,7 +187,11 @@ export async function fulfillMembershipPayment(paymentRecord) {
  * Credit wallet coins after verified payment (idempotent).
  */
 export async function fulfillWalletPayment(paymentRecord) {
-  if (paymentRecord.status === 'completed') {
+  const existingCredit = await prisma.coinTransaction.findFirst({
+    where: { payment_id: paymentRecord.id },
+  });
+
+  if (existingCredit) {
     const user = await prisma.user.findUnique({
       where: { id: paymentRecord.user_id },
       select: { coins: true },
@@ -206,7 +219,11 @@ export async function fulfillWalletPayment(paymentRecord) {
       throw new ApiError(404, 'Payment record not found');
     }
 
-    if (lockedPayment.status === 'completed') {
+    const existingCreditInTx = await tx.coinTransaction.findFirst({
+      where: { payment_id: lockedPayment.id },
+    });
+
+    if (existingCreditInTx) {
       const user = await tx.user.findUnique({
         where: { id: lockedPayment.user_id },
         select: { coins: true },
@@ -501,7 +518,7 @@ export async function verifyAndFulfillOrder(userId, orderId) {
       paymentDetails = {
         orderStatus: orderData?.order_status,
         paymentId: latest?.cf_payment_id || null,
-        paymentMethod: latest?.payment_method || latest?.payment_group || null,
+        paymentMethod: latest ? getPaymentMethodString(latest.payment_method, latest.payment_group) : null,
         paymentStatus: latest?.payment_status || null,
       };
     } catch {
@@ -660,6 +677,17 @@ export async function processCashfreeWebhook(webhookMeta) {
     mappedStatus = 'cancelled';
   }
 
+  let method = payment.payment_method;
+  const pm = paymentData?.payment_method;
+  const pg = paymentData?.payment_group;
+  if (typeof pm === 'string') {
+    method = pm;
+  } else if (pm && typeof pm === 'object') {
+    method = Object.keys(pm)[0];
+  } else if (typeof pg === 'string') {
+    method = pg;
+  }
+
   try {
     await prisma.paymentTransaction.update({
       where: { id: payment.id },
@@ -669,10 +697,7 @@ export async function processCashfreeWebhook(webhookMeta) {
           paymentData?.cf_payment_id ||
           paymentData?.payment_id ||
           payment.cashfree_payment_id,
-        payment_method:
-          paymentData?.payment_method ||
-          paymentData?.payment_group ||
-          payment.payment_method,
+        payment_method: method,
         webhook_event_id: dedupeId || payment.webhook_event_id,
         webhook_payload: rawBody,
       },

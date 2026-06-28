@@ -199,10 +199,25 @@ export function verifyWebhookSignature(rawBody, signature, timestamp) {
  * Reject webhook replays older than maxAgeSeconds (default 5 min).
  */
 export function isWebhookTimestampValid(timestamp, maxAgeSeconds = 300) {
-  const ts = Number(timestamp);
+  let ts = Number(timestamp);
   if (!Number.isFinite(ts)) return false;
+
+  // Convert milliseconds to seconds if timestamp is 13-digit
+  if (ts > 99999999999) {
+    ts = Math.floor(ts / 1000);
+  }
+
   const now = Math.floor(Date.now() / 1000);
   return Math.abs(now - ts) <= maxAgeSeconds;
+}
+
+export function getPaymentMethodString(paymentMethod, paymentGroup) {
+  if (typeof paymentMethod === 'string') return paymentMethod;
+  if (paymentMethod && typeof paymentMethod === 'object') {
+    return Object.keys(paymentMethod)[0];
+  }
+  if (typeof paymentGroup === 'string') return paymentGroup;
+  return null;
 }
 
 export function extractPaymentDetailsFromOrder(orderData) {
@@ -212,7 +227,7 @@ export function extractPaymentDetailsFromOrder(orderData) {
   return {
     orderStatus: orderData?.order_status,
     paymentId: latest?.cf_payment_id || latest?.payment_id || null,
-    paymentMethod: latest?.payment_method || latest?.payment_group || null,
+    paymentMethod: latest ? getPaymentMethodString(latest.payment_method, latest.payment_group) : null,
     paymentStatus: latest?.payment_status || null,
   };
 }

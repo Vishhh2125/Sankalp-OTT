@@ -221,12 +221,14 @@ export default function MembershipScreen({ navigation }) {
     const scope = purchased?.category_name
       ? purchased.category_name
       : getPlanUnlockScopeLabel(selectedPlanData);
-    Alert.alert(
-      'Membership active',
-      purchased?.end_date
-        ? `${scope} dramas are unlocked until ${formatMembershipEnd(purchased.end_date)}.`
-        : `You now have lifetime access to ${scope}.`
-    );
+    setTimeout(() => {
+      Alert.alert(
+        'Membership active',
+        purchased?.end_date
+          ? `${scope} dramas are unlocked until ${formatMembershipEnd(purchased.end_date)}.`
+          : `You now have lifetime access to ${scope}.`
+      );
+    }, 100);
   };
 
   const finalizePayment = async (orderId) => {
@@ -255,6 +257,7 @@ export default function MembershipScreen({ navigation }) {
         orderId: orderData.order_id,
         mode: orderData.cashfree_mode || 'sandbox',
         onSuccess: async () => {
+          setCheckoutSession(null);
           try {
             await finalizePayment(orderData.order_id);
           } catch (err) {
@@ -264,7 +267,6 @@ export default function MembershipScreen({ navigation }) {
             setConfirmOpen(true);
           } finally {
             setPurchasing(false);
-            setCheckoutSession(null);
           }
         },
         onFailure: (err) => {
@@ -292,9 +294,12 @@ export default function MembershipScreen({ navigation }) {
 
   const onCheckoutModalSuccess = async () => {
     if (!pendingOrderId) return;
+    const orderId = pendingOrderId;
+    setCheckoutSession(null);
+    setPendingOrderId(null);
     setPurchasing(true);
     try {
-      await finalizePayment(pendingOrderId);
+      await finalizePayment(orderId);
     } catch (err) {
       setPurchaseError(
         err?.response?.data?.message || err?.message || 'Payment verification failed'
@@ -302,8 +307,6 @@ export default function MembershipScreen({ navigation }) {
       setConfirmOpen(true);
     } finally {
       setPurchasing(false);
-      setCheckoutSession(null);
-      setPendingOrderId(null);
     }
   };
 
@@ -557,9 +560,20 @@ export default function MembershipScreen({ navigation }) {
         visible={!!checkoutSession}
         paymentSessionId={checkoutSession?.paymentSessionId}
         mode={checkoutSession?.mode}
-        onClose={() => {
+        onClose={async () => {
+          const orderId = pendingOrderId;
           setCheckoutSession(null);
           setPendingOrderId(null);
+          if (orderId) {
+            try {
+              const data = await verifyPaymentOrder(orderId);
+              if (data?.payment_status === 'completed') {
+                await applyMembershipResult(data);
+              }
+            } catch (err) {
+              // Fail silently if closed without payment completion
+            }
+          }
         }}
         onSuccess={onCheckoutModalSuccess}
         onFailure={onCheckoutModalFailure}

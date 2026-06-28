@@ -121,9 +121,9 @@ function buildCheckoutHtml(paymentSessionId, mode) {
         }).then(function (result) {
           if (result && result.error) {
             window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'failure', error: result.error }));
-          } else {
-            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'success', result: result || {} }));
           }
+          // Do not post success message here, because the page will redirect to the return_url,
+          // which is intercepted on the native side via onNavigationStateChange.
         }).catch(function (err) {
           window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'failure', error: String(err && err.message || err) }));
         });
@@ -169,6 +169,32 @@ export function CashfreeCheckoutModal({
     [onClose, onFailure, onSuccess]
   );
 
+  const handleNavigationStateChange = useCallback(
+    (navState) => {
+      if (handledRef.current) return;
+
+      const url = String(navState.url || '');
+      
+      // Do not intercept if it is the active payment gateway checkout page
+      const isPaymentPage = url.includes('/pg/') || url.includes('/checkout');
+      if (isPaymentPage) return;
+
+      // Intercept return redirection matching return URL host or common parameters
+      const isReturn =
+        url.includes('sandbox.cashfree.com') ||
+        url.includes('/payments/verify-order') ||
+        url.includes('/payment-return') ||
+        url.includes('order_id=');
+
+      if (isReturn) {
+        handledRef.current = true;
+        onSuccess?.();
+        onClose?.();
+      }
+    },
+    [onClose, onSuccess]
+  );
+
   if (!visible || !paymentSessionId) {
     return null;
   }
@@ -191,6 +217,7 @@ export function CashfreeCheckoutModal({
           source={{ html: buildCheckoutHtml(paymentSessionId, mode) }}
           onLoadEnd={() => setLoading(false)}
           onMessage={handleMessage}
+          onNavigationStateChange={handleNavigationStateChange}
           javaScriptEnabled
           domStorageEnabled
           startInLoadingState

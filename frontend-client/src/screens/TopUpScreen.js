@@ -134,7 +134,9 @@ export default function TopUpScreen() {
     if (returnToShowPlayer || returnToForYou) {
       handleReturnBack();
     } else {
-      Alert.alert('Success', 'Coins have been added to your wallet.');
+      setTimeout(() => {
+        Alert.alert('Success', 'Coins have been added to your wallet.');
+      }, 100);
     }
   };
 
@@ -167,6 +169,7 @@ export default function TopUpScreen() {
         orderId: orderData.order_id,
         mode: orderData.cashfree_mode || 'sandbox',
         onSuccess: async () => {
+          setCheckoutSession(null);
           try {
             await finalizePayment(orderData.order_id);
           } catch (err) {
@@ -176,7 +179,6 @@ export default function TopUpScreen() {
             setConfirmOpen(true);
           } finally {
             setPurchasing(false);
-            setCheckoutSession(null);
           }
         },
         onFailure: (err) => {
@@ -204,9 +206,12 @@ export default function TopUpScreen() {
 
   const onCheckoutModalSuccess = async () => {
     if (!pendingOrderId) return;
+    const orderId = pendingOrderId;
+    setCheckoutSession(null);
+    setPendingOrderId(null);
     setPurchasing(true);
     try {
-      await finalizePayment(pendingOrderId);
+      await finalizePayment(orderId);
     } catch (err) {
       setPurchaseError(
         err?.response?.data?.message || err?.message || 'Payment verification failed'
@@ -214,8 +219,6 @@ export default function TopUpScreen() {
       setConfirmOpen(true);
     } finally {
       setPurchasing(false);
-      setCheckoutSession(null);
-      setPendingOrderId(null);
     }
   };
 
@@ -339,9 +342,20 @@ export default function TopUpScreen() {
         visible={!!checkoutSession}
         paymentSessionId={checkoutSession?.paymentSessionId}
         mode={checkoutSession?.mode}
-        onClose={() => {
+        onClose={async () => {
+          const orderId = pendingOrderId;
           setCheckoutSession(null);
           setPendingOrderId(null);
+          if (orderId) {
+            try {
+              const data = await verifyPaymentOrder(orderId);
+              if (data?.payment_status === 'completed' && typeof data?.coins === 'number') {
+                await applyWalletResult(data.coins);
+              }
+            } catch (err) {
+              // Fail silently if closed without payment completion
+            }
+          }
         }}
         onSuccess={onCheckoutModalSuccess}
         onFailure={onCheckoutModalFailure}
