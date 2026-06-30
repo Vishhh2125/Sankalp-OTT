@@ -42,36 +42,14 @@ export default function TopUpScreen() {
   const returnToForYou = !!route.params?.returnToForYou;
 
   const handleReturnBack = useCallback(() => {
-    if (returnToForYou) {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
       navigation.navigate(ROUTES.MAIN_TABS, {
-        screen: ROUTES.FOR_YOU,
+        screen: ROUTES.HOME,
       });
-      return;
     }
-
-    // Pop back to the existing ShowPlayer route instead of pushing a new one.
-    // This prevents: TopUp -> ShowPlayer -> TopUp bounce.
-    let nav = navigation;
-    try {
-      while (typeof nav?.getParent === 'function') {
-        const parent = nav.getParent();
-        if (!parent) break;
-        nav = parent;
-      }
-    } catch {
-      // ignore
-    }
-
-    if (nav?.canGoBack?.()) {
-      nav.goBack();
-      return;
-    }
-
-    navigation.navigate(ROUTES.SHOW_PLAYER, {
-      fromHome: !!route.params?.fromHome,
-      fromForYou: !!route.params?.fromForYou,
-    });
-  }, [navigation, returnToForYou, route.params?.fromHome, route.params?.fromForYou]);
+  }, [navigation]);
 
   useLayoutEffect(() => {
     if (!returnToShowPlayer && !returnToForYou) return;

@@ -442,8 +442,7 @@ const authSlice = createSlice({
       state.role = null;
       state.plan = null;
       state.coins = null;
-      state.memberships = [];
-      state.has_all_access = false;
+      state.membership = null;
       state.accessToken = null;
       state.error = null;
       state.status = 'idle';
@@ -487,8 +486,7 @@ const authSlice = createSlice({
           state.role = action.payload.user.role;
           state.plan = action.payload.user.plan;
           state.coins = action.payload.user.coins;
-          state.memberships = action.payload.user.memberships ?? [];
-          state.has_all_access = action.payload.user.has_all_access ?? false;
+          state.membership = action.payload.user.membership ?? null;
           state.status = 'succeeded';
           state.isLoading = false;
         }
@@ -584,8 +582,7 @@ const authSlice = createSlice({
         state.role = action.payload.user.role;
         state.plan = action.payload.user.plan;
         state.coins = action.payload.user.coins;
-        state.memberships = action.payload.user.memberships ?? [];
-        state.has_all_access = action.payload.user.has_all_access ?? false;
+        state.membership = action.payload.user.membership ?? null;
         state.status = 'succeeded';
         state.isLoading = false;
       })
@@ -612,8 +609,7 @@ const authSlice = createSlice({
             state.role = action.payload.user.role;
             state.plan = action.payload.user.plan;
             state.coins = action.payload.user.coins;
-            state.memberships = action.payload.user.memberships ?? [];
-          state.has_all_access = action.payload.user.has_all_access ?? false;
+            state.membership = action.payload.user.membership ?? null;
           }
           if (action.payload.pendingRegistration) {
             state.pendingRegistration = action.payload.pendingRegistration;
@@ -641,8 +637,6 @@ const authSlice = createSlice({
         state.role = null;
         state.plan = null;
         state.coins = null;
-        state.memberships = [];
-        state.has_all_access = false;
         state.accessToken = null;
         // refreshToken cleared from SecureStore by authService
         state.logout.error = null;

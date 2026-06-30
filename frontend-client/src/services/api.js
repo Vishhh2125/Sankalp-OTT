@@ -90,6 +90,12 @@ function attachAuthInterceptors(client) {
   client.interceptors.response.use(
     (response) => response,
     async (error) => {
+      // Flag network/offline errors so components can suppress alerts
+      if (!error.response && error.message === 'Network Error') {
+        error.isOfflineError = true;
+        return Promise.reject(error);
+      }
+
       const originalRequest = error.config;
 
       if (error.response?.status !== 401) {

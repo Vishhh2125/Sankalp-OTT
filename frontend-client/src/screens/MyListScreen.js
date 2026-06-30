@@ -13,10 +13,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 
 import GuestAccessPrompt from '../components/GuestAccessPrompt';
 import { theme } from '../constants/theme';
@@ -44,6 +44,9 @@ const { width } = Dimensions.get('window');
 // Tab constants
 const TAB_SAVED = 'saved';
 const TAB_CONTINUE = 'continue';
+const TAB_DOWNLOADS = 'downloads';
+
+import { getDownloadedEpisodes } from '../services/downloadManager';
 
 // ─────────────────────────────────────────────────────────────────
 // Progress bar shown on the thumbnail
@@ -65,7 +68,7 @@ function ThumbnailProgressBar({ progressSec, durationSec }) {
 // ─────────────────────────────────────────────────────────────────
 function resolveThumbnailUrl(url) {
   if (!url) return null;
-  if (url.startsWith('http')) return url; // already absolute
+  if (url.startsWith('http') || url.startsWith('file://')) return url; // already absolute
   return `${API_BASE_URL}${url}`; // make it absolute
 }
 
@@ -291,6 +294,7 @@ export default function MyListScreen() {
   const insets = useSafeAreaInsets();
   const dispatch = useDispatch();
   const navigation = useNavigation();
+  const route = useRoute();
 
   const accessToken = useSelector((state) => state.auth?.accessToken);
   const bookmarks = useSelector(selectBookmarks);
@@ -300,10 +304,11 @@ export default function MyListScreen() {
   const bookmarksLoaded = useSelector(selectBookmarksLoaded);
   const watchHistoryLoaded = useSelector(selectWatchHistoryLoaded);
 
-  const [activeTab, setActiveTab] = useState(TAB_SAVED);
+  const [activeTab, setActiveTab] = useState(route.params?.initialTab || TAB_SAVED);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState(new Set());
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [downloads, setDownloads] = useState([]);
 
   // Fetch data on mount if authenticated and not yet loaded
   useEffect(() => {
@@ -311,6 +316,12 @@ export default function MyListScreen() {
     if (!bookmarksLoaded) dispatch(fetchBookmarks());
     if (!watchHistoryLoaded) dispatch(fetchWatchHistory());
   }, [accessToken, bookmarksLoaded, watchHistoryLoaded, dispatch]);
+
+  useEffect(() => {
+    if (route.params?.initialTab) {
+      setActiveTab(route.params.initialTab);
+    }
+  }, [route.params?.initialTab]);
 
   // Refetch bookmarks and watch history when screen comes into focus
   // This ensures data is fresh after watching/browsing in other screens
@@ -320,6 +331,7 @@ export default function MyListScreen() {
       // Refetch to ensure we have the latest bookmarks and watch history
       dispatch(fetchBookmarks());
       dispatch(fetchWatchHistory());
+      getDownloadedEpisodes().then(setDownloads);
     }, [accessToken, dispatch])
   );
 
@@ -346,6 +358,7 @@ export default function MyListScreen() {
             is_free: true,
             coin_cost: 0,
             status: 'ready',
+            localVideoPath: entry.localVideoPath || null,
           },
         ],
         startEpisodeNum: entry.episode_num,
@@ -446,7 +459,7 @@ export default function MyListScreen() {
     return bookmark;
   }, [watchHistory]);
 
-  const totalCount = bookmarks.length + watchHistory.length;
+  const totalCount = bookmarks.length + watchHistory.length + downloads.length;
 
   if (!accessToken) {
     return (
@@ -508,6 +521,17 @@ export default function MyListScreen() {
             Continue Watching {watchHistory.length > 0 ? `(${watchHistory.length})` : ''}
           </Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === TAB_DOWNLOADS && styles.tabActive]}
+          onPress={() => {
+            setActiveTab(TAB_DOWNLOADS);
+            cancelSelection();
+          }}
+        >
+          <Text style={[styles.tabText, activeTab === TAB_DOWNLOADS && styles.tabTextActive]}>
+            Downloads {downloads.length > 0 ? `(${downloads.length})` : ''}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* ── Content ── */}
@@ -564,7 +588,7 @@ export default function MyListScreen() {
             }}
           />
         )
-      ) : (
+      ) : activeTab === TAB_CONTINUE ? (
         // ── Continue Watching tab ──────────────────────────────
         watchHistory.length === 0 ? (
           <EmptyState
@@ -596,6 +620,52 @@ export default function MyListScreen() {
                 selected={selectedItems.has(item.history_id)}
                 onPress={() => handleCardPressAction(item)}
                 onLongPress={() => handleCardLongPress(item)}
+              />
+            )}
+          />
+        )
+      ) : (
+        // ── Downloads tab ──────────────────────────────
+        downloads.length === 0 ? (
+          <EmptyState
+            icon="download-outline"
+            title="No downloads yet"
+            subtitle="Download episodes to watch them offline"
+          />
+        ) : (
+          <FlatList
+            data={downloads}
+            keyExtractor={(item) => item.episodeId}
+            contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item }) => (
+              <ShowCard
+                item={{
+                  show_id: item.showName, // mock for local playback
+                  show_title: item.showName || item.title,
+                  thumbnail_url: item.localImagePath,
+                  category: 'Downloaded',
+                  episode_id: item.episodeId,
+                  episode_num: item.episodeNum,
+                  duration_sec: item.duration,
+                  progress_sec: 0,
+                  total_episodes: item.episodeNum,
+                  tags: ['Offline'],
+                }}
+                selectionMode={false} // selection for downloads not implemented yet
+                selected={false}
+                onPress={() => handleCardPress({
+                  show_id: item.episodeId,
+                  show_title: item.showName,
+                  thumbnail_url: item.localImagePath,
+                  episode_id: item.episodeId,
+                  episode_num: item.episodeNum,
+                  duration_sec: item.duration,
+                  progress_sec: 0,
+                  total_episodes: item.episodeNum,
+                  localVideoPath: item.localVideoPath,
+                })}
+                onLongPress={() => {}}
               />
             )}
           />

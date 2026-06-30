@@ -8,6 +8,7 @@ import { ROUTES } from '../constants/routes';
 import { API_BASE_URL } from '../constants/config';
 import { useUserDataSync } from '../hooks/useUserDataSync';
 import { theme } from '../constants/theme';
+import NetworkManager from '../components/NetworkManager';
 import {
   clearShowPlayer,
   fetchShowPlayerPage,
@@ -162,6 +163,7 @@ export default function RootStackNavigator() {
         }}
         onUnhandledAction={() => {}}
       >
+        <NetworkManager navigationRef={navigationRef} navReady={navReady} />
         <AuthWrapper onDeepLink={handleDeepLink} />
       </NavigationContainer>
     </SafeAreaProvider>

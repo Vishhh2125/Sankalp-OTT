@@ -34,6 +34,9 @@ router.get('/hls/:showId/:episodeId/*', ctrl.hlsProxy);
 // Playback URL
 router.get('/play/:episodeId', allowGuest, ctrl.getPlayUrl);
 
+// Download URL
+router.get('/download-url/:episodeId', allowGuest, ctrl.getDownloadUrl);
+
 // Image proxy
 router.get('/image/:showId/:type', ctrl.imageProxy);
 

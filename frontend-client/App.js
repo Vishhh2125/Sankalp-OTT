@@ -12,6 +12,7 @@ import { setStore, setAuthActions } from './src/services/api';
 import { setTokens, logout } from './src/redux/slices/authSlice';
 import { setFeedStore } from './src/redux/slices/reelsSlice';
 import { setShowPlayerStore } from './src/redux/slices/showPlayerSlice';
+import { NetworkProvider } from './src/context/NetworkContext';
 
 // Pass Redux store to API interceptors (auth + feed)
 setStore(store);
@@ -29,8 +30,9 @@ setShowPlayerStore(store);
 
 export default function App() {
   return (
-    <CaptureProtectionProvider>
-      <Provider store={store}>
+    <NetworkProvider>
+      <CaptureProtectionProvider>
+        <Provider store={store}>
         <PlaybackSpeedProvider>
           <PlaybackVolumeProvider>
             <VideoQualityProvider>
@@ -44,5 +46,6 @@ export default function App() {
         </PlaybackSpeedProvider>
       </Provider>
     </CaptureProtectionProvider>
+    </NetworkProvider>
   );
 }

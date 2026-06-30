@@ -2,7 +2,7 @@ import fs from 'fs';
 import { prisma } from '../../prisma/client.js';
 import { createTranscodeJobs } from '../../producer.js';
 import { getPresignedPutUrl, getPublicUrl } from '../../utils/presigned-url.js';
-import { getSignedEpisodeHlsPath } from '../../utils/hls-signed-url.js';
+import { getSignedEpisodeHlsPath, getSignedDownloadUrl } from '../../utils/hls-signed-url.js';
 import { checkEpisodeAccess } from '../user/episode-access.service.js';
 import { AppError } from '../../middleware/error.middleware.js';
 import minioClient from '../../config/minio.js';
@@ -196,6 +196,38 @@ async function getPlayUrl(episodeId, { userId = null, isGuest = false } = {}) {
   };
 }
 
+// Get presigned download URL for an episode
+async function getDownloadUrl(episodeId, { userId = null, isGuest = false } = {}) {
+  const episode = await prisma.episode.findUnique({
+    where: { id: episodeId },
+    include: { show: { select: { category_id: true, title: true, thumbnail_url: true } } },
+  });
+  if (!episode) throw new AppError('Episode not found', 404);
+  if (episode.video_source === 'YOUTUBE') throw new AppError('YouTube videos cannot be downloaded', 400);
+  if (episode.status !== 'ready') throw new AppError(`Video is ${episode.status}`, 400);
+
+  const access = await checkEpisodeAccess(
+    userId,
+    isGuest,
+    episode.id,
+    episode.is_free,
+    episode.show?.category_id
+  );
+  if (access.is_locked) {
+    throw new AppError('Episode is locked', 403);
+  }
+
+  return {
+    download_url: getSignedDownloadUrl(episode.id),
+    episode_id: episode.id,
+    episode_num: episode.episode_num,
+    title: episode.title || `Episode ${episode.episode_num}`,
+    show_name: episode.show?.title || '',
+    thumbnail_url: episode.show?.thumbnail_url || null,
+    duration_sec: episode.duration_sec,
+  };
+}
+
 // Get transcode job status
 async function getTranscodeStatus(episodeId) {
   const episode = await prisma.episode.findUnique({
@@ -241,5 +273,6 @@ export {
   confirmVideoUpload,
   confirmImageUpload,
   getPlayUrl,
+  getDownloadUrl,
   getTranscodeStatus,
 };

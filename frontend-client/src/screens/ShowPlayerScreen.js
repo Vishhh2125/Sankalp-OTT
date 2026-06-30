@@ -134,7 +134,7 @@ export default function ShowPlayerScreen({ navigation }) {
       return;
     }
 
-    const needsFetch = episodes.length === 0 || episodes.some((ep) => !ep.hls_url && ep.video_source !== 'YOUTUBE');
+    const needsFetch = episodes.length === 0 || episodes.some((ep) => !ep.hls_url && ep.video_source !== 'YOUTUBE' && !ep.localVideoPath);
     if (!needsFetch) return;
 
     fetchedRangesRef.current.add(fromEp);

@@ -44,6 +44,7 @@ import { usePlaybackSpeed } from '../../context/PlaybackSpeedContext';
 import { usePlaybackVolume } from '../../context/PlaybackVolumeContext';
 import { useVideoQuality } from '../../context/VideoQualityContext';
 import { useGuestAuth } from '../../context/GuestAuthContext';
+import { isDownloaded, startDownload, removeDownload } from '../../services/downloadManager';
 
 const STARTUP_VIDEO_TRACK = { type: 'resolution', value: 480 };
 const AUTO_VIDEO_TRACK = { type: 'auto' };
@@ -140,10 +141,70 @@ export default function ShortVideoReelItem({
     }
   }, [accessToken, bookmarksLoaded, dispatch]);
 
-  const isLocked = item.is_locked;
+  const [downloadState, setDownloadState] = useState('none');
+  const [downloadProgress, setDownloadProgress] = useState(0);
+
   const isYouTube = item.video_source === 'YOUTUBE';
-  const streamUrl = !isLocked && item.hls_url ? `${streamBase}${item.hls_url}` : null;
   const hasYouTubeVideo = isYouTube && Boolean(item.youtube_video_id);
+  const isLocked = item.localVideoPath ? false : item.is_locked;
+  const streamUrl = item.localVideoPath || (!isLocked && item.hls_url ? `${streamBase}${item.hls_url}` : null);
+
+  useEffect(() => {
+    if (isYouTube) return;
+    if (item.localVideoPath) {
+      setDownloadState('downloaded');
+      return;
+    }
+    isDownloaded(item.episode_id).then(downloaded => {
+      if (downloaded) setDownloadState('downloaded');
+      else setDownloadState('none');
+    });
+  }, [item.episode_id, item.localVideoPath]);
+
+  const handleDownloadPress = async () => {
+    console.log(`[Download] Download button pressed for episode: ${item.episode_id}, current state: ${downloadState}`);
+    if (!accessToken) {
+      console.log('[Download] No access token, navigating to LOGIN');
+      navigation.navigate(ROUTES.LOGIN);
+      return;
+    }
+    
+    if (downloadState === 'downloaded') {
+      Alert.alert(
+        'Remove Download',
+        'Do you want to remove this episode from your device?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Remove', 
+            style: 'destructive',
+            onPress: async () => {
+              console.log(`[Download] Removing downloaded episode: ${item.episode_id}`);
+              await removeDownload(item.episode_id);
+              setDownloadState('none');
+            }
+          }
+        ]
+      );
+    } else if (downloadState === 'none') {
+      try {
+        console.log(`[Download] Starting download for episode: ${item.episode_id}`);
+        setDownloadState('downloading');
+        setDownloadProgress(0);
+        await startDownload(item.episode_id, (progress) => {
+          setDownloadProgress(progress);
+        });
+        console.log(`[Download] Successfully completed download for episode: ${item.episode_id}`);
+        setDownloadState('downloaded');
+      } catch (e) {
+        console.error('[Download] Error during download process:', e);
+        setDownloadState('none');
+        if (!e.isOfflineError) {
+          Alert.alert('Download Failed', e?.response?.data?.message || e.message || 'Something went wrong');
+        }
+      }
+    }
+  };
   
   useEffect(() => {
     CaptureProtection.prevent({
@@ -874,6 +935,17 @@ export default function ShortVideoReelItem({
               label="Episodes"
               onPress={handleOpenEpisodesOrReturn}
             />
+            {!isYouTube && (
+              <SideAction
+                icon={
+                  downloadState === 'downloaded' ? 'checkmark-circle' :
+                  downloadState === 'downloading' ? 'cloud-download' : 'download-outline'
+                }
+                label={downloadState === 'downloading' ? `${Math.round(downloadProgress * 100)}%` : 'Save'}
+                color={downloadState === 'downloaded' ? shortVideoTheme.crimson : '#fff'}
+                onPress={handleDownloadPress}
+              />
+            )}
             <SideAction icon="paper-plane-outline" label="Share" onPress={handleShare} />
             {showViewsAction ? (
               <SideAction
@@ -1071,15 +1143,9 @@ function LockOverlay({ item, accessToken, navigation, dispatch, walletReturnPara
   }, [openSignUp]);
 
   const goToTopUp = useCallback(() => {
-    navigation.navigate(ROUTES.MAIN_TABS, {
-      screen: ROUTES.PROFILE,
-      params: {
-        screen: ROUTES.TOP_UP,
-        params: {
-          returnToShowPlayer: true,
-          ...(walletReturnParams || {}),
-        },
-      },
+    navigation.navigate(ROUTES.TOP_UP, {
+      returnToShowPlayer: true,
+      ...(walletReturnParams || {}),
     });
   }, [navigation, walletReturnParams]);
 

@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import BottomTabNavigator from './BottomTabNavigator';
 import ShowPlayerScreen from '../screens/ShowPlayerScreen';
 import LiveViewerScreen from '../screens/LiveViewerScreen';
+import TopUpScreen from '../screens/TopUpScreen';
 import { ROUTES } from '../constants/routes';
 import { theme } from '../constants/theme';
 
@@ -32,6 +33,14 @@ export default function AppNavigator() {
         component={LiveViewerScreen}
         options={{
           animation: 'slide_from_right',
+          gestureEnabled: true,
+        }}
+      />
+      <Stack.Screen
+        name={ROUTES.TOP_UP}
+        component={TopUpScreen}
+        options={{
+          animation: 'slide_from_bottom',
           gestureEnabled: true,
         }}
       />

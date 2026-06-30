@@ -66,6 +66,16 @@ async function getPlayUrl(req, res, next) {
   } catch (e) { next(e); }
 }
 
+async function getDownloadUrl(req, res, next) {
+  try {
+    const result = await mediaService.getDownloadUrl(req.params.episodeId, {
+      userId: req.user?.id || null,
+      isGuest: req.isGuest || false,
+    });
+    res.json(result);
+  } catch (e) { next(e); }
+}
+
 async function getTranscodeStatus(req, res, next) {
   try {
     const result = await mediaService.getTranscodeStatus(req.params.episodeId);
@@ -177,5 +187,5 @@ async function imageProxy(req, res, next) {
 
 export {
   getVideoUploadUrl, uploadVideo, uploadImage, getImageUploadUrl, confirmVideoUpload,
-  confirmImageUpload, getPlayUrl, getTranscodeStatus, hlsProxy, imageProxy,
+  confirmImageUpload, getPlayUrl, getDownloadUrl, getTranscodeStatus, hlsProxy, imageProxy,
 };

@@ -235,6 +235,8 @@ function mapEpisode(ep, showId, showTitle, thumbnailUrl, streamBase, totalEpisod
     tags: [],
     view_count: 0,
     total_episodes: totalEpisodes || 0,
+    localVideoPath: ep.localVideoPath || null,
+    localImagePath: ep.localImagePath || null,
   };
 }
 

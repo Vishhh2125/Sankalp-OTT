@@ -27,6 +27,7 @@ export async function setupMinioBuckets() {
             `arn:aws:s3:::${bucket}/dramas/*/thumbnail.jpg`,
             `arn:aws:s3:::${bucket}/dramas/*/banner.jpg`,
             `arn:aws:s3:::${bucket}/dramas/*/episodes/*`,
+            `arn:aws:s3:::${bucket}/raw/*`,
           ],
         },
       ],

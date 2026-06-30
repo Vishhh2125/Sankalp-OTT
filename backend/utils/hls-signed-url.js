@@ -45,4 +45,18 @@ function getSignedEpisodeHlsPath(episode, expirySeconds) {
   return getSignedHlsPath(episode.hls_master_url, expirySeconds);
 }
 
-export { getSignedHlsPath, getSignedEpisodeHlsPath };
+function getSignedDownloadUrl(episodeId, expirySeconds = config.hls.signedUrlTtl) {
+  if (!episodeId) return null;
+
+  const windowSeconds = expirySeconds;
+  const now = Math.floor(Date.now() / 1000);
+  const windowStart = Math.floor(now / windowSeconds) * windowSeconds;
+  const expires = windowStart + windowSeconds;
+
+  const signatureBase = `${expires}/raw/${episodeId} ${config.hls.signingSecret}`;
+  const signature = toSecureLinkDigest(signatureBase);
+
+  return `/hls/${expires}/${signature}/raw/${episodeId}/video.mp4`;
+}
+
+export { getSignedHlsPath, getSignedEpisodeHlsPath, getSignedDownloadUrl };
