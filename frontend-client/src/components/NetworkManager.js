@@ -14,6 +14,7 @@ export default function NetworkManager({ navigationRef, navReady }) {
   // We can track if we've already redirected them once per offline session
   // to avoid repeatedly redirecting them if they try to navigate around.
   const [hasRedirected, setHasRedirected] = React.useState(false);
+  const [showBanner, setShowBanner] = React.useState(false);
 
   // We only want to redirect if they are not already watching a video offline
   const getCurrentRouteName = () => {
@@ -23,6 +24,9 @@ export default function NetworkManager({ navigationRef, navReady }) {
 
   useEffect(() => {
     if (isOffline) {
+      setShowBanner(true);
+      const timer = setTimeout(() => setShowBanner(false), 5000);
+
       const currentRouteName = getCurrentRouteName();
       if (!hasRedirected && navReady && currentRouteName && currentRouteName !== ROUTES.SHOW_PLAYER) {
         setHasRedirected(true);
@@ -31,12 +35,15 @@ export default function NetworkManager({ navigationRef, navReady }) {
           params: { initialTab: 'downloads' },
         });
       }
+
+      return () => clearTimeout(timer);
     } else {
       setHasRedirected(false);
+      setShowBanner(false);
     }
   }, [isOffline, hasRedirected, navReady, navigationRef]);
 
-  if (!isOffline) return null;
+  if (!isOffline || !showBanner) return null;
 
   return (
     <Pressable

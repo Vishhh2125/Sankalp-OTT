@@ -369,13 +369,15 @@ export default function MyListScreen() {
 
     // Immediately fetch the full episode list from backend
     // so the player has HLS URL and can scroll through all episodes
-    dispatch(
-      fetchShowPlayerPage({
-        showId: entry.show_id,
-        fromEp: Math.max(1, Math.floor((entry.episode_num - 1) / 30) * 30 + 1),
-        limit: 30,
-      })
-    );
+    if (!entry.localVideoPath) {
+      dispatch(
+        fetchShowPlayerPage({
+          showId: entry.show_id,
+          fromEp: Math.max(1, Math.floor((entry.episode_num - 1) / 30) * 30 + 1),
+          limit: 30,
+        })
+      );
+    }
 
     navigation.navigate(ROUTES.SHOW_PLAYER, { fromMyList: true });
   }, [dispatch, navigation]);
@@ -655,14 +657,14 @@ export default function MyListScreen() {
                 selectionMode={false} // selection for downloads not implemented yet
                 selected={false}
                 onPress={() => handleCardPress({
-                  show_id: item.episodeId,
-                  show_title: item.showName,
+                  show_id: item.showName || item.episodeId,
+                  show_title: item.showName || item.title,
                   thumbnail_url: item.localImagePath,
                   episode_id: item.episodeId,
                   episode_num: item.episodeNum,
                   duration_sec: item.duration,
                   progress_sec: 0,
-                  total_episodes: item.episodeNum,
+                  total_episodes: 1, // Set to 1 so the player won't try to fetch more episodes offline
                   localVideoPath: item.localVideoPath,
                 })}
                 onLongPress={() => {}}
