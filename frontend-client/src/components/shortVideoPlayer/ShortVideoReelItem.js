@@ -263,7 +263,10 @@ export default function ShortVideoReelItem({
     isActive: isActive && !isLocked && firstFrameReady,
     enabled: enableLandscapeMode,
   });
-  const videoResizeMode = 'cover';
+  // For downloaded videos, we use 'contain' so horizontal (16:9) videos are letterboxed correctly
+  // and not stretched to fill the vertical dimensions, copying the behavior of the normal players.
+  // Regular short reels will continue to use 'cover'.
+  const videoResizeMode = item.localVideoPath ? 'contain' : 'cover';
   const showPortraitChrome = !isLandscapeActive;
   const showLandscapeToggle = enableLandscapeMode
     && showPortraitChrome
