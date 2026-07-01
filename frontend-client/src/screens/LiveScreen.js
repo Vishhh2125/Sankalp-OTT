@@ -15,12 +15,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../constants/theme';
 import { ROUTES } from '../constants/routes';
 import { fetchActiveLiveStreams } from '../components/live/liveApi';
+import { useNetwork } from '../context/NetworkContext';
 
 const POLL_MS = 15000;
 
 export default function LiveScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+  const { isOffline } = useNetwork();
   const [streams, setStreams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -78,7 +80,7 @@ export default function LiveScreen() {
 
       {error ? (
         <View style={styles.errorBox}>
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={styles.errorText}>{isOffline ? 'You are offline' : error}</Text>
           <Pressable style={styles.retryBtn} onPress={() => load()}>
             <Text style={styles.retryText}>Retry</Text>
           </Pressable>
@@ -95,9 +97,9 @@ export default function LiveScreen() {
         ListEmptyComponent={
           !error ? (
             <View style={styles.empty}>
-              <Ionicons name="radio-outline" size={48} color={theme.gray} />
-              <Text style={styles.emptyTitle}>No live streams right now</Text>
-              <Text style={styles.emptySub}>Check back soon — new shows go live from the admin panel.</Text>
+              <Ionicons name={isOffline ? "cloud-offline-outline" : "radio-outline"} size={48} color={theme.gray} />
+              <Text style={styles.emptyTitle}>{isOffline ? 'You are offline' : 'No live streams right now'}</Text>
+              <Text style={styles.emptySub}>{isOffline ? 'Check your internet connection and try again.' : 'Check back soon — new shows go live from the admin panel.'}</Text>
             </View>
           ) : null
         }

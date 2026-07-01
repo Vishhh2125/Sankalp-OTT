@@ -22,6 +22,7 @@ import {
 import { API_BASE_URL } from '../constants/config';
 import { ROUTES } from '../constants/routes';
 import { useLandscapePlaybackContext } from '../context/LandscapePlaybackContext';
+import { useNetwork } from '../context/NetworkContext';
 import {
   clearShowMode,
   clearForYouDramaSheetSession,
@@ -60,6 +61,7 @@ export default function ForYouScreen() {
   const reopenAfterPlayer = useSelector(selectForYouReopenSheetAfterPlayer);
   const isFocused = useIsFocused();
   const { isLandscape } = useLandscapePlaybackContext();
+  const { isOffline } = useNetwork();
   const accessToken = useSelector((state) => state.auth?.accessToken);
   const flatListRef = useRef(null);
   const pendingAutoAdvanceIndexRef = useRef(null);
@@ -333,11 +335,11 @@ export default function ForYouScreen() {
     return (
       <View style={styles.loadingScreen}>
         <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
-        <Ionicons name="videocam-off-outline" size={48} color="#555" />
-        <Text style={styles.emptyTitle}>No shows available</Text>
-        <Text style={styles.emptySubtitle}>Check back soon for new content</Text>
+        <Ionicons name={isOffline ? "cloud-offline-outline" : "videocam-off-outline"} size={48} color="#555" />
+        <Text style={styles.emptyTitle}>{isOffline ? 'You are offline' : 'No shows available'}</Text>
+        <Text style={styles.emptySubtitle}>{isOffline ? 'Check your internet connection and try again' : 'Check back soon for new content'}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
-          <Text style={styles.retryText}>Refresh</Text>
+          <Text style={styles.retryText}>Retry</Text>
         </TouchableOpacity>
       </View>
     );

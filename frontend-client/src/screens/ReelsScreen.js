@@ -44,6 +44,7 @@ import {
   setHomeDramaSheetSession,
   setHomeReopenSheetAfterPlayer,
 } from '../redux/slices/reelsSlice';
+import { useNetwork } from '../context/NetworkContext';
 
 function selectPendingHomeBanner(state) {
   return state.promoFlow?.pendingHomeBanner;
@@ -133,6 +134,7 @@ export default function PopularScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const isFocused = useIsFocused();
+  const { isOffline } = useNetwork();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState([]);
   const [searchInputFocused, setSearchInputFocused] = useState(false);
@@ -779,6 +781,15 @@ export default function PopularScreen() {
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
           <ActivityIndicator size="large" color={theme.crimson} />
         </View>
+      ) : isOffline && shows.length === 0 && heroBanners.length === 0 ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
+          <Ionicons name="cloud-offline-outline" size={48} color="#555" />
+          <Text style={[styles.emptyText, { marginTop: 16, fontSize: 18, color: theme.white, fontWeight: 'bold' }]}>You are offline</Text>
+          <Text style={{ color: theme.gray, marginTop: 8 }}>Check your internet connection and try again.</Text>
+          <TouchableOpacity style={{ marginTop: 20, backgroundColor: theme.crimson, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 }} onPress={loadShows}>
+            <Text style={{ color: theme.white, fontWeight: '600' }}>Retry</Text>
+          </TouchableOpacity>
+        </View>
       ) : isSearchActive ? (
         <FlatList
           data={shows}
@@ -789,7 +800,10 @@ export default function PopularScreen() {
           columnWrapperStyle={styles.columnWrapper}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
-            <Text style={styles.emptyText}>No dramas found.</Text>
+            <View style={{ alignItems: 'center', marginTop: 40 }}>
+              <Ionicons name={isOffline ? "cloud-offline-outline" : "search-outline"} size={48} color="#555" />
+              <Text style={styles.emptyText}>{isOffline ? 'You are offline' : 'No dramas found.'}</Text>
+            </View>
           }
         />
       ) : (

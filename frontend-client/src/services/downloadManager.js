@@ -19,6 +19,16 @@ const ensureDirectories = async () => {
   }
 };
 
+const getFixedUrl = (url) => {
+  if (!url) return url;
+  let fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
+  if (fullUrl.includes('://10.') || fullUrl.includes('://192.') || fullUrl.includes('://172.')) {
+    const apiHost = API_BASE_URL.split('://')[1].split(':')[0];
+    fullUrl = fullUrl.replace(/:\/\/[^\/:]+/, `://${apiHost}`);
+  }
+  return fullUrl;
+};
+
 export const getDownloadedEpisodes = async () => {
   try {
     const data = await AsyncStorage.getItem(DOWNLOADS_KEY);
@@ -50,7 +60,7 @@ export const startDownload = async (episodeId, onProgress) => {
     // 2. Download thumbnail if available
     let localImagePath = null;
     if (data.thumbnail_url) {
-      const fullThumbUrl = data.thumbnail_url.startsWith('http') ? data.thumbnail_url : `${API_BASE_URL}${data.thumbnail_url}`;
+      const fullThumbUrl = getFixedUrl(data.thumbnail_url);
       localImagePath = THUMBNAILS_DIR + `${data.show_name?.replace(/[^a-zA-Z0-9]/g, '_')}_${episodeId}.jpg`;
       const thInfo = await FileSystem.getInfoAsync(localImagePath);
       if (!thInfo.exists) {
@@ -59,7 +69,7 @@ export const startDownload = async (episodeId, onProgress) => {
     }
     
     // 3. Start video download
-    const fullDownloadUrl = data.download_url.startsWith('http') ? data.download_url : `${API_BASE_URL}${data.download_url}`;
+    const fullDownloadUrl = getFixedUrl(data.download_url);
     const localVideoPath = DOWNLOADS_DIR + `${episodeId}.bin`;
     
     const downloadResumable = FileSystem.createDownloadResumable(

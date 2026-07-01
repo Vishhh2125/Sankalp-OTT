@@ -11,12 +11,9 @@ export default function NetworkManager({ navigationRef, navReady }) {
   const { isOffline } = useNetwork();
   const insets = useSafeAreaInsets();
 
-  // We can track if we've already redirected them once per offline session
-  // to avoid repeatedly redirecting them if they try to navigate around.
   const [hasRedirected, setHasRedirected] = React.useState(false);
   const [showBanner, setShowBanner] = React.useState(false);
 
-  // We only want to redirect if they are not already watching a video offline
   const getCurrentRouteName = () => {
     if (!navReady || !navigationRef?.current) return null;
     return navigationRef.current.getCurrentRoute()?.name;
@@ -26,16 +23,6 @@ export default function NetworkManager({ navigationRef, navReady }) {
     if (isOffline) {
       setShowBanner(true);
       const timer = setTimeout(() => setShowBanner(false), 5000);
-
-      const currentRouteName = getCurrentRouteName();
-      if (!hasRedirected && navReady && currentRouteName && currentRouteName !== ROUTES.SHOW_PLAYER) {
-        setHasRedirected(true);
-        navigationRef.current?.navigate(ROUTES.MAIN_TABS, {
-          screen: ROUTES.MY_LIST,
-          params: { initialTab: 'downloads' },
-        });
-      }
-
       return () => clearTimeout(timer);
     } else {
       setHasRedirected(false);
@@ -47,7 +34,7 @@ export default function NetworkManager({ navigationRef, navReady }) {
 
   return (
     <Pressable
-      style={[styles.banner, { paddingTop: Math.max(insets.top, 20) }]}
+      style={[styles.banner, { top: insets.top + 10 }]}
       onPress={() => {
         if (navReady) {
           navigationRef.current?.navigate(ROUTES.MAIN_TABS, {
@@ -66,11 +53,11 @@ export default function NetworkManager({ navigationRef, navReady }) {
 const styles = StyleSheet.create({
   banner: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
+    left: 16,
+    right: 16,
+    borderRadius: 8,
     backgroundColor: theme.crimson,
-    paddingBottom: 12,
+    paddingVertical: 12,
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',

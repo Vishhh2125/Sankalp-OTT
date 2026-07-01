@@ -746,7 +746,9 @@ const styles = StyleSheet.create({
   tab: {
     flex: 1,
     paddingVertical: 8,
+    paddingHorizontal: 4,
     alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 10,
   },
   tabActive: {
@@ -754,8 +756,9 @@ const styles = StyleSheet.create({
   },
   tabText: {
     color: theme.gray,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
+    textAlign: 'center',
   },
   tabTextActive: {
     color: theme.white,

@@ -1,7 +1,9 @@
 import { StatusBar } from 'expo-status-bar';
 import { Provider } from 'react-redux';
 import { CaptureProtectionProvider } from 'react-native-capture-protection';
+import { LogBox } from 'react-native';
 
+LogBox.ignoreLogs(['Network Error', 'Network error']);
 import RootStackNavigator from './src/navigation/RootStackNavigator';
 import { PlaybackSpeedProvider } from './src/context/PlaybackSpeedContext';
 import { PlaybackVolumeProvider } from './src/context/PlaybackVolumeContext';

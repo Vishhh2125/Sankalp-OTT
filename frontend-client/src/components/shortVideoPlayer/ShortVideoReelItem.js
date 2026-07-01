@@ -929,7 +929,7 @@ export default function ShortVideoReelItem({
           <View style={styles.sideActionsColumn}>
             <SideAction
               icon={isBookmarked ? 'bookmark' : 'bookmark-outline'}
-              label=""
+              label="Save"
               color={isBookmarked ? shortVideoTheme.crimson : '#fff'}
               onPress={handleBookmarkPress}
             />
@@ -944,7 +944,7 @@ export default function ShortVideoReelItem({
                   downloadState === 'downloaded' ? 'checkmark-circle' :
                   downloadState === 'downloading' ? 'cloud-download' : 'download-outline'
                 }
-                label={downloadState === 'downloading' ? `${Math.round(downloadProgress * 100)}%` : 'Save'}
+                label={downloadState === 'downloading' ? `${Math.round(downloadProgress * 100)}%` : 'Download'}
                 color={downloadState === 'downloaded' ? shortVideoTheme.crimson : '#fff'}
                 onPress={handleDownloadPress}
               />
