@@ -3,6 +3,7 @@ import { AppError } from '../../middleware/error.middleware.js';
 import { displayedViewCount } from '../user/view-count.service.js';
 import minioClient from '../../config/minio.js';
 import config from '../../config/index.js';
+import { extractYoutubeVideoId } from '../live/live.config.js';
 
 const MINIO_BUCKET = config.minio.bucket;
 
@@ -510,15 +511,6 @@ async function getEpisodesByShow(showId) {
     where: { show_id: showId },
     orderBy: { episode_num: 'asc' },
   });
-}
-
-function extractYoutubeVideoId(urlOrId) {
-  if (!urlOrId) return null;
-  // If it's already an 11-character ID, return it
-  if (/^[a-zA-Z0-9_-]{11}$/.test(urlOrId)) return urlOrId;
-  // Match various YouTube URL formats
-  const match = urlOrId.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/|live\/))([\w-]{11})/);
-  return match ? match[1] : null;
 }
 
 async function createEpisode(data) {

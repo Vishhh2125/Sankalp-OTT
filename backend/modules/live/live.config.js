@@ -46,3 +46,10 @@ export function mapProtocolToSource(protocol) {
   if (p.includes('rtmp')) return 'RTMP';
   return p ? p.toUpperCase() : null;
 }
+
+export function extractYoutubeVideoId(urlOrId) {
+  if (!urlOrId) return null;
+  if (/^[a-zA-Z0-9_-]{11}$/.test(urlOrId)) return urlOrId;
+  const match = urlOrId.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/|live\/))([\w-]{11})/);
+  return match ? match[1] : null;
+}

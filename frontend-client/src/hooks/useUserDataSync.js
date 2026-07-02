@@ -5,7 +5,7 @@ import { patchUserProfile } from '../redux/slices/authSlice';
 import * as authService from '../services/authService';
 import { api } from '../services/api';
 
-const SYNC_INTERVAL = 200000; // 200 seconds
+const SYNC_INTERVAL = 1800000; // 30 minutes (1,800,000 ms)
 
 /**
  * useUserDataSync Hook
@@ -16,7 +16,7 @@ const SYNC_INTERVAL = 200000; // 200 seconds
  *
  * Behaviour:
  * - Syncs immediately on mount (so UI is fresh right after login).
- * - Polls every 200 seconds while the app is in the foreground.
+ * - Polls every 30 minutes while the app is in the foreground.
  * - Pauses the interval when the app goes to background (saves battery & server load).
  * - Fires one immediate sync when the app returns to foreground, then resumes interval.
  * - On 401, clears the interval and stops polling (user will be logged out by auth layer).

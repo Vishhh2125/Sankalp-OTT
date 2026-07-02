@@ -11,6 +11,13 @@ const STATUS_BADGE = {
   ENDED: 'badge-red',
 }
 
+function extractYoutubeVideoId(urlOrId) {
+  if (!urlOrId) return null;
+  if (/^[a-zA-Z0-9_-]{11}$/.test(urlOrId)) return urlOrId;
+  const match = urlOrId.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/|live\/))([\w-]{11})/);
+  return match ? match[1] : null;
+}
+
 function CopyField({ label, value }) {
   const [copied, setCopied] = useState(false)
   const copy = async () => {
@@ -139,6 +146,8 @@ export default function LiveStreaming() {
   const [error, setError] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [title, setTitle] = useState('')
+  const [youtubeUrl, setYoutubeUrl] = useState('')
+  const [goLiveError, setGoLiveError] = useState(null)
   const [saving, setSaving] = useState(false)
   const [whipError, setWhipError] = useState(null)
   const [whipPublishing, setWhipPublishing] = useState(false)
@@ -181,7 +190,7 @@ export default function LiveStreaming() {
         if (results[0].data?.data) setSelected(results[0].data.data)
         if (results[1]?.data?.data) setViewers(results[1].data.data)
       } catch { /* ignore poll errors */ }
-    }, 3000)
+    }, 30000)
     return () => clearInterval(t)
   }, [selected?.id, selected?.status])
 
@@ -194,20 +203,27 @@ export default function LiveStreaming() {
 
   const createStream = async () => {
     if (!title.trim()) return
+    const yid = extractYoutubeVideoId(youtubeUrl)
+    if (!yid) {
+      alert('Invalid YouTube URL or ID')
+      return
+    }
     setSaving(true)
     setError(null)
+    setGoLiveError(null)
     try {
-      const res = await liveApi.create({ title: title.trim() })
+      const res = await liveApi.create({
+        title: title.trim(),
+        youtube_video_id: yid,
+        source_type: 'YOUTUBE',
+      })
       const data = res.data?.data
       setModalOpen(false)
       setTitle('')
+      setYoutubeUrl('')
       await loadStreams()
       if (data?.stream) {
-        setSelected({
-          ...data.stream,
-          rtmp_url: data.rtmp_url,
-          whip_url: data.whip_url,
-        })
+        setSelected(data.stream)
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create stream')
@@ -216,8 +232,24 @@ export default function LiveStreaming() {
     }
   }
 
+  const handleGoLive = async () => {
+    if (!selected?.id) return
+    setError(null)
+    setGoLiveError(null)
+    try {
+      const res = await liveApi.goLive(selected.id)
+      if (res.data?.data) {
+        setSelected(res.data.data)
+      }
+      await loadStreams()
+    } catch (err) {
+      setGoLiveError(err.response?.data?.message || 'Failed to start live stream')
+    }
+  }
+
   const selectStream = async (stream) => {
     setWhipError(null)
+    setGoLiveError(null)
     setSelected(stream)
   }
 
@@ -431,7 +463,7 @@ export default function LiveStreaming() {
         <div>
           <h2 style={{ margin: 0, fontSize: 18 }}>Live Streaming</h2>
           <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text3)' }}>
-            OBS (RTMP) or browser (WHIP) — viewers watch via the mobile Live tab
+            YouTube Live Streaming — viewers watch via the mobile Live tab
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -440,7 +472,7 @@ export default function LiveStreaming() {
         </div>
       </div>
 
-      {!whipSupported && (
+      {selected?.source_type === 'MEDIAMTX' && !whipSupported && (
         <div className="card" style={{ padding: 12, marginBottom: 16, borderColor: 'var(--amber)', fontSize: 12 }}>
           <strong>HTTPS required for browser go-live.</strong> WHIP needs a secure context (HTTPS or localhost).
           Use OBS over RTMP on HTTP, or open the admin panel via HTTPS / Cloudflare.
@@ -498,81 +530,104 @@ export default function LiveStreaming() {
                 )}
               </div>
 
-              <ModalSection title={<><Monitor size={14} style={{ verticalAlign: -2, marginRight: 6 }} />OBS / RTMP</>}>
-                <p style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>
-                  In OBS: Settings → Stream → Custom. Server = RTMP URL, Stream key = key below.
-                </p>
-                <CopyField label="RTMP server" value={ingest?.rtmp_url || 'Create stream to get URL'} />
-                <CopyField label="Stream key" value={selected.stream_key || '—'} />
-              </ModalSection>
+              {selected.source_type === 'YOUTUBE' ? (
+                <div style={{ marginTop: 12 }}>
+                  <CopyField label="YouTube unlisted stream link" value={`https://www.youtube.com/watch?v=${selected.youtube_video_id}`} />
+                  
+                  {goLiveError && (
+                    <div style={{ color: 'var(--red)', fontSize: 12, marginBottom: 8 }}>{goLiveError}</div>
+                  )}
 
-              <ModalSection title={<><Smartphone size={14} style={{ verticalAlign: -2, marginRight: 6 }} />Browser / WHIP</>}>
-                <p style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>
-                  Go live from this device with camera video. Browser live is video-only for mobile HLS compatibility.
-                </p>
-                {selected.whip_url && <CopyField label="WHIP endpoint" value={selected.whip_url} />}
-                {whipError && (
-                  <div style={{ color: 'var(--red)', fontSize: 12, marginBottom: 8 }}>{whipError}</div>
-                )}
-                {selected.status !== 'ENDED' && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-                    {!whipRef.current ? (
-                      <>
-                        <button
-                          className="btn btn-primary btn-sm"
-                          disabled={!whipSupported || whipPublishing || selected.status === 'ENDED'}
-                          onClick={() => startWhip({ screenShare: false })}
-                        >
-                          <Radio size={12} style={{ marginRight: 4 }} /> {whipPublishing && !isScreenSharing ? 'Connecting…' : 'Go live (Camera)'}
-                        </button>
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          disabled={!whipSupported || whipPublishing || selected.status === 'ENDED'}
-                          onClick={() => startWhip({ screenShare: true })}
-                          style={{
-                            background: 'var(--bg3)',
-                            border: '1px solid var(--border)',
-                            color: 'var(--text)'
-                          }}
-                        >
-                          <Monitor size={12} style={{ marginRight: 4 }} /> {whipPublishing && isScreenSharing ? 'Connecting…' : 'Share screen'}
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        {isScreenSharing ? (
-                          <button
-                            className="btn btn-secondary btn-sm"
-                            disabled={whipPublishing}
-                            onClick={handleSwitchToCamera}
-                            style={{
-                              background: 'var(--bg3)',
-                              border: '1px solid var(--border)',
-                              color: 'var(--text)'
-                            }}
-                          >
-                            <Radio size={12} style={{ marginRight: 4 }} /> Switch to Camera
-                          </button>
-                        ) : (
-                          <button
-                            className="btn btn-secondary btn-sm"
-                            disabled={whipPublishing}
-                            onClick={handleSwitchToScreen}
-                            style={{
-                              background: 'var(--bg3)',
-                              border: '1px solid var(--border)',
-                              color: 'var(--text)'
-                            }}
-                          >
-                            <Monitor size={12} style={{ marginRight: 4 }} /> Switch to Screen
-                          </button>
-                        )}
-                        <button className="btn btn-ghost btn-sm" onClick={() => stopWhip({ markEnded: false })}>Stop browser broadcast</button>
-                      </>
+                  {selected.status === 'SCHEDULED' && (
+                    <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                      <button
+                        className="btn btn-primary"
+                        onClick={handleGoLive}
+                      >
+                        <Radio size={12} style={{ marginRight: 4 }} /> Go Live
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <ModalSection title={<><Monitor size={14} style={{ verticalAlign: -2, marginRight: 6 }} />OBS / RTMP</>}>
+                    <p style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>
+                      In OBS: Settings → Stream → Custom. Server = RTMP URL, Stream key = key below.
+                    </p>
+                    <CopyField label="RTMP server" value={ingest?.rtmp_url || 'Create stream to get URL'} />
+                    <CopyField label="Stream key" value={selected.stream_key || '—'} />
+                  </ModalSection>
+
+                  <ModalSection title={<><Smartphone size={14} style={{ verticalAlign: -2, marginRight: 6 }} />Browser / WHIP</>}>
+                    <p style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>
+                      Go live from this device with camera video. Browser live is video-only for mobile HLS compatibility.
+                    </p>
+                    {selected.whip_url && <CopyField label="WHIP endpoint" value={selected.whip_url} />}
+                    {whipError && (
+                      <div style={{ color: 'var(--red)', fontSize: 12, marginBottom: 8 }}>{whipError}</div>
                     )}
-                  </div>
-                )}
-              </ModalSection>
+                    {selected.status !== 'ENDED' && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                        {!whipRef.current ? (
+                          <>
+                            <button
+                              className="btn btn-primary btn-sm"
+                              disabled={!whipSupported || whipPublishing || selected.status === 'ENDED'}
+                              onClick={() => startWhip({ screenShare: false })}
+                            >
+                              <Radio size={12} style={{ marginRight: 4 }} /> {whipPublishing && !isScreenSharing ? 'Connecting…' : 'Go live (Camera)'}
+                            </button>
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              disabled={!whipSupported || whipPublishing || selected.status === 'ENDED'}
+                              onClick={() => startWhip({ screenShare: true })}
+                              style={{
+                                background: 'var(--bg3)',
+                                border: '1px solid var(--border)',
+                                color: 'var(--text)'
+                              }}
+                            >
+                              <Monitor size={12} style={{ marginRight: 4 }} /> {whipPublishing && isScreenSharing ? 'Connecting…' : 'Share screen'}
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            {isScreenSharing ? (
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                disabled={whipPublishing}
+                                onClick={handleSwitchToCamera}
+                                style={{
+                                  background: 'var(--bg3)',
+                                  border: '1px solid var(--border)',
+                                  color: 'var(--text)'
+                                }}
+                              >
+                                <Radio size={12} style={{ marginRight: 4 }} /> Switch to Camera
+                              </button>
+                            ) : (
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                disabled={whipPublishing}
+                                onClick={handleSwitchToScreen}
+                                style={{
+                                  background: 'var(--bg3)',
+                                  border: '1px solid var(--border)',
+                                  color: 'var(--text)'
+                                }}
+                              >
+                                <Monitor size={12} style={{ marginRight: 4 }} /> Switch to Screen
+                              </button>
+                            )}
+                            <button className="btn btn-ghost btn-sm" onClick={() => stopWhip({ markEnded: false })}>Stop browser broadcast</button>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </ModalSection>
+                </>
+              )}
 
               {selected.status === 'LIVE' && (
                 <div style={{ marginTop: 12, padding: 10, background: 'rgba(76,175,80,0.12)', borderRadius: 8, fontSize: 12 }}>
@@ -599,7 +654,7 @@ export default function LiveStreaming() {
         footer={
           <>
             <button className="btn btn-ghost" onClick={() => setModalOpen(false)} disabled={saving}>Cancel</button>
-            <button className="btn btn-primary" onClick={createStream} disabled={saving || !title.trim()}>
+            <button className="btn btn-primary" onClick={createStream} disabled={saving || !title.trim() || !extractYoutubeVideoId(youtubeUrl)}>
               {saving ? 'Creating…' : 'Create'}
             </button>
           </>
@@ -607,6 +662,15 @@ export default function LiveStreaming() {
       >
         <FormGroup label="Title *">
           <input className="input" placeholder="e.g. Friday night premiere" value={title} onChange={(e) => setTitle(e.target.value)} disabled={saving} />
+        </FormGroup>
+        <FormGroup label="YouTube Link *">
+          <input className="input" placeholder="e.g. https://www.youtube.com/watch?v=..." value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} disabled={saving} />
+          {youtubeUrl && extractYoutubeVideoId(youtubeUrl) && (
+            <div style={{ marginTop: 8 }}>
+              <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>PREVIEW</div>
+              <img src={`https://img.youtube.com/vi/${extractYoutubeVideoId(youtubeUrl)}/hqdefault.jpg`} style={{ width: 160, height: 90, borderRadius: 6, objectFit: 'cover' }} />
+            </div>
+          )}
         </FormGroup>
       </Modal>
 

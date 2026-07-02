@@ -27,6 +27,7 @@ router.get('/active', ctrl.getActiveStreams);
 
 // Admin (register before /:id/play to avoid shadowing)
 router.post('/streams', requireAuth, requireAdmin('live'), validate(createStreamSchema), ctrl.createStream);
+router.post('/streams/:id/go-live', requireAuth, requireAdmin('live'), ctrl.goLive);
 router.get('/streams', requireAuth, requireAdmin('live'), ctrl.listStreams);
 router.get('/streams/:id', requireAuth, requireAdmin('live'), ctrl.getStream);
 router.delete('/streams/:id', requireAuth, requireAdmin('live'), ctrl.forceEndStream);

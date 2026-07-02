@@ -6,9 +6,11 @@ import {
   Pressable,
   TouchableWithoutFeedback,
   Animated,
+  useWindowDimensions,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import Video from 'react-native-video';
+import YoutubePlayer from 'react-native-youtube-iframe';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -21,9 +23,10 @@ export default function LiveViewerScreen() {
   const route = useRoute();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const { streamId, title } = route.params || {};
 
-  const [hlsUrl, setHlsUrl] = useState(null);
+  const [playData, setPlayData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [videoError, setVideoError] = useState(null);
@@ -45,6 +48,10 @@ export default function LiveViewerScreen() {
   // Viewer tracking session
   const viewerSessionId = useRef(null);
 
+  const hlsUrl = playData?.hls_url || null;
+  const videoSource = playData?.video_source || 'MEDIAMTX';
+  const youtubeVideoId = playData?.youtube_video_id || null;
+
   const loadPlayUrl = useCallback(async () => {
     if (!streamId) {
       setError('Missing stream');
@@ -55,11 +62,15 @@ export default function LiveViewerScreen() {
       setLoading(true);
       setError(null);
       const data = await fetchLivePlayUrl(streamId);
-      setHlsUrl(data?.hls_url || null);
-      if (!data?.hls_url) setError('Playback URL not available');
+      setPlayData(data);
+      if (data?.video_source === 'YOUTUBE') {
+        if (!data?.youtube_video_id) setError('YouTube Stream Video ID not available');
+      } else {
+        if (!data?.hls_url) setError('Playback URL not available');
+      }
     } catch (err) {
       setError(err?.response?.data?.message || err?.message || 'Stream unavailable');
-      setHlsUrl(null);
+      setPlayData(null);
     } finally {
       setLoading(false);
     }
@@ -69,9 +80,9 @@ export default function LiveViewerScreen() {
     loadPlayUrl();
   }, [loadPlayUrl]);
 
-  // Join stream after HLS URL is loaded, leave on unmount
+  // Join stream after Play data is loaded, leave on unmount
   useEffect(() => {
-    if (!hlsUrl || !streamId) return;
+    if (!playData || !streamId) return;
 
     let sessionId = null;
 
@@ -97,7 +108,7 @@ export default function LiveViewerScreen() {
         viewerSessionId.current = null;
       }
     };
-  }, [hlsUrl, streamId]);
+  }, [playData, streamId]);
 
   // ─── Controls show/hide logic (matches OTT player) ───
   const clearHideControlsTimer = useCallback(() => {
@@ -175,7 +186,7 @@ export default function LiveViewerScreen() {
         </View>
       )}
 
-      <TouchableWithoutFeedback onPress={handleVideoPress}>
+      <TouchableWithoutFeedback onPress={handleVideoPress} disabled={videoSource === 'YOUTUBE'}>
         <View style={styles.playerWrap}>
           {loading ? (
             <View style={styles.loadingShimmer}>
@@ -188,6 +199,24 @@ export default function LiveViewerScreen() {
               <Pressable style={styles.retryBtn} onPress={loadPlayUrl}>
                 <Text style={styles.retryText}>Retry</Text>
               </Pressable>
+            </View>
+          ) : videoSource === 'YOUTUBE' ? (
+            <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }]} pointerEvents="auto">
+              <YoutubePlayer
+                height={isLandscapeActive ? windowHeight : windowWidth * (9 / 16)}
+                width={isLandscapeActive ? windowWidth : windowWidth}
+                videoId={youtubeVideoId}
+                play={true}
+                initialPlayerParams={{
+                  controls: true,
+                  rel: false,
+                  modestbranding: true,
+                }}
+                webViewProps={{
+                  nestedScrollEnabled: true,
+                }}
+                webViewStyle={{ opacity: 0.99 }}
+              />
             </View>
           ) : hlsUrl ? (
             <Video
@@ -218,42 +247,48 @@ export default function LiveViewerScreen() {
           ) : null}
 
           {/* Custom Overlay Controls */}
-          {(!loading && !error && hlsUrl) && (
+          {(!loading && !error && (hlsUrl || youtubeVideoId)) && (
             <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
 
-              {/* Dim overlay (only when controls visible) — matches OTT ottDim */}
-              {controlsVisible ? (
-                <Animated.View
-                  style={[styles.dimOverlay, { opacity: controlsOpacity }]}
-                  pointerEvents="none"
-                />
-              ) : paused ? (
-                <View style={styles.dimOverlayPaused} pointerEvents="none" />
-              ) : null}
+              {/* Only show dim overlay and tapZone for HLS stream */}
+              {videoSource !== 'YOUTUBE' && (
+                <>
+                  {controlsVisible ? (
+                    <Animated.View
+                      style={[styles.dimOverlay, { opacity: controlsOpacity }]}
+                      pointerEvents="none"
+                    />
+                  ) : paused ? (
+                    <View style={styles.dimOverlayPaused} pointerEvents="none" />
+                  ) : null}
 
-              {/* Tap zone — scrim press to show controls */}
-              <Pressable
-                style={styles.tapZone}
-                onPress={handleVideoPress}
-              />
+                  <Pressable
+                    style={styles.tapZone}
+                    onPress={handleVideoPress}
+                  />
+                </>
+              )}
 
-              {/* Landscape top bar (back + title) — only in landscape, fades with controls */}
-              {isLandscapeActive && showMainOverlay ? (
+              {/* Landscape top bar (back + title) — only in landscape, fades with controls for HLS, always visible for YouTube */}
+              {isLandscapeActive && (videoSource === 'YOUTUBE' || showMainOverlay) ? (
                 <Animated.View
                   style={[
                     styles.landscapeTopBar,
-                    { paddingTop: Math.max(insets.left, insets.right, 16), opacity: controlsOpacity },
+                    { 
+                      paddingTop: Math.max(insets.left, insets.right, 16), 
+                      opacity: videoSource === 'YOUTUBE' ? 1 : controlsOpacity 
+                    },
                   ]}
                 >
-                  <Pressable style={styles.landscapeBackBtn} onPress={exitLandscape} hitSlop={12}>
+                  <Pressable style={styles.landscapeBackBtn} onPress={videoSource === 'YOUTUBE' ? exitLandscape : exitLandscape} hitSlop={12}>
                     <Ionicons name="chevron-back" size={26} color={theme.white} />
                   </Pressable>
                   <Text style={styles.landscapeTitle} numberOfLines={1}>{title || 'Live stream'}</Text>
                 </Animated.View>
               ) : null}
 
-              {/* Center controls (seek ±10 + play/pause) — show on tap, hide after 3s */}
-              {showMainOverlay ? (
+              {/* Center controls (seek ±10 + play/pause) — show on tap, hide after 3s — ONLY HLS */}
+              {videoSource !== 'YOUTUBE' && showMainOverlay ? (
                 <Animated.View
                   style={[styles.centerControlsWrap, { opacity: controlsOpacity }]}
                   pointerEvents={showMainOverlay ? 'box-none' : 'none'}
@@ -311,29 +346,31 @@ export default function LiveViewerScreen() {
                 </Pressable>
               </View>
 
-              {/* Live progress bar — ALWAYS visible, raised above safe area */}
-              <View
-                style={[
-                  styles.progressBarWrap,
-                  isLandscapeActive
-                    ? styles.progressBarWrapLandscape
-                    : { bottom: Math.max(insets.bottom, 10) + 20 },
-                ]}
-                pointerEvents="box-none"
-              >
-                <LiveProgressBar
-                  isLandscape={isLandscapeActive}
-                  currentTime={currentTime}
-                  duration={duration}
-                  paused={paused}
-                  onSeek={(t) => {
-                    if (videoRef.current) {
-                      videoRef.current.seek(t);
-                      setCurrentTime(t);
-                    }
-                  }}
-                />
-              </View>
+              {/* Live progress bar — ALWAYS visible, raised above safe area — ONLY HLS */}
+              {videoSource !== 'YOUTUBE' && (
+                <View
+                  style={[
+                    styles.progressBarWrap,
+                    isLandscapeActive
+                      ? styles.progressBarWrapLandscape
+                      : { bottom: Math.max(insets.bottom, 10) + 20 },
+                  ]}
+                  pointerEvents="box-none"
+                >
+                  <LiveProgressBar
+                    isLandscape={isLandscapeActive}
+                    currentTime={currentTime}
+                    duration={duration}
+                    paused={paused}
+                    onSeek={(t) => {
+                      if (videoRef.current) {
+                        videoRef.current.seek(t);
+                        setCurrentTime(t);
+                      }
+                    }}
+                  />
+                </View>
+              )}
             </View>
           )}
         </View>

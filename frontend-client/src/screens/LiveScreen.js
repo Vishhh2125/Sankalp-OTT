@@ -9,7 +9,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { theme } from '../constants/theme';
@@ -21,6 +21,7 @@ const POLL_MS = 15000;
 
 export default function LiveScreen() {
   const navigation = useNavigation();
+  const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
   const { isOffline } = useNetwork();
   const [streams, setStreams] = useState([]);
@@ -45,10 +46,12 @@ export default function LiveScreen() {
   }, []);
 
   useEffect(() => {
+    if (!isFocused) return;
+
     load();
     const t = setInterval(() => load(true), POLL_MS);
     return () => clearInterval(t);
-  }, [load]);
+  }, [isFocused, load]);
 
   const openViewer = (stream) => {
     navigation.navigate(ROUTES.LIVE_VIEWER, {

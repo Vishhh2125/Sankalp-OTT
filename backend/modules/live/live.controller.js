@@ -115,6 +115,15 @@ async function getViewers(req, res, next) {
   }
 }
 
+async function goLive(req, res, next) {
+  try {
+    const data = await service.markStreamLive(req.params.id, req.admin.id);
+    return res.json(new ApiResponse(200, data, 'Stream is now live'));
+  } catch (e) {
+    next(e);
+  }
+}
+
 export {
   createStream,
   listStreams,
@@ -128,4 +137,5 @@ export {
   joinStream,
   leaveStream,
   getViewers,
+  goLive,
 };

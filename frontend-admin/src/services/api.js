@@ -335,6 +335,7 @@ export const liveApi = {
   getAll: () => api.get('/live/streams', { params: { _t: Date.now() } }),
   getById: (id) => api.get(`/live/streams/${id}`, { params: { _t: Date.now() } }),
   end: (id) => api.delete(`/live/streams/${id}`),
+  goLive: (id) => api.post(`/live/streams/${id}/go-live`),
   markLive: (streamKey, protocol = 'webrtc') =>
     api.post('/live/webhook/on-live', {
       path: `live/${streamKey}`,

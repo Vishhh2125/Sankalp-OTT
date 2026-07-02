@@ -7,6 +7,7 @@ import {
   getViewerHlsUrl,
   parseStreamKeyFromPath,
   mapProtocolToSource,
+  extractYoutubeVideoId,
 } from './live.config.js';
 
 function generateStreamKey() {
@@ -43,6 +44,7 @@ async function getMediaMtxPathMap() {
 
 async function reconcileStreamWithMediaMtx(stream, pathMap = null) {
   if (!stream || stream.status === 'ENDED') return stream;
+  if (stream.source_type !== 'MEDIAMTX') return stream;
 
   const paths = pathMap || await getMediaMtxPathMap();
   const pathInfo = paths.get(`live/${stream.stream_key}`);
@@ -83,6 +85,8 @@ function formatStream(stream, includeIngest = false) {
     stream_key: stream.stream_key,
     status: stream.status,
     source_protocol: stream.source_protocol,
+    source_type: stream.source_type,
+    youtube_video_id: stream.youtube_video_id,
     created_by: stream.created_by,
     scheduled_at: stream.scheduled_at,
     started_at: stream.started_at,
@@ -92,7 +96,7 @@ function formatStream(stream, includeIngest = false) {
       ? { id: stream.creator.id, name: stream.creator.name }
       : undefined,
   };
-  if (includeIngest) {
+  if (includeIngest && stream.source_type === 'MEDIAMTX') {
     return {
       ...base,
       rtmp_url: getRtmpIngestUrl(),
@@ -103,29 +107,57 @@ function formatStream(stream, includeIngest = false) {
 }
 
 export async function createStream(data, adminId) {
-  const { title, thumbnail_url, scheduled_at } = data;
+  const { title, thumbnail_url, scheduled_at, source_type = 'YOUTUBE', youtube_video_id } = data;
 
   const streamKey = generateStreamKey();
 
-  const stream = await prisma.liveStream.create({
-    data: {
-      title: title.trim(),
-      thumbnail_url: thumbnail_url || null,
-      stream_key: streamKey,
-      status: 'SCHEDULED',
-      created_by: adminId,
-      scheduled_at: scheduled_at ? new Date(scheduled_at) : null,
-    },
-    include: { creator: { select: { id: true, name: true } } },
-  });
+  if (source_type === 'YOUTUBE') {
+    const youtubeId = extractYoutubeVideoId(youtube_video_id);
+    if (!youtubeId) {
+      throw new AppError('Invalid YouTube video ID or URL', 400);
+    }
 
-  return {
-    stream: formatStream(stream, true),
-    stream_id: stream.id,
-    stream_key: streamKey,
-    rtmp_url: getRtmpIngestUrl(),
-    whip_url: getWhipPublishUrl(streamKey),
-  };
+    const stream = await prisma.liveStream.create({
+      data: {
+        title: title.trim(),
+        thumbnail_url: thumbnail_url || null,
+        stream_key: streamKey,
+        status: 'SCHEDULED',
+        source_type: 'YOUTUBE',
+        youtube_video_id: youtubeId,
+        created_by: adminId,
+        scheduled_at: scheduled_at ? new Date(scheduled_at) : null,
+      },
+      include: { creator: { select: { id: true, name: true } } },
+    });
+
+    return {
+      stream: formatStream(stream, false),
+      stream_id: stream.id,
+    };
+  } else {
+    // LEGACY: MediaMTX path — retained for fallback
+    const stream = await prisma.liveStream.create({
+      data: {
+        title: title.trim(),
+        thumbnail_url: thumbnail_url || null,
+        stream_key: streamKey,
+        status: 'SCHEDULED',
+        source_type: 'MEDIAMTX',
+        created_by: adminId,
+        scheduled_at: scheduled_at ? new Date(scheduled_at) : null,
+      },
+      include: { creator: { select: { id: true, name: true } } },
+    });
+
+    return {
+      stream: formatStream(stream, true),
+      stream_id: stream.id,
+      stream_key: streamKey,
+      rtmp_url: getRtmpIngestUrl(),
+      whip_url: getWhipPublishUrl(streamKey),
+    };
+  }
 }
 
 export async function listStreams() {
@@ -174,12 +206,47 @@ export async function getPlayUrl(streamId) {
     throw new AppError('Stream is not live', 404);
   }
 
+  if (reconciled.source_type === 'YOUTUBE') {
+    return {
+      stream_id: reconciled.id,
+      title: reconciled.title,
+      video_source: 'YOUTUBE',
+      youtube_video_id: reconciled.youtube_video_id,
+      status: reconciled.status,
+    };
+  }
+
   return {
     stream_id: reconciled.id,
     title: reconciled.title,
     hls_url: getViewerHlsUrl(reconciled.stream_key),
     status: reconciled.status,
   };
+}
+
+export async function markStreamLive(streamId, adminId) {
+  const stream = await prisma.liveStream.findUnique({
+    where: { id: streamId },
+    include: { creator: { select: { id: true, name: true } } },
+  });
+  if (!stream) throw new AppError('Stream not found', 404);
+  if (stream.source_type !== 'YOUTUBE') {
+    throw new AppError('Only valid for YouTube live streams', 400);
+  }
+  if (stream.status !== 'SCHEDULED') {
+    throw new AppError('Stream is not in SCHEDULED status', 400);
+  }
+
+  const updated = await prisma.liveStream.update({
+    where: { id: streamId },
+    data: {
+      status: 'LIVE',
+      started_at: new Date(),
+    },
+    include: { creator: { select: { id: true, name: true } } },
+  });
+
+  return formatStream(updated);
 }
 
 export async function forceEndStream(streamId) {
@@ -199,6 +266,7 @@ export async function forceEndStream(streamId) {
   return formatStream(updated);
 }
 
+// LEGACY: MediaMTX webhook handlers — unused for YOUTUBE source_type streams, retained for fallback.
 /**
  * MediaMTX HTTP auth hook — allow publish only for valid, non-ended stream keys.
  * Read/playback on live/* is allowed for v1 (free access).

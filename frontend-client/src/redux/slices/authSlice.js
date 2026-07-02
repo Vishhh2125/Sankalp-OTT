@@ -13,7 +13,7 @@ const initialState = {
     memberships: [],
     has_all_access: false,
     accessToken: null,
-    isInitializing: false,
+    isInitializing: true,
     error: null,
     isLoading: false,
     status: 'idle', // idle | loading | succeeded | failed
