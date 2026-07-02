@@ -14,6 +14,8 @@ import {
   getCurrentSubscriptionHandler,
   getWalletHistoryHandler,
 } from './payment.controller.js';
+import { verifyCashfreeWebhook } from '../../middleware/verifyCashfreeWebhook.js';
+import { handleCashfreeWebhook } from './webhook.controller.js';
 
 const router = express.Router();
 
@@ -39,6 +41,14 @@ router.post(
 );
 
 router.get('/history', requireAuth, getPaymentHistoryHandler);
+
+// Cashfree webhook — express.raw() preserves raw body needed for HMAC signature verification
+router.post(
+  '/webhook',
+  express.raw({ type: 'application/json' }),
+  verifyCashfreeWebhook,
+  handleCashfreeWebhook
+);
 
 export default router;
 

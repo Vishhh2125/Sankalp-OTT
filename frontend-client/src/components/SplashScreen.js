@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { theme } from '../constants/theme';
 
 /**
  * SplashScreen Component
@@ -11,7 +12,7 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 const SplashScreen = () => {
   return (
     <View style={styles.container}>
-      <ActivityIndicator size="large" color="#007AFF" />
+      <ActivityIndicator size="large" color={theme.crimson} />
     </View>
   );
 };
@@ -21,8 +22,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.deepBlack,
   },
 });
 
 export default SplashScreen;
+

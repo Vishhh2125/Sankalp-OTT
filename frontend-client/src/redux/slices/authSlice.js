@@ -329,8 +329,34 @@ export const initAuth = createAsyncThunk(
         pendingPasswordReset,
       };
     } catch (err) {
-      console.log('[initAuth] Restore skipped:', err?.message);
-      // Silently fail - user will see login screen
+      console.log('[initAuth] Token refresh failed:', err?.message);
+
+      // ── OFFLINE FALLBACK ──────────────────────────────────────────
+      // If the refresh call failed because the device has no network
+      // (no HTTP response = offline), restore the session from disk
+      // so the user stays logged in with cached data. The stale
+      // accessToken will be silently refreshed by the API interceptor
+      // once connectivity returns.
+      const isNetworkError = !err?.response;
+      if (isNetworkError) {
+        console.log('Network is off')
+        const storedAccessToken = await authService.getAccessTokenFromStore();
+        const storedUser = await authService.getUserData();
+        const pendingRegistration = await authService.getPendingRegistration();
+        const pendingPasswordReset = await authService.getPendingPasswordReset();
+
+        if (storedAccessToken && storedUser) {
+          console.log('[initAuth] Offline — restoring session from disk');
+          return {
+            accessToken: storedAccessToken,
+            user: storedUser,
+            pendingRegistration,
+            pendingPasswordReset,
+          };
+        }
+      }
+
+      // Truly no session to restore — user sees login screen
       return null;
     }
   }

@@ -31,6 +31,23 @@ export const getRefreshToken = async () => {
 };
 
 /**
+ * Get access token from SecureStore (used for offline cold-start fallback).
+ * At runtime the authoritative accessToken lives in Redux; this disk copy
+ * is only read by initAuth when a token-refresh API call fails due to
+ * no network.
+ * @returns {Promise<string|null>} accessToken or null
+ */
+export const getAccessTokenFromStore = async () => {
+  try {
+    const token = await SecureStore.getItemAsync('accessToken');
+    return token || null;
+  } catch (error) {
+    console.error('[authService] Error getting stored access token:', error);
+    return null;
+  }
+};
+
+/**
  * Get access token from Redux store (passed as parameter)
  * @param {object} store - Redux store
  * @returns {string|null} accessToken or null
@@ -52,9 +69,14 @@ export const getAccessToken = (store) => {
  */
 export const saveTokens = async (accessToken, refreshToken) => {
   try {
-    // Mobile: save refreshToken to SecureStore
+    // Mobile: save both tokens to SecureStore
+    // refreshToken is the primary persistent credential;
+    // accessToken is cached so initAuth can restore a stale session when offline.
     if (refreshToken) {
       await SecureStore.setItemAsync('refreshToken', refreshToken);
+    }
+    if (accessToken) {
+      await SecureStore.setItemAsync('accessToken', accessToken);
     }
     console.log('[authService] Tokens saved to SecureStore');
   } catch (error) {
@@ -113,12 +135,13 @@ export const patchUserDataInStore = async (partial) => {
  */
 export const clearTokens = async () => {
   try {
-    // Mobile: remove refreshToken and userData from SecureStore
+    // Mobile: remove all auth data from SecureStore
     await SecureStore.deleteItemAsync('refreshToken');
+    await SecureStore.deleteItemAsync('accessToken');
     await SecureStore.deleteItemAsync('userData');
     await SecureStore.deleteItemAsync(PENDING_REGISTRATION_KEY);
     await SecureStore.deleteItemAsync(PENDING_PASSWORD_RESET_KEY);
-    console.log('[authService] Refresh token and user data removed from SecureStore');
+    console.log('[authService] All auth data removed from SecureStore');
   } catch (error) {
     console.error('[authService] Error clearing tokens:', error);
     throw error;
