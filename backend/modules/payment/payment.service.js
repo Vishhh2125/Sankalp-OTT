@@ -20,8 +20,22 @@ import {
   getPaymentMethodString,
 } from './cashfree.service.js';
 import { getCashfreeCheckoutMode } from '../../config/cashfree.js';
+import {
+  generatePaystackReference,
+  initializePaystackTransaction,
+  mapPaystackTransactionStatus,
+  extractPaystackPaymentDetails,
+  verifyPaystackTransaction,
+} from './paystack.service.js';
+import { paystackConfig } from '../../config/paystack.js';
 
 const TERMINAL_STATUSES = new Set(['completed', 'failed', 'cancelled']);
+const SUPPORTED_GATEWAYS = new Set(['cashfree', 'paystack']);
+
+function normalizeGateway(gateway) {
+  const key = String(gateway || 'cashfree').toLowerCase();
+  return SUPPORTED_GATEWAYS.has(key) ? key : 'cashfree';
+}
 
 function lifetimeScopeCovers(membership, targetCategoryId) {
   const scopeCategoryId = membership.plan.category_id;
@@ -46,6 +60,113 @@ async function fetchActiveMembershipsForUser(userId, now) {
     },
     include: membershipPlanInclude,
   });
+}
+
+function makeCustomer(user) {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    phone: user.phone,
+  };
+}
+
+async function createCashfreeCheckout({
+  payment,
+  amount,
+  currency,
+  customer,
+  orderNote,
+  orderTags,
+  prefix,
+}) {
+  const cashfreeOrderId = generateCashfreeOrderId(prefix);
+  const cfOrder = await createCashfreeOrder({
+    orderId: cashfreeOrderId,
+    amount,
+    currency,
+    customer,
+    orderNote,
+    orderTags,
+    idempotencyKey: payment.id,
+  });
+
+  await prisma.paymentTransaction.update({
+    where: { id: payment.id },
+    data: {
+      cashfree_order_id: cfOrder.orderId || cashfreeOrderId,
+      gateway_ref: cfOrder.orderId || cashfreeOrderId,
+    },
+  });
+
+  return {
+    ok: true,
+    data: {
+      payment_id: payment.id,
+      order_id: cfOrder.orderId || cashfreeOrderId,
+      payment_session_id: cfOrder.paymentSessionId,
+      order_amount: amount,
+      order_currency: currency,
+      cashfree_mode: getCashfreeCheckoutMode(),
+      gateway: 'cashfree',
+    },
+  };
+}
+
+async function createPaystackCheckout({
+  payment,
+  amount,
+  customer,
+  orderNote,
+  orderTags,
+  prefix,
+}) {
+  const reference = generatePaystackReference(prefix);
+
+  await prisma.paymentTransaction.update({
+    where: { id: payment.id },
+    data: {
+      gateway: 'paystack',
+      gateway_ref: reference,
+    },
+  });
+
+  const checkout = await initializePaystackTransaction({
+    reference,
+    amount,
+    currency: paystackConfig.currency,
+    email: customer.email,
+    callbackUrl: paystackConfig.callbackUrl,
+    metadata: {
+      ...orderTags,
+      payment_id: payment.id,
+      customer_id: customer.id,
+      note: orderNote,
+    },
+  });
+
+  await prisma.paymentTransaction.update({
+    where: { id: payment.id },
+    data: {
+      gateway_ref: checkout.reference || reference,
+    },
+  });
+
+  return {
+    ok: true,
+    data: {
+      payment_id: payment.id,
+      order_id: checkout.reference || reference,
+      authorization_url: checkout.authorizationUrl,
+      access_code: checkout.accessCode,
+      paystack_public_key: paystackConfig.publicKey,
+      callback_url: paystackConfig.callbackUrl,
+      order_amount: amount,
+      order_currency: paystackConfig.currency,
+      customer_email: customer.email,
+      gateway: 'paystack',
+    },
+  };
 }
 
 /**
@@ -304,6 +425,8 @@ function formatPaymentHistoryRow(p) {
   return {
     id: p.id,
     order_type: p.type === 'membership' ? 'SUBSCRIPTION' : 'WALLET',
+    gateway: p.gateway,
+    gateway_ref: p.gateway_ref,
     plan_id: p.plan_id,
     topup_plan_id: p.topup_plan_id,
     wallet_coins: p.wallet_coins,
@@ -319,39 +442,46 @@ function formatPaymentHistoryRow(p) {
 
 export async function createSubscriptionOrder(user) {
   const planId = user.planId;
+  const gateway = normalizeGateway(user.gateway);
   const validation = await validateMembershipPurchase(user.id, planId);
   if (!validation.ok) {
     return validation;
   }
 
   const plan = validation.plan;
-  const cashfreeOrderId = generateCashfreeOrderId('sub');
 
   const payment = await prisma.paymentTransaction.create({
     data: {
       user_id: user.id,
       type: 'membership',
       amount: plan.price,
-      currency: plan.currency,
-      gateway: 'cashfree',
+      currency: gateway === 'paystack' ? paystackConfig.currency : plan.currency,
+      gateway,
       status: 'pending',
       plan_id: plan.id,
-      cashfree_order_id: cashfreeOrderId,
-      gateway_ref: cashfreeOrderId,
     },
   });
 
   try {
-    const cfOrder = await createCashfreeOrder({
-      orderId: cashfreeOrderId,
+    if (gateway === 'paystack') {
+      return await createPaystackCheckout({
+        payment,
+        amount: parseFloat(plan.price),
+        customer: makeCustomer(user),
+        orderNote: `Membership: ${plan.name}`,
+        orderTags: {
+          order_type: 'SUBSCRIPTION',
+          plan_id: plan.id,
+        },
+        prefix: 'sub',
+      });
+    }
+
+    const result = await createCashfreeCheckout({
+      payment,
       amount: parseFloat(plan.price),
       currency: plan.currency,
-      customer: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        phone: user.phone,
-      },
+      customer: makeCustomer(user),
       orderNote: `Membership: ${plan.name}`,
       orderTags: {
         order_type: 'SUBSCRIPTION',
@@ -359,26 +489,13 @@ export async function createSubscriptionOrder(user) {
         payment_id: payment.id,
         user_id: user.id,
       },
-      idempotencyKey: payment.id,
-    });
-
-    await prisma.paymentTransaction.update({
-      where: { id: payment.id },
-      data: {
-        cashfree_order_id: cfOrder.orderId || cashfreeOrderId,
-        gateway_ref: cfOrder.orderId || cashfreeOrderId,
-      },
+      prefix: 'sub',
     });
 
     return {
-      ok: true,
+      ...result,
       data: {
-        payment_id: payment.id,
-        order_id: cfOrder.orderId || cashfreeOrderId,
-        payment_session_id: cfOrder.paymentSessionId,
-        order_amount: parseFloat(plan.price),
-        order_currency: plan.currency,
-        cashfree_mode: getCashfreeCheckoutMode(),
+        ...result.data,
         plan: {
           id: plan.id,
           name: plan.name,
@@ -398,6 +515,7 @@ export async function createSubscriptionOrder(user) {
 
 export async function createWalletOrder(user) {
   const planId = user.packId;
+  const gateway = normalizeGateway(user.gateway);
 
   const topupPlan = await prisma.topUpPlan.findUnique({
     where: { id: planId },
@@ -407,34 +525,39 @@ export async function createWalletOrder(user) {
     return { ok: false, status: 400, message: 'Top-up plan not found or inactive' };
   }
 
-  const cashfreeOrderId = generateCashfreeOrderId('wal');
-
   const payment = await prisma.paymentTransaction.create({
     data: {
       user_id: user.id,
       type: 'topup',
       amount: topupPlan.price,
-      currency: topupPlan.currency,
-      gateway: 'cashfree',
+      currency: gateway === 'paystack' ? paystackConfig.currency : topupPlan.currency,
+      gateway,
       status: 'pending',
       topup_plan_id: topupPlan.id,
       wallet_coins: topupPlan.coins_amount,
-      cashfree_order_id: cashfreeOrderId,
-      gateway_ref: cashfreeOrderId,
     },
   });
 
   try {
-    const cfOrder = await createCashfreeOrder({
-      orderId: cashfreeOrderId,
+    if (gateway === 'paystack') {
+      return await createPaystackCheckout({
+        payment,
+        amount: parseFloat(topupPlan.price),
+        customer: makeCustomer(user),
+        orderNote: `Wallet top-up: ${topupPlan.name}`,
+        orderTags: {
+          order_type: 'WALLET',
+          topup_plan_id: topupPlan.id,
+        },
+        prefix: 'wal',
+      });
+    }
+
+    const result = await createCashfreeCheckout({
+      payment,
       amount: parseFloat(topupPlan.price),
       currency: topupPlan.currency,
-      customer: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        phone: user.phone,
-      },
+      customer: makeCustomer(user),
       orderNote: `Wallet top-up: ${topupPlan.name}`,
       orderTags: {
         order_type: 'WALLET',
@@ -442,26 +565,13 @@ export async function createWalletOrder(user) {
         payment_id: payment.id,
         user_id: user.id,
       },
-      idempotencyKey: payment.id,
-    });
-
-    await prisma.paymentTransaction.update({
-      where: { id: payment.id },
-      data: {
-        cashfree_order_id: cfOrder.orderId || cashfreeOrderId,
-        gateway_ref: cfOrder.orderId || cashfreeOrderId,
-      },
+      prefix: 'wal',
     });
 
     return {
-      ok: true,
+      ...result,
       data: {
-        payment_id: payment.id,
-        order_id: cfOrder.orderId || cashfreeOrderId,
-        payment_session_id: cfOrder.paymentSessionId,
-        order_amount: parseFloat(topupPlan.price),
-        order_currency: topupPlan.currency,
-        cashfree_mode: getCashfreeCheckoutMode(),
+        ...result.data,
         pack: {
           pack_id: topupPlan.id,
           name: topupPlan.name,
@@ -487,7 +597,7 @@ export async function verifyAndFulfillOrder(userId, orderId) {
   const payment = await prisma.paymentTransaction.findFirst({
     where: {
       user_id: userId,
-      cashfree_order_id: orderId,
+      OR: [{ cashfree_order_id: orderId }, { gateway_ref: orderId }],
     },
   });
 
@@ -500,29 +610,50 @@ export async function verifyAndFulfillOrder(userId, orderId) {
   }
 
   let orderData;
-  try {
-    orderData = await fetchCashfreeOrder(orderId);
-  } catch (err) {
-    logger.error('Cashfree order verification failed', { orderId, error: err.message });
-    return { ok: false, status: 502, message: 'Unable to verify payment with gateway' };
-  }
+  let mappedStatus = payment.status;
+  let paymentDetails = {
+    orderStatus: payment.status,
+    paymentId: payment.gateway_ref || payment.cashfree_payment_id || null,
+    paymentMethod: payment.payment_method || null,
+    paymentStatus: payment.status,
+  };
 
-  const mappedStatus = mapCashfreeOrderStatus(orderData?.order_status);
-  let paymentDetails = extractPaymentDetailsFromOrder(orderData);
-
-  if (!paymentDetails.paymentId && mappedStatus === 'completed') {
+  if (payment.gateway === 'paystack') {
     try {
-      const paymentsData = await fetchCashfreeOrderPayments(orderId);
-      const list = paymentsData || [];
-      const latest = Array.isArray(list) ? list[0] : null;
-      paymentDetails = {
-        orderStatus: orderData?.order_status,
-        paymentId: latest?.cf_payment_id || null,
-        paymentMethod: latest ? getPaymentMethodString(latest.payment_method, latest.payment_group) : null,
-        paymentStatus: latest?.payment_status || null,
-      };
-    } catch {
-      // non-fatal
+      orderData = await verifyPaystackTransaction(orderId);
+    } catch (err) {
+      logger.error('Paystack order verification failed', { orderId, error: err.message });
+      return { ok: false, status: 502, message: 'Unable to verify payment with gateway' };
+    }
+
+    const transaction = orderData?.data || {};
+    mappedStatus = mapPaystackTransactionStatus(transaction?.status);
+    paymentDetails = extractPaystackPaymentDetails(transaction);
+  } else {
+    try {
+      orderData = await fetchCashfreeOrder(orderId);
+    } catch (err) {
+      logger.error('Cashfree order verification failed', { orderId, error: err.message });
+      return { ok: false, status: 502, message: 'Unable to verify payment with gateway' };
+    }
+
+    mappedStatus = mapCashfreeOrderStatus(orderData?.order_status);
+    paymentDetails = extractPaymentDetailsFromOrder(orderData);
+
+    if (!paymentDetails.paymentId && mappedStatus === 'completed') {
+      try {
+        const paymentsData = await fetchCashfreeOrderPayments(orderId);
+        const list = paymentsData || [];
+        const latest = Array.isArray(list) ? list[0] : null;
+        paymentDetails = {
+          orderStatus: orderData?.order_status,
+          paymentId: latest?.cf_payment_id || null,
+          paymentMethod: latest ? getPaymentMethodString(latest.payment_method, latest.payment_group) : null,
+          paymentStatus: latest?.payment_status || null,
+        };
+      } catch {
+        // non-fatal
+      }
     }
   }
 
@@ -530,7 +661,10 @@ export async function verifyAndFulfillOrder(userId, orderId) {
     where: { id: payment.id },
     data: {
       status: mappedStatus,
-      cashfree_payment_id: paymentDetails.paymentId || payment.cashfree_payment_id,
+      cashfree_payment_id:
+        payment.gateway === 'cashfree'
+          ? paymentDetails.paymentId || payment.cashfree_payment_id
+          : payment.cashfree_payment_id,
       payment_method: paymentDetails.paymentMethod || payment.payment_method,
       webhook_payload: JSON.stringify(orderData),
     },
@@ -573,7 +707,7 @@ async function buildVerificationResponse(payment, userId) {
   const base = {
     order_type: payment.type === 'membership' ? 'SUBSCRIPTION' : 'WALLET',
     payment_status: payment.status,
-    order_id: payment.cashfree_order_id,
+    order_id: payment.gateway_ref || payment.cashfree_order_id,
     payment_id: payment.id,
   };
 

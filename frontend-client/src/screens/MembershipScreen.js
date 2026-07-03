@@ -30,6 +30,10 @@ import {
   launchCashfreeCheckout,
   CashfreeCheckoutModal,
 } from '../components/payment/cashfreeCheckout';
+import {
+  launchPaystackCheckout,
+  PaystackCheckoutModal,
+} from '../components/payment/paystackCheckout';
 import { theme } from '../constants/theme';
 import { ROUTES } from '../constants/routes';
 import { patchUserProfile } from '../redux/slices/authSlice';
@@ -43,6 +47,11 @@ const BENEFITS = [
 
 ];
 
+const PAYMENT_GATEWAYS = [
+  { id: 'cashfree', label: 'Cashfree' },
+  { id: 'paystack', label: 'Paystack' },
+];
+
 export default function MembershipScreen({ navigation }) {
   const route = useRoute();
   const dispatch = useDispatch();
@@ -54,6 +63,7 @@ export default function MembershipScreen({ navigation }) {
   const [plans, setPlans] = useState([]);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [activeCategoryTab, setActiveCategoryTab] = useState('__all__');
+  const [selectedGateway, setSelectedGateway] = useState('cashfree');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -199,12 +209,14 @@ export default function MembershipScreen({ navigation }) {
       return;
     }
     setPurchaseError(null);
+    setSelectedGateway('cashfree');
     setConfirmOpen(true);
   };
 
   const closeConfirm = () => {
     setConfirmOpen(false);
     setPurchaseError(null);
+    setSelectedGateway('cashfree');
   };
 
   const applyMembershipResult = async (data) => {
@@ -244,45 +256,91 @@ export default function MembershipScreen({ navigation }) {
     setPurchaseError(null);
     setPurchasing(true);
     try {
-      const orderData = await createSubscriptionPaymentOrder(selectedPlan);
-      if (!orderData?.payment_session_id || !orderData?.order_id) {
-        throw new Error('Invalid payment order response');
-      }
-
+      const orderData = await createSubscriptionPaymentOrder(selectedPlan, selectedGateway);
       setPendingOrderId(orderData.order_id);
       setConfirmOpen(false);
 
-      const checkout = await launchCashfreeCheckout({
-        paymentSessionId: orderData.payment_session_id,
-        orderId: orderData.order_id,
-        mode: orderData.cashfree_mode || 'sandbox',
-        onSuccess: async () => {
-          setCheckoutSession(null);
-          try {
-            await finalizePayment(orderData.order_id);
-          } catch (err) {
-            setPurchaseError(
-              err?.response?.data?.message || err?.message || 'Payment verification failed'
-            );
-            setConfirmOpen(true);
-          } finally {
-            setPurchasing(false);
-          }
-        },
-        onFailure: (err) => {
-          setPurchasing(false);
-          setCheckoutSession(null);
-          setPurchaseError(err?.message || 'Payment cancelled or failed');
-          setConfirmOpen(true);
-        },
-      });
+      if (selectedGateway === 'paystack') {
+        if (!orderData?.authorization_url || !orderData?.order_id) {
+          throw new Error('Invalid payment order response');
+        }
 
-      if (checkout.method === 'webview') {
-        setCheckoutSession({
-          paymentSessionId: orderData.payment_session_id,
-          mode: orderData.cashfree_mode || 'sandbox',
+        const checkout = await launchPaystackCheckout({
+          publicKey: orderData.paystack_public_key,
+          email: orderData.customer_email,
+          amount: orderData.order_amount,
+          currency: orderData.order_currency || 'NGN',
+          reference: orderData.order_id,
+          authorizationUrl: orderData.authorization_url,
+          callbackUrl: orderData.callback_url,
+          onSuccess: async () => {
+            setCheckoutSession(null);
+            try {
+              await finalizePayment(orderData.order_id);
+            } catch (err) {
+              setPurchaseError(
+                err?.response?.data?.message || err?.message || 'Payment verification failed'
+              );
+              setConfirmOpen(true);
+            } finally {
+              setPurchasing(false);
+            }
+          },
+          onFailure: (err) => {
+            setPurchasing(false);
+            setCheckoutSession(null);
+            setPurchaseError(err?.message || 'Payment cancelled or failed');
+            setConfirmOpen(true);
+          },
         });
-        setPurchasing(false);
+
+        if (checkout.method === 'webview') {
+          setCheckoutSession({
+            gateway: 'paystack',
+            authorizationUrl: orderData.authorization_url,
+            callbackUrl: orderData.callback_url,
+            reference: orderData.order_id,
+          });
+          setPurchasing(false);
+        }
+      } else {
+        if (!orderData?.payment_session_id || !orderData?.order_id) {
+          throw new Error('Invalid payment order response');
+        }
+
+        const checkout = await launchCashfreeCheckout({
+          paymentSessionId: orderData.payment_session_id,
+          orderId: orderData.order_id,
+          mode: orderData.cashfree_mode || 'sandbox',
+          onSuccess: async () => {
+            setCheckoutSession(null);
+            try {
+              await finalizePayment(orderData.order_id);
+            } catch (err) {
+              setPurchaseError(
+                err?.response?.data?.message || err?.message || 'Payment verification failed'
+              );
+              setConfirmOpen(true);
+            } finally {
+              setPurchasing(false);
+            }
+          },
+          onFailure: (err) => {
+            setPurchasing(false);
+            setCheckoutSession(null);
+            setPurchaseError(err?.message || 'Payment cancelled or failed');
+            setConfirmOpen(true);
+          },
+        });
+
+        if (checkout.method === 'webview') {
+          setCheckoutSession({
+            gateway: 'cashfree',
+            paymentSessionId: orderData.payment_session_id,
+            mode: orderData.cashfree_mode || 'sandbox',
+          });
+          setPurchasing(false);
+        }
       }
     } catch (err) {
       setPurchaseError(
@@ -494,7 +552,7 @@ export default function MembershipScreen({ navigation }) {
           <Text style={styles.joinBtnSub}>
             {isLifetimePlan(selectedPlanData)
               ? 'One-time payment'
-              : 'Secure payment via Cashfree'}
+              : 'Secure payment via Cashfree or Paystack'}
           </Text>
         </Pressable>
       </View>
@@ -536,6 +594,30 @@ export default function MembershipScreen({ navigation }) {
             {purchaseError && !blockMessage ? (
               <Text style={styles.purchaseError}>{purchaseError}</Text>
             ) : null}
+            <View style={styles.gatewayWrap}>
+              <Text style={styles.gatewayLabel}>Choose payment gateway</Text>
+              <View style={styles.gatewayRow}>
+                {PAYMENT_GATEWAYS.map((gateway) => (
+                  <Pressable
+                    key={gateway.id}
+                    style={[
+                      styles.gatewayChip,
+                      selectedGateway === gateway.id && styles.gatewayChipActive,
+                    ]}
+                    onPress={() => setSelectedGateway(gateway.id)}
+                  >
+                    <Text
+                      style={[
+                        styles.gatewayChipText,
+                        selectedGateway === gateway.id && styles.gatewayChipTextActive,
+                      ]}
+                    >
+                      {gateway.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
             <View style={styles.confirmActions}>
               <Pressable style={styles.btnSecondary} onPress={closeConfirm} disabled={purchasing}>
                 <Text style={styles.btnSecondaryText}>Cancel</Text>
@@ -557,9 +639,33 @@ export default function MembershipScreen({ navigation }) {
       </Modal>
 
       <CashfreeCheckoutModal
-        visible={!!checkoutSession}
+        visible={checkoutSession?.gateway === 'cashfree'}
         paymentSessionId={checkoutSession?.paymentSessionId}
         mode={checkoutSession?.mode}
+        onClose={async () => {
+          const orderId = pendingOrderId;
+          setCheckoutSession(null);
+          setPendingOrderId(null);
+          if (orderId) {
+            try {
+              const data = await verifyPaymentOrder(orderId);
+              if (data?.payment_status === 'completed') {
+                await applyMembershipResult(data);
+              }
+            } catch (err) {
+              // Fail silently if closed without payment completion
+            }
+          }
+        }}
+        onSuccess={onCheckoutModalSuccess}
+        onFailure={onCheckoutModalFailure}
+      />
+
+      <PaystackCheckoutModal
+        visible={checkoutSession?.gateway === 'paystack'}
+        authorizationUrl={checkoutSession?.authorizationUrl}
+        callbackUrl={checkoutSession?.callbackUrl}
+        reference={checkoutSession?.reference}
         onClose={async () => {
           const orderId = pendingOrderId;
           setCheckoutSession(null);
@@ -746,6 +852,39 @@ const styles = StyleSheet.create({
   confirmPlanPrice: { color: theme.gray, fontSize: 14, marginTop: 4 },
   confirmPlanHint: { color: theme.darkGray, fontSize: 12, marginTop: 6 },
   purchaseError: { color: '#ff6b6b', fontSize: 13, marginBottom: 12 },
+  gatewayWrap: {
+    marginBottom: 12,
+  },
+  gatewayLabel: {
+    color: theme.gray,
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  gatewayRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  gatewayChip: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.deepBlack,
+    alignItems: 'center',
+  },
+  gatewayChipActive: {
+    borderColor: theme.crimson,
+    backgroundColor: 'rgba(255,45,85,0.12)',
+  },
+  gatewayChipText: {
+    color: theme.gray,
+    fontWeight: '700',
+  },
+  gatewayChipTextActive: {
+    color: theme.white,
+  },
   confirmActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12 },
   btnSecondary: { paddingVertical: 12, paddingHorizontal: 16 },
   btnSecondaryText: { color: theme.gray, fontSize: 16, fontWeight: '600' },

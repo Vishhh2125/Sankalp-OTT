@@ -48,7 +48,9 @@ services:
     logging: *default-logging
 
   admin:
-    build: ./frontend-admin
+    build:
+      context: ./frontend-admin
+      dockerfile: Dockerfile
     container_name: ott-admin-v2
 
     deploy:
@@ -61,7 +63,9 @@ services:
     logging: *default-logging
 
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: ott-backend
 
     command:
@@ -134,7 +138,9 @@ services:
     logging: *default-logging
 
   worker:
-    build: ./backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: ott-worker
 
     command:
@@ -274,7 +280,9 @@ services:
     logging: *default-logging
 
   prisma-studio:
-    build: ./backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: ott-prisma-studio
 
     command: >

@@ -9,14 +9,52 @@ import {
   getWalletHistory,
 } from './payment.service.js';
 
+export const getPaystackCallbackHandler = asyncHandler(async (req, res) => {
+  const reference = req.query.reference || req.query.trxref || req.query.ref || '';
+  const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Payment Complete</title>
+  <style>
+    body { margin: 0; font-family: Arial, sans-serif; background: #0d0010; color: #fff; display: grid; place-items: center; min-height: 100vh; }
+    .card { max-width: 480px; padding: 24px; text-align: center; }
+    h1 { margin: 0 0 12px; font-size: 24px; }
+    p { margin: 0; color: rgba(255,255,255,0.8); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Payment returned successfully</h1>
+    <p>${reference ? `Reference: ${reference}` : 'You can close this page and return to the app.'}</p>
+  </div>
+  <script>
+    try {
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'success', reference: ${JSON.stringify(reference)} }));
+      }
+      if (window.opener) {
+        window.close();
+      }
+    } catch (e) {}
+  </script>
+</body>
+</html>`;
+
+  res.type('html').send(html);
+});
+
 export const createSubscriptionOrderHandler = asyncHandler(async (req, res) => {
   const planId = req.body.plan_id;
+  const gateway = req.body.gateway || 'cashfree';
 
   const result = await createSubscriptionOrder({
     id: req.user.id,
     email: req.user.email,
     name: req.user.name,
     planId,
+    gateway,
   });
 
   if (!result.ok) {
@@ -32,12 +70,14 @@ export const createSubscriptionOrderHandler = asyncHandler(async (req, res) => {
 
 export const createWalletOrderHandler = asyncHandler(async (req, res) => {
   const packId = req.body.pack_id;
+  const gateway = req.body.gateway || 'cashfree';
 
   const result = await createWalletOrder({
     id: req.user.id,
     email: req.user.email,
     name: req.user.name,
     packId,
+    gateway,
   });
 
   if (!result.ok) {

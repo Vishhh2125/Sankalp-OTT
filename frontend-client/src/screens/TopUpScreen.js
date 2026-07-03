@@ -26,10 +26,19 @@ import {
   launchCashfreeCheckout,
   CashfreeCheckoutModal,
 } from '../components/payment/cashfreeCheckout';
+import {
+  launchPaystackCheckout,
+  PaystackCheckoutModal,
+} from '../components/payment/paystackCheckout';
 import { ROUTES } from '../constants/routes';
 import { theme } from '../constants/theme';
 import { setCoins } from '../redux/slices/authSlice';
 import * as authService from '../services/authService';
+
+const PAYMENT_GATEWAYS = [
+  { id: 'cashfree', label: 'Cashfree' },
+  { id: 'paystack', label: 'Paystack' },
+];
 
 export default function TopUpScreen() {
   const navigation = useNavigation();
@@ -66,6 +75,7 @@ export default function TopUpScreen() {
   const [loadingPacks, setLoadingPacks] = useState(true);
   const [packsError, setPacksError] = useState(null);
   const [selectedPack, setSelectedPack] = useState(null);
+  const [selectedGateway, setSelectedGateway] = useState('cashfree');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
   const [purchaseError, setPurchaseError] = useState(null);
@@ -94,6 +104,7 @@ export default function TopUpScreen() {
 
   const onSelectPack = (pack) => {
     setSelectedPack(pack);
+    setSelectedGateway('cashfree');
     setPurchaseError(null);
     setConfirmOpen(true);
   };
@@ -101,6 +112,7 @@ export default function TopUpScreen() {
   const closeConfirm = () => {
     setConfirmOpen(false);
     setSelectedPack(null);
+    setSelectedGateway('cashfree');
     setPurchaseError(null);
   };
 
@@ -134,45 +146,95 @@ export default function TopUpScreen() {
     setPurchaseError(null);
     setPurchasing(true);
     try {
-      const orderData = await createWalletPaymentOrder(selectedPack.pack_id);
-      if (!orderData?.payment_session_id || !orderData?.order_id) {
-        throw new Error('Invalid payment order response');
-      }
+      const orderData = await createWalletPaymentOrder(
+        selectedPack.pack_id,
+        selectedGateway
+      );
 
       setPendingOrderId(orderData.order_id);
       setConfirmOpen(false);
 
-      const checkout = await launchCashfreeCheckout({
-        paymentSessionId: orderData.payment_session_id,
-        orderId: orderData.order_id,
-        mode: orderData.cashfree_mode || 'sandbox',
-        onSuccess: async () => {
-          setCheckoutSession(null);
-          try {
-            await finalizePayment(orderData.order_id);
-          } catch (err) {
-            setPurchaseError(
-              err?.response?.data?.message || err?.message || 'Payment verification failed'
-            );
-            setConfirmOpen(true);
-          } finally {
-            setPurchasing(false);
-          }
-        },
-        onFailure: (err) => {
-          setPurchasing(false);
-          setCheckoutSession(null);
-          setPurchaseError(err?.message || 'Payment cancelled or failed');
-          setConfirmOpen(true);
-        },
-      });
+      if (selectedGateway === 'paystack') {
+        if (!orderData?.authorization_url || !orderData?.order_id) {
+          throw new Error('Invalid payment order response');
+        }
 
-      if (checkout.method === 'webview') {
-        setCheckoutSession({
-          paymentSessionId: orderData.payment_session_id,
-          mode: orderData.cashfree_mode || 'sandbox',
+        const checkout = await launchPaystackCheckout({
+          publicKey: orderData.paystack_public_key,
+          email: orderData.customer_email,
+          amount: orderData.order_amount,
+          currency: orderData.order_currency || 'NGN',
+          reference: orderData.order_id,
+          authorizationUrl: orderData.authorization_url,
+          callbackUrl: orderData.callback_url,
+          onSuccess: async () => {
+            setCheckoutSession(null);
+            try {
+              await finalizePayment(orderData.order_id);
+            } catch (err) {
+              setPurchaseError(
+                err?.response?.data?.message || err?.message || 'Payment verification failed'
+              );
+              setConfirmOpen(true);
+            } finally {
+              setPurchasing(false);
+            }
+          },
+          onFailure: (err) => {
+            setPurchasing(false);
+            setCheckoutSession(null);
+            setPurchaseError(err?.message || 'Payment cancelled or failed');
+            setConfirmOpen(true);
+          },
         });
-        setPurchasing(false);
+
+        if (checkout.method === 'webview') {
+          setCheckoutSession({
+            gateway: 'paystack',
+            authorizationUrl: orderData.authorization_url,
+            callbackUrl: orderData.callback_url,
+            reference: orderData.order_id,
+          });
+          setPurchasing(false);
+        }
+      } else {
+        if (!orderData?.payment_session_id || !orderData?.order_id) {
+          throw new Error('Invalid payment order response');
+        }
+
+        const checkout = await launchCashfreeCheckout({
+          paymentSessionId: orderData.payment_session_id,
+          orderId: orderData.order_id,
+          mode: orderData.cashfree_mode || 'sandbox',
+          onSuccess: async () => {
+            setCheckoutSession(null);
+            try {
+              await finalizePayment(orderData.order_id);
+            } catch (err) {
+              setPurchaseError(
+                err?.response?.data?.message || err?.message || 'Payment verification failed'
+              );
+              setConfirmOpen(true);
+            } finally {
+              setPurchasing(false);
+            }
+          },
+          onFailure: (err) => {
+            setPurchasing(false);
+            setCheckoutSession(null);
+            setPurchaseError(err?.message || 'Payment cancelled or failed');
+            setConfirmOpen(true);
+          },
+        });
+
+        if (checkout.method === 'webview') {
+          setCheckoutSession({
+            gateway: 'cashfree',
+            paymentSessionId: orderData.payment_session_id,
+            mode: orderData.cashfree_mode || 'sandbox',
+          });
+          setPurchasing(false);
+        }
       }
     } catch (err) {
       setPurchaseError(
@@ -292,6 +354,30 @@ export default function TopUpScreen() {
             {purchaseError ? (
               <Text style={styles.errorText}>{purchaseError}</Text>
             ) : null}
+            <View style={styles.gatewayWrap}>
+              <Text style={styles.gatewayLabel}>Choose payment gateway</Text>
+              <View style={styles.gatewayRow}>
+                {PAYMENT_GATEWAYS.map((gateway) => (
+                  <TouchableOpacity
+                    key={gateway.id}
+                    style={[
+                      styles.gatewayChip,
+                      selectedGateway === gateway.id && styles.gatewayChipActive,
+                    ]}
+                    onPress={() => setSelectedGateway(gateway.id)}
+                  >
+                    <Text
+                      style={[
+                        styles.gatewayChipText,
+                        selectedGateway === gateway.id && styles.gatewayChipTextActive,
+                      ]}
+                    >
+                      {gateway.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
             <View style={styles.confirmActions}>
               <TouchableOpacity
                 style={styles.btnSecondary}
@@ -317,9 +403,33 @@ export default function TopUpScreen() {
       </Modal>
 
       <CashfreeCheckoutModal
-        visible={!!checkoutSession}
+        visible={checkoutSession?.gateway === 'cashfree'}
         paymentSessionId={checkoutSession?.paymentSessionId}
         mode={checkoutSession?.mode}
+        onClose={async () => {
+          const orderId = pendingOrderId;
+          setCheckoutSession(null);
+          setPendingOrderId(null);
+          if (orderId) {
+            try {
+              const data = await verifyPaymentOrder(orderId);
+              if (data?.payment_status === 'completed' && typeof data?.coins === 'number') {
+                await applyWalletResult(data.coins);
+              }
+            } catch (err) {
+              // Fail silently if closed without payment completion
+            }
+          }
+        }}
+        onSuccess={onCheckoutModalSuccess}
+        onFailure={onCheckoutModalFailure}
+      />
+
+      <PaystackCheckoutModal
+        visible={checkoutSession?.gateway === 'paystack'}
+        authorizationUrl={checkoutSession?.authorizationUrl}
+        callbackUrl={checkoutSession?.callbackUrl}
+        reference={checkoutSession?.reference}
         onClose={async () => {
           const orderId = pendingOrderId;
           setCheckoutSession(null);
@@ -401,6 +511,40 @@ const styles = StyleSheet.create({
   popularTagText: { color: '#fff', fontSize: 9, fontWeight: '800' },
   errorBox: { alignItems: 'center', marginTop: 24 },
   errorText: { color: '#ff6b6b', fontSize: 14, textAlign: 'center' },
+  gatewayWrap: {
+    marginTop: 16,
+    marginBottom: 6,
+  },
+  gatewayLabel: {
+    color: theme.gray,
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  gatewayRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  gatewayChip: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.deepBlack,
+    alignItems: 'center',
+  },
+  gatewayChipActive: {
+    borderColor: theme.crimson,
+    backgroundColor: 'rgba(255,45,85,0.12)',
+  },
+  gatewayChipText: {
+    color: theme.gray,
+    fontWeight: '700',
+  },
+  gatewayChipTextActive: {
+    color: theme.white,
+  },
   retryBtn: {
     marginTop: 12,
     paddingHorizontal: 20,

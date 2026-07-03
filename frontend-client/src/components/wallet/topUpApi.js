@@ -41,8 +41,11 @@ export async function fetchTopUpOptions(accessToken) {
   return res.data?.data?.packs ?? [];
 }
 
-export async function createWalletPaymentOrder(packId) {
-  const res = await api.post('/payments/create-wallet-order', { pack_id: packId });
+export async function createWalletPaymentOrder(packId, gateway = 'cashfree') {
+  const res = await api.post('/payments/create-wallet-order', {
+    pack_id: packId,
+    gateway,
+  });
   return res.data?.data;
 }
 

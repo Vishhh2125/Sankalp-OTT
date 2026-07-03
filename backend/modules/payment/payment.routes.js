@@ -13,6 +13,7 @@ import {
   getPaymentHistoryHandler,
   getCurrentSubscriptionHandler,
   getWalletHistoryHandler,
+  getPaystackCallbackHandler,
 } from './payment.controller.js';
 import { verifyCashfreeWebhook } from '../../middleware/verifyCashfreeWebhook.js';
 import { handleCashfreeWebhook } from './webhook.controller.js';
@@ -41,6 +42,8 @@ router.post(
 );
 
 router.get('/history', requireAuth, getPaymentHistoryHandler);
+
+router.get('/paystack/callback', getPaystackCallbackHandler);
 
 // Cashfree webhook — express.raw() preserves raw body needed for HMAC signature verification
 router.post(

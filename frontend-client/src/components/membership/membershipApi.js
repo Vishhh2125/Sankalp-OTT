@@ -5,8 +5,11 @@ export async function fetchMembershipPlans() {
   return res.data?.data ?? [];
 }
 
-export async function createSubscriptionPaymentOrder(planId) {
-  const res = await api.post('/payments/create-subscription-order', { plan_id: planId });
+export async function createSubscriptionPaymentOrder(planId, gateway = 'cashfree') {
+  const res = await api.post('/payments/create-subscription-order', {
+    plan_id: planId,
+    gateway,
+  });
   return res.data?.data;
 }
 
