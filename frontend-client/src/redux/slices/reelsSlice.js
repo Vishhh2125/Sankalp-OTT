@@ -34,7 +34,12 @@ export const fetchForYouFeed = createAsyncThunk(
         data: response.data,
       });
 
-      return { items: response.data.items || [], offset, refresh };
+      return {
+        items: response.data.items || [],
+        hasMore: response.data.has_more ?? response.data.hasMore,
+        offset,
+        refresh,
+      };
     } catch (err) {
       console.log('[reelsSlice] fetchForYouFeed error', {
         message: err.message,
@@ -130,7 +135,7 @@ const reelsSlice = createSlice({
         state.forYouError = null;
       })
       .addCase(fetchForYouFeed.fulfilled, (state, action) => {
-        const { items, offset, refresh } = action.payload;
+        const { items, hasMore, offset, refresh } = action.payload;
         if (refresh || offset === 0) {
           state.forYouItems = items;
         } else {
@@ -140,7 +145,7 @@ const reelsSlice = createSlice({
           state.forYouItems = [...state.forYouItems, ...newItems];
         }
         state.forYouOffset = offset + items.length;
-        state.forYouHasMore = items.length === PAGE_SIZE;
+        state.forYouHasMore = hasMore ?? items.length === PAGE_SIZE;
         state.forYouLoading = false;
       })
       .addCase(fetchForYouFeed.rejected, (state, action) => {
