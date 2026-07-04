@@ -14,33 +14,78 @@ const router = express.Router();
 // Uses allowGuest: logged-in users get personalized lock status, guests see locks on paid content
 router.get('/for-you', allowGuest, async (req, res, next) => {
   try {
-    const limit = parseInt(req.query.limit) || 20;
-    const offset = parseInt(req.query.offset) || 0;
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 50);
+    const offset = Math.max(parseInt(req.query.offset) || 0, 0);
     const userId = req.user?.id || null;
     const isGuest = req.isGuest || false;
 
-    const shows = await prisma.show.findMany({
-      where: { is_active: true },
-      orderBy: [
-        { feed_position: 'asc' },
-        { created_at: 'desc' },
+    const readyEpisodeOneWhere = {
+      episode_num: 1,
+      status: 'ready',
+      OR: [
+        { video_source: 'YOUTUBE', youtube_video_id: { not: null } },
+        { video_source: 'UPLOAD', hls_master_url: { not: null } },
       ],
-      skip: offset,
-      take: limit,
-      include: {
-        category: { select: { name: true } },
-        show_tags: { include: { tag: { select: { name: true } } } },
-        episodes: {
-          where: { episode_num: 1, status: 'ready' },
-          take: 1,
-        },
-      },
-    });
+    };
 
-    // Separate positioned (>0) first, then non-positioned (0)
-    const positioned = shows.filter(s => s.feed_position > 0).sort((a, b) => a.feed_position - b.feed_position);
-    const nonPositioned = shows.filter(s => s.feed_position === 0);
-    const ordered = [...positioned, ...nonPositioned];
+    const eligibleShowWhere = {
+      is_active: true,
+      episodes: {
+        some: readyEpisodeOneWhere,
+      },
+    };
+
+    const showInclude = {
+      category: { select: { name: true } },
+      show_tags: { include: { tag: { select: { name: true } } } },
+      _count: { select: { episodes: true } },
+      episodes: {
+        where: readyEpisodeOneWhere,
+        take: 1,
+      },
+    };
+
+    const positionedWhere = {
+      ...eligibleShowWhere,
+      feed_position: { gt: 0 },
+    };
+    const nonPositionedWhere = {
+      ...eligibleShowWhere,
+      feed_position: 0,
+    };
+
+    const [positionedTotal, nonPositionedTotal] = await Promise.all([
+      prisma.show.count({ where: positionedWhere }),
+      prisma.show.count({ where: nonPositionedWhere }),
+    ]);
+
+    const totalEligible = positionedTotal + nonPositionedTotal;
+    const positionedSkip = Math.min(offset, positionedTotal);
+    const positionedTake = Math.min(limit, Math.max(positionedTotal - positionedSkip, 0));
+    const nonPositionedSkip = Math.max(offset - positionedTotal, 0);
+    const nonPositionedTake = limit - positionedTake;
+
+    const [positionedShows, nonPositionedShows] = await Promise.all([
+      positionedTake > 0 ? prisma.show.findMany({
+        where: positionedWhere,
+        orderBy: [
+          { feed_position: 'asc' },
+          { created_at: 'desc' },
+        ],
+        skip: positionedSkip,
+        take: positionedTake,
+        include: showInclude,
+      }) : [],
+      nonPositionedTake > 0 ? prisma.show.findMany({
+        where: nonPositionedWhere,
+        orderBy: { created_at: 'desc' },
+        skip: nonPositionedSkip,
+        take: nonPositionedTake,
+        include: showInclude,
+      }) : [],
+    ]);
+
+    const ordered = [...positionedShows, ...nonPositionedShows];
 
     const items = [];
     for (const show of ordered) {
@@ -79,7 +124,7 @@ router.get('/for-you', allowGuest, async (req, res, next) => {
         tags: show.show_tags.map(st => st.tag.name),
         category: show.category.name,
         feed_position: show.feed_position,
-        total_episodes: await prisma.episode.count({ where: { show_id: show.id } }),
+        total_episodes: show._count?.episodes || 0,
 
         // Lock info for frontend
         is_free: ep1.is_free,
@@ -89,7 +134,13 @@ router.get('/for-you', allowGuest, async (req, res, next) => {
       });
     }
 
-    res.json({ items, offset, limit, total: items.length });
+    res.json({
+      items,
+      offset,
+      limit,
+      total: totalEligible,
+      has_more: offset + items.length < totalEligible,
+    });
   } catch (e) { next(e); }
 });
 
