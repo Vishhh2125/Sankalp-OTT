@@ -206,7 +206,7 @@ export default function ShortVideoReelItem({
     }
   };
   
-  useEffect(() => {
+  /*useEffect(() => {
     CaptureProtection.prevent({
       screenshot: true,
       record: true,
@@ -215,7 +215,7 @@ export default function ShortVideoReelItem({
     return () => {
       CaptureProtection.allow();
     };
-  }, []);
+  }, []);*/
 
   const isBeingRecorded = Platform.OS === 'ios' && status?.record === true;
 
@@ -252,10 +252,8 @@ export default function ShortVideoReelItem({
     episodeId: item.episode_id,
     accessToken,
   });
-  const shouldRenderVideo = Boolean((isActive || shouldPreload) && isFocused && !isLocked && (streamUrl || hasYouTubeVideo));
-  const videoIsVisible = isActive && shouldRenderVideo && firstFrameReady;
-  const showActiveBuffering = isActive && shouldRenderVideo && !firstFrameReady;
   const {
+    isLandscape,
     isLandscapeActive,
     enterLandscape,
     exitLandscape,
@@ -263,17 +261,26 @@ export default function ShortVideoReelItem({
     isActive: isActive && !isLocked && firstFrameReady,
     enabled: enableLandscapeMode,
   });
+  const shouldRenderVideo = Boolean(
+    (isActive || (shouldPreload && !isLandscape))
+      && isFocused
+      && !isLocked
+      && (streamUrl || hasYouTubeVideo)
+  );
+  const videoIsVisible = isActive && shouldRenderVideo && firstFrameReady;
+  const showActiveBuffering = isActive && shouldRenderVideo && !firstFrameReady;
   // For downloaded videos, we use 'contain' so horizontal (16:9) videos are letterboxed correctly
   // and not stretched to fill the vertical dimensions, copying the behavior of the normal players.
   // Regular short reels will continue to use 'cover'.
   const videoResizeMode = item.localVideoPath ? 'contain' : 'cover';
-  const showPortraitChrome = !isLandscapeActive;
+  const showPortraitChrome = !isLandscape;
   const showLandscapeToggle = enableLandscapeMode
     && showPortraitChrome
     && isActive
     && !isLocked
     && !isYouTube
     && firstFrameReady;
+
   const showMainOverlay = showOttOverlayControls || controlsVisible || manuallyPaused;
   const effectiveMuted = muted || volume <= 0;
   const youtubePortraitHeight = Math.min(windowWidth * (9 / 16), layoutHeight);
@@ -337,7 +344,7 @@ export default function ShortVideoReelItem({
     if (onFirstFrameReady) {
       onFirstFrameReady();
     }
-  }, [originalOnReadyForDisplay, onFirstFrameReady, item.episode_num]);
+  }, [originalOnReadyForDisplay, onFirstFrameReady]);
 
   const handleYouTubeReady = useCallback(() => {
     setFirstFrameReady(true);
@@ -360,6 +367,29 @@ export default function ShortVideoReelItem({
     setControlsVisible(true);
     onPlaybackEnd?.(item);
   }, [item, onPlaybackEnd]);
+
+  const handleVideoEnd = useCallback(() => {
+    if (!autoAdvanceOnEnd) {
+      if (repeatPlayback) {
+        setManualPaused(false);
+        setControlsVisible(true);
+        return;
+      }
+
+      seekTo(0);
+      setManualPaused(false);
+      setControlsVisible(true);
+      return;
+    }
+
+    handlePlaybackEnd();
+  }, [
+    autoAdvanceOnEnd,
+    handlePlaybackEnd,
+    repeatPlayback,
+    seekTo,
+    setManualPaused,
+  ]);
 
   const renderSeekControls = () => (
     <View style={styles.ottSeekRow}>
@@ -553,7 +583,7 @@ export default function ShortVideoReelItem({
                   onReady={handleYouTubeReady}
                   onChangeState={(state) => {
                     if (state === 'ended') {
-                      handlePlaybackEnd();
+                      handleVideoEnd();
                     }
                   }}
                   initialPlayerParams={{
@@ -586,7 +616,7 @@ export default function ShortVideoReelItem({
                 progressUpdateInterval={500}
                 onLoad={wrappedOnLoad}
                 onProgress={onProgress}
-                onEnd={handlePlaybackEnd}
+                onEnd={handleVideoEnd}
                 onReadyForDisplay={onReadyForDisplay}
                 onError={(e) => {
                   const msg = e?.error?.localizedDescription || e?.error?.code || 'Playback error';
@@ -654,7 +684,7 @@ export default function ShortVideoReelItem({
                   progressUpdateInterval={500}
                   onLoad={wrappedOnLoad}
                   onProgress={onProgress}
-                  onEnd={handlePlaybackEnd}
+                  onEnd={handleVideoEnd}
                   onReadyForDisplay={onReadyForDisplay}
                   onError={(e) => {
                     const msg = e?.error?.localizedDescription || e?.error?.code || 'Playback error';

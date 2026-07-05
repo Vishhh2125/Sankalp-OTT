@@ -74,6 +74,21 @@ export default function ForYouScreen() {
   const [dramaSheetKey, setDramaSheetKey] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(SCREEN_HEIGHT);
 
+  const resolveScrollIndex = useCallback((event, itemCount) => {
+    if (!itemCount) return 0;
+
+    const offsetY = event.nativeEvent.contentOffset?.y ?? 0;
+    const layoutHeight = event.nativeEvent.layoutMeasurement?.height || viewportHeight || 1;
+    const contentHeight = event.nativeEvent.contentSize?.height || layoutHeight * itemCount;
+    const lastIndex = itemCount - 1;
+
+    if (offsetY + layoutHeight >= contentHeight - 2) {
+      return lastIndex;
+    }
+
+    return Math.max(0, Math.min(Math.round(offsetY / layoutHeight), lastIndex));
+  }, [viewportHeight]);
+
   const onScreenLayout = useCallback((e) => {
     const { width, height } = e.nativeEvent.layout;
     // Only capture portrait height — keeps FlatList layout stable during landscape playback
@@ -114,13 +129,26 @@ export default function ForYouScreen() {
   );
 
   const onMomentumScrollEnd = useCallback((e) => {
-    const newIndex = Math.round(e.nativeEvent.contentOffset.y / viewportHeight);
+    const newIndex = resolveScrollIndex(e, items.length);
     setCurrentIndex(newIndex);
 
     if (hasMore && newIndex >= items.length - DEFAULT_PREFETCH_THRESHOLD) {
       dispatch(fetchForYouFeed({ offset }));
     }
-  }, [dispatch, hasMore, items.length, offset, viewportHeight]);
+  }, [dispatch, hasMore, items.length, offset, resolveScrollIndex]);
+
+  useEffect(() => {
+    if (!isLandscape || !items[currentIndex]) return undefined;
+
+    const timer = setTimeout(() => {
+      flatListRef.current?.scrollToIndex({
+        index: currentIndex,
+        animated: false,
+      });
+    }, 50);
+
+    return () => clearTimeout(timer);
+  }, [currentIndex, isLandscape, items]);
 
   const scrollToFeedIndex = useCallback((nextIndex, animated = true) => {
     if (!items[nextIndex]) return;
@@ -352,7 +380,9 @@ export default function ForYouScreen() {
         ref={flatListRef}
         data={items}
         keyExtractor={(item) => item.episode_id}
-        renderItem={({ item, index }) => (
+        renderItem={({ item, index }) => {
+          const isFinalFeedItem = !hasMore && index === items.length - 1;
+          return (
           <ShortVideoReelItem
             item={item}
             isActive={index === currentIndex}
@@ -369,9 +399,12 @@ export default function ForYouScreen() {
             showPlaybackSpeedControl
             showOttOverlayControls
             showViewsAction
+            repeatPlayback={isFinalFeedItem}
+            autoAdvanceOnEnd={!isFinalFeedItem}
             onPlaybackEnd={() => handlePlaybackEnd(index)}
           />
-        )}
+          );
+        }}
         pagingEnabled
         snapToInterval={viewportHeight}
         snapToAlignment="start"
@@ -381,7 +414,7 @@ export default function ForYouScreen() {
         showsVerticalScrollIndicator={false}
         scrollEnabled={!isLandscape}
         onMomentumScrollEnd={onMomentumScrollEnd}
-        removeClippedSubviews
+        removeClippedSubviews={!isLandscape}
         initialNumToRender={1}
         maxToRenderPerBatch={2}
         windowSize={3}

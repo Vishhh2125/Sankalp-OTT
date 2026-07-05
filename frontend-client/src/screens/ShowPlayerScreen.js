@@ -95,6 +95,21 @@ export default function ShowPlayerScreen({ navigation }) {
   const prevStartIndexRef = useRef(startIndex);
   const currentProgressSecRef = useRef(startProgressSec || 0);
 
+  const resolveScrollIndex = useCallback((event, itemCount) => {
+    if (!itemCount) return 0;
+
+    const offsetY = event.nativeEvent.contentOffset?.y ?? 0;
+    const layoutHeight = event.nativeEvent.layoutMeasurement?.height || itemHeight || 1;
+    const contentHeight = event.nativeEvent.contentSize?.height || layoutHeight * itemCount;
+    const lastIndex = itemCount - 1;
+
+    if (offsetY + layoutHeight >= contentHeight - 2) {
+      return lastIndex;
+    }
+
+    return Math.max(0, Math.min(Math.round(offsetY / layoutHeight), lastIndex));
+  }, [itemHeight]);
+
   // Track whether we've already done the initial seek for the starting episode
   const hasSeenRef = useRef(false);
 
@@ -139,7 +154,7 @@ export default function ShowPlayerScreen({ navigation }) {
 
     fetchedRangesRef.current.add(fromEp);
     dispatch(fetchShowPlayerPage({ showId, fromEp, limit: PLAYER_PAGE_SIZE }));
-  }, [showId, episodes, loading, startIndex, dispatch]);
+  }, [dispatch, episodes, loading, showId, startIndex]);
 
   // Scroll to starting episode
   useEffect(() => {
@@ -165,9 +180,22 @@ export default function ShowPlayerScreen({ navigation }) {
     }
   }, [episodes.length, startIndex, initialScrollDone]);
 
+  useEffect(() => {
+    if (!isLandscape || !episodes[currentIndex]) return undefined;
+
+    const timer = setTimeout(() => {
+      flatListRef.current?.scrollToIndex({
+        index: currentIndex,
+        animated: false,
+      });
+    }, 50);
+
+    return () => clearTimeout(timer);
+  }, [currentIndex, episodes, isLandscape]);
+
   const onMomentumScrollEnd = useCallback(
     (e) => {
-      const newIndex = Math.round(e.nativeEvent.contentOffset.y / itemHeight);
+      const newIndex = resolveScrollIndex(e, episodes.length);
       setCurrentIndex(newIndex);
 
       if (episodes[newIndex]) {
@@ -184,7 +212,7 @@ export default function ShowPlayerScreen({ navigation }) {
         }
       }
     },
-    [dispatch, hasMore, episodes, loading, loadedUpTo, showId, itemHeight, recordWatchHistory]
+    [dispatch, hasMore, episodes, loading, loadedUpTo, recordWatchHistory, resolveScrollIndex, showId]
   );
 
   const handleScrollToIndexFailed = useCallback((info) => {
@@ -349,6 +377,9 @@ export default function ShowPlayerScreen({ navigation }) {
         keyExtractor={(item) => item.episode_id}
         scrollEnabled={!isLandscape}
         renderItem={({ item, index }) => (
+          (() => {
+            const isFinalEpisode = !hasMore && index === episodes.length - 1;
+            return (
           <ShortVideoReelItem
             item={item}
             isActive={index === currentIndex && isFocused}
@@ -362,7 +393,8 @@ export default function ShowPlayerScreen({ navigation }) {
               fromHome ? { fromHome: true } : fromForYou ? { fromForYou: true } : null
             }
             showEpisodeStrip={dramaSheetSource === 'forYou'}
-            repeatPlayback={false}
+            repeatPlayback={isFinalEpisode}
+            autoAdvanceOnEnd={!isFinalEpisode}
             onPlaybackEnd={() => handlePlaybackEnd(index)}
             // Seek to saved progress on first render of the starting episode
             initialSeekSec={
@@ -386,6 +418,8 @@ export default function ShowPlayerScreen({ navigation }) {
             }
             showPlaybackSpeedControl
           />
+            );
+          })()
         )}
         pagingEnabled
         snapToInterval={itemHeight}
@@ -394,7 +428,7 @@ export default function ShowPlayerScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
         onMomentumScrollEnd={onMomentumScrollEnd}
         onScrollToIndexFailed={handleScrollToIndexFailed}
-        removeClippedSubviews
+        removeClippedSubviews={!isLandscape}
         initialNumToRender={1}
         maxToRenderPerBatch={2}
         windowSize={3}

@@ -66,6 +66,7 @@ export default function useLandscapePlayback({ isActive, enabled = true }) {
   }, [isLandscapeActive, exitLandscape]);
 
   return {
+    isLandscape,
     isLandscapeActive,
     enterLandscape,
     exitLandscape,
