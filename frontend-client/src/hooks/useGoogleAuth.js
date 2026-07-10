@@ -35,16 +35,20 @@ export function useGoogleAuth() {
   useEffect(() => {
     if (response?.type === 'success') {
       setGoogleError(null);
+      // Log the FULL response to see exactly what Google returned
+      console.log('[GoogleAuth] FULL response.params:', JSON.stringify(response.params));
+      console.log('[GoogleAuth] FULL response.authentication:', JSON.stringify(response.authentication));
       const idToken = response.params.id_token || response.authentication?.idToken;
-      console.log('[GoogleAuth] response type:', response.type);
       console.log('[GoogleAuth] id_token present:', !!idToken);
+      console.log('[GoogleAuth] id_token value (first 30 chars):', idToken ? idToken.substring(0, 30) : 'MISSING');
       if (!idToken) {
         setGoogleError('Google sign-in failed. No token received.');
         return;
       }
       dispatch(googleLogin({ idToken }));
     } else if (response?.type === 'error') {
-      console.log('[GoogleAuth] error:', response.error, response.params);
+      console.log('[GoogleAuth] error:', JSON.stringify(response.error));
+      console.log('[GoogleAuth] error params:', JSON.stringify(response.params));
       setGoogleError(
         response?.error?.message ||
         response?.params?.error_description ||
