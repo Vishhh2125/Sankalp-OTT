@@ -64,11 +64,15 @@ export default function BottomTabNavigator() {
         component={ForYouScreen}
         options={{ tabBarLabel: 'For You' }}
       />
+      {/* 
+        CLIENT REQUEST: Excluded live functionality as requested. 
+        DO NOT UNCOMMENT unless explicitly requested by the client.
       <Tab.Screen
         name={ROUTES.LIVE}
         component={LiveScreen}
         options={{ tabBarLabel: 'Live' }}
       />
+      */}
       <Tab.Screen
         name={ROUTES.MY_LIST}
         component={MyListScreen}

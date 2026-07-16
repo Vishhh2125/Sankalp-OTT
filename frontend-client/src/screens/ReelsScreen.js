@@ -14,6 +14,7 @@ import {
   Pressable,
   Keyboard,
   Modal,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons, FontAwesome6 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -340,8 +341,8 @@ export default function PopularScreen() {
     })
   ), [shows]);
 
-  const loadShows = useCallback(async () => {
-    setLoading(true);
+  const loadShows = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
     try {
       const params = new URLSearchParams();
       params.set('status', 'Published');
@@ -360,6 +361,47 @@ export default function PopularScreen() {
       setLoading(false);
     }
   }, [effectiveSearch]);
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const fetchCategories = async () => {
+        try {
+          const res = await fetch(`${API_BASE_URL}/api/content/categories`);
+          const data = await res.json();
+          const list = Array.isArray(data) ? data : [];
+          const activeCats = list
+            .filter((c) => c && c.is_active !== false)
+            .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+            .map((c) => ({ id: c.id, name: c.name }));
+          setTabs([{ id: null, name: 'All' }, ...activeCats]);
+        } catch (e) {
+          console.error("Category Refresh Error:", e);
+        }
+      };
+
+      const promises = [
+        loadShows(true),
+        fetchHeroBanners(10)
+          .then(setHeroBanners)
+          .catch(() => setHeroBanners([])),
+        fetchCategories(),
+      ];
+
+      if (accessToken) {
+        promises.push(dispatch(fetchBookmarks()));
+        promises.push(dispatch(fetchWatchHistory()));
+      }
+
+      await Promise.all(promises);
+    } catch (e) {
+      console.error('Refresh Error:', e);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadShows, accessToken, dispatch]);
 
   useEffect(() => {
     loadShows();
@@ -799,6 +841,9 @@ export default function PopularScreen() {
           contentContainerStyle={styles.listContent}
           columnWrapperStyle={styles.columnWrapper}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.crimson} />
+          }
           ListEmptyComponent={
             <View style={{ alignItems: 'center', marginTop: 40 }}>
               <Ionicons name={isOffline ? "cloud-offline-outline" : "search-outline"} size={48} color="#555" />
@@ -810,6 +855,9 @@ export default function PopularScreen() {
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.homeScrollContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.crimson} />
+          }
         >
           <HomeHeroSlider banners={heroBanners} onBannerPress={handleBannerPress} />
 

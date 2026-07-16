@@ -523,6 +523,9 @@ export default function MyListScreen() {
             Continue Watching {watchHistory.length > 0 ? `(${watchHistory.length})` : ''}
           </Text>
         </TouchableOpacity>
+        {/* 
+          CLIENT REQUEST: Excluded downloads functionality as requested. 
+          DO NOT UNCOMMENT unless explicitly requested by the client.
         <TouchableOpacity
           style={[styles.tab, activeTab === TAB_DOWNLOADS && styles.tabActive]}
           onPress={() => {
@@ -534,6 +537,7 @@ export default function MyListScreen() {
             Downloads {downloads.length > 0 ? `(${downloads.length})` : ''}
           </Text>
         </TouchableOpacity>
+        */}
       </View>
 
       {/* ── Content ── */}

@@ -968,6 +968,9 @@ export default function ShortVideoReelItem({
               label="Episodes"
               onPress={handleOpenEpisodesOrReturn}
             />
+            {/* 
+              CLIENT REQUEST: Excluded downloads functionality as requested. 
+              DO NOT UNCOMMENT unless explicitly requested by the client.
             {!isYouTube && (
               <SideAction
                 icon={
@@ -979,6 +982,7 @@ export default function ShortVideoReelItem({
                 onPress={handleDownloadPress}
               />
             )}
+            */}
             <SideAction icon="paper-plane-outline" label="Share" onPress={handleShare} />
             {showViewsAction ? (
               <SideAction
