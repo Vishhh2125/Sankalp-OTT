@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "7K",
-    "slug": "7k",
+    "slug": "7K",
     "scheme": "7k",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -65,6 +65,7 @@
           "captureType": "base"
         }
       ],
+      "./plugins/withAndroidStrategies",
       [
         "expo-build-properties",
         {
@@ -79,9 +80,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "5e913204-2640-4352-98c9-be8b11d58149"
+        "projectId": "7b621b6c-0a23-411c-bf10-5b72fba2f608"
       }
     },
-    "owner": "paras10"
+    "owner": "samyak_8505"
   }
 }

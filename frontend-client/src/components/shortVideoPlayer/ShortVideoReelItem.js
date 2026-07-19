@@ -206,7 +206,7 @@ export default function ShortVideoReelItem({
     }
   };
   
-  /*useEffect(() => {
+  useEffect(() => {
     CaptureProtection.prevent({
       screenshot: true,
       record: true,
@@ -215,7 +215,7 @@ export default function ShortVideoReelItem({
     return () => {
       CaptureProtection.allow();
     };
-  }, []);*/
+  }, []);
 
   const isBeingRecorded = Platform.OS === 'ios' && status?.record === true;
 
