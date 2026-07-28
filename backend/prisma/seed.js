@@ -115,7 +115,7 @@ async function seed() {
             name: plan.name,
             duration: plan.duration,
             price: new Prisma.Decimal(plan.price),
-            currency: 'INR',
+            currency: 'PHP',
           },
         });
       }
@@ -192,7 +192,7 @@ async function seed() {
           reason: 'wallet_topup_simulated',
           ref_id: 'pack_inr_10_30',
           title: 'Coin top-up',
-          description: '₹10 → 30 coins',
+          description: '₱10 → 30 coins',
           fiat_paise: 1000,
           status: 'completed',
           created_at: new Date(now - 5 * 24 * 60 * 60 * 1000),
@@ -215,7 +215,7 @@ async function seed() {
           reason: 'wallet_topup_simulated',
           ref_id: 'pack_inr_50_200',
           title: 'Coin top-up',
-          description: '₹50 → 200 coins',
+          description: '₱50 → 200 coins',
           fiat_paise: 5000,
           status: 'completed',
           created_at: new Date(now - 2 * 24 * 60 * 60 * 1000),

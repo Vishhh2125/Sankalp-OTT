@@ -43,7 +43,7 @@ function RevenueTooltip({ active, payload, label, period }) {
       {payload.map(p => (
         <div key={p.dataKey} style={{ color: p.color, display: 'flex', gap: 8, justifyContent: 'space-between' }}>
           <span>{p.name}</span>
-          <span style={{ fontFamily: 'var(--mono)' }}>₹{Number(p.value).toLocaleString('en-IN')}</span>
+          <span style={{ fontFamily: 'var(--mono)' }}>₱{Number(p.value).toLocaleString('en-PH')}</span>
         </div>
       ))}
     </div>
@@ -243,7 +243,7 @@ export default function Dashboard() {
                     tick={{ fontSize:10, fill:'var(--text3)' }}
                     axisLine={false}
                     tickLine={false}
-                    tickFormatter={v => v >= 1000 ? `₹${(v/1000).toFixed(0)}k` : `₹${v}`}
+                    tickFormatter={v => v >= 1000 ? `₱${(v/1000).toFixed(0)}k` : `₱${v}`}
                     width={45}
                   />
                   <Tooltip content={<RevenueTooltip period={period} />} />

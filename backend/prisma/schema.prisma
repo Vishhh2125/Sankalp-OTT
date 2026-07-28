@@ -133,7 +133,7 @@ model MembershipPlan {
   name        String   @db.VarChar(50)
   duration    String   @db.VarChar(20)
   price       Decimal  @db.Decimal(10, 2)
-  currency    String   @default("INR") @db.VarChar(10)
+  currency    String   @default("PHP") @db.VarChar(10)
   is_active   Boolean  @default(true)
   created_at  DateTime @default(now())
 
@@ -168,7 +168,7 @@ model PaymentTransaction {
   user_id             String   @db.Uuid
   type                String   @db.VarChar(20)
   amount              Decimal  @db.Decimal(10, 2)
-  currency            String   @default("INR") @db.VarChar(10)
+  currency            String   @default("PHP") @db.VarChar(10)
   gateway             String   @default("cashfree") @db.VarChar(30)
   gateway_ref         String?  @db.VarChar(255)
   status              String   @default("pending") @db.VarChar(20)
@@ -202,7 +202,7 @@ model TopUpPlan {
   name          String   @db.VarChar(100)
   price         Decimal  @db.Decimal(10, 2)
   coins_amount  Int
-  currency      String   @default("INR") @db.VarChar(10)
+  currency      String   @default("PHP") @db.VarChar(10)
   is_active     Boolean  @default(true)
   created_at    DateTime @default(now())
   updated_at    DateTime @updatedAt

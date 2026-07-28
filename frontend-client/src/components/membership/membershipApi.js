@@ -29,11 +29,11 @@ export async function simulateMembershipPurchase(planId) {
   return res.data?.data;
 }
 
-export function formatPlanPrice(price, currency = 'INR') {
+export function formatPlanPrice(price, currency = 'PHP') {
   const n = parseFloat(price);
-  if (currency === 'INR') return `₹${n.toFixed(2)}`;
-  if (currency === 'USD') return `$${n.toFixed(2)}`;
-  return String(price);
+  if (isNaN(n)) return String(price);
+  if (currency === 'PHP') return `₱${n.toFixed(2)}`;
+  return `₱${n.toFixed(2)}`;
 }
 
 export function getDurationLabel(duration) {

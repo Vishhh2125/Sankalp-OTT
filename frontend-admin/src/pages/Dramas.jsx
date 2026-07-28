@@ -949,7 +949,7 @@ export default function Dramas() {
                                 <div style={{ fontWeight: 500, fontSize: 13, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ep.title}</div>
                                 <div style={{ display: 'flex', gap: 12, fontSize: 11, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                   <span>{ep.duration || '—'}</span>
-                                  {ep.is_free ? <span style={{ color: 'var(--green)', flexShrink: 0 }}>Free</span> : <span style={{ color: 'var(--amber)', flexShrink: 0 }}>₹{ep.coin_cost}</span>}
+                                  {ep.is_free ? <span style={{ color: 'var(--green)', flexShrink: 0 }}>Free</span> : <span style={{ color: 'var(--amber)', flexShrink: 0 }}>{ep.coin_cost} coins</span>}
                                 </div>
                               </div>
 

@@ -73,7 +73,7 @@ async function cashfreeRequest(method, path, body = null) {
 export async function createCashfreeOrder({
   orderId,
   amount,
-  currency = 'INR',
+  currency = 'PHP',
   customer,
   orderNote,
   orderTags = {},

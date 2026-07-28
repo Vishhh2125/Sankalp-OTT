@@ -383,7 +383,7 @@ router.get('/wallet/top-up-options', requireAuth, async (req, res, next) => {
     
     const packs = plans.map((p) => ({
       pack_id: p.id, // Use plan ID as pack_id
-      label: `₹${parseFloat(p.price).toFixed(2)} → ${p.coins_amount} coins`,
+      label: `₱${parseFloat(p.price).toFixed(2)} → ${p.coins_amount} coins`,
       inr_paise: Math.round(parseFloat(p.price) * 100), // Convert to paise
       coins: p.coins_amount,
       name: p.name,
@@ -459,7 +459,7 @@ router.post('/wallet/simulate-purchase', requireAuth, async (req, res, next) => 
           ref_id: plan.id,
           payment_id: payment.id,
           title: 'Coin top-up',
-          description: `${plan.name} - ₹${parseFloat(plan.price).toFixed(2)} → ${coinsToAdd} coins`,
+          description: `${plan.name} - ₱${parseFloat(plan.price).toFixed(2)} → ${coinsToAdd} coins`,
           fiat_paise: parseFloat(plan.price),
           status: 'completed',
         },

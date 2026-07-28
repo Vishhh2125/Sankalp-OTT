@@ -89,7 +89,7 @@ export async function getTopUpPlanById(planId) {
  */
 export async function createTopUpPlan(data) {
   try {
-    const { name, price, coins_amount, currency = 'INR' } = data;
+    const { name, price, coins_amount, currency = 'PHP' } = data;
 
     // Validation
     if (!name || !price || !coins_amount) {

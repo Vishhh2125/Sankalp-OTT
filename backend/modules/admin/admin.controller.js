@@ -923,12 +923,12 @@ function formatNumber(num) {
 }
 
 /**
- * Format currency in Indian Rupees
+ * Format currency in Philippine Peso (PHP)
  */
 function formatCurrency(num) {
-  if (!num) return '₹0';
+  if (!num) return '₱0';
   const val = parseFloat(num);
-  return '₹' + val.toLocaleString('en-IN');
+  return '₱' + val.toLocaleString('en-PH');
 }
 
 /**

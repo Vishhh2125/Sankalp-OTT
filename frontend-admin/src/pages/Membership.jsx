@@ -8,7 +8,7 @@ import * as XLSX from 'xlsx'
 function PlanModal({ open, onClose, onSave, initial, loading }) {
   const isEdit = !!initial?.id
   const [categories, setCategories] = useState([])
-  const [form, setForm] = useState(initial || { name:'', price:'', currency:'INR', duration:'month', category_id:'', isActive:true })
+  const [form, setForm] = useState(initial || { name:'', price:'', currency:'PHP', duration:'month', category_id:'', isActive:true })
   const upd = (k,v) => setForm(p=>({...p,[k]:v}))
   const isLifetime = form.duration === 'lifetime'
 
@@ -27,13 +27,13 @@ function PlanModal({ open, onClose, onSave, initial, loading }) {
       setForm({
         name: initial.name || '',
         price: initial.price || '',
-        currency: initial.currency || 'INR',
+        currency: initial.currency || 'PHP',
         duration: initial.duration || 'month',
         category_id: initial.category_id || '',
         isActive: initial.isActive !== undefined ? initial.isActive : true,
       })
     } else if (open) {
-      setForm({ name:'', price:'', currency:'INR', duration:'month', category_id:'', isActive:true })
+      setForm({ name:'', price:'', currency:'PHP', duration:'month', category_id:'', isActive:true })
     }
   }, [initial, open])
 
@@ -62,7 +62,7 @@ function PlanModal({ open, onClose, onSave, initial, loading }) {
           <FormGroup label="Plan name *"><input className="input" placeholder="e.g. Monthly" value={form.name} onChange={e=>upd('name',e.target.value)} disabled={loading}/></FormGroup>
           <FormGroup label={isLifetime ? 'One-time price' : 'Price'}>
             <div style={{ display:'flex', gap:4 }}>
-              <select className="select" value={form.currency} onChange={e=>upd('currency',e.target.value)} style={{ width:60 }} disabled={loading}><option value="INR">₹</option><option value="USD">$</option></select>
+              <select className="select" value={form.currency} onChange={e=>upd('currency',e.target.value)} style={{ width:60 }} disabled={loading}><option value="PHP">₱</option></select>
               <input className="input" type="number" placeholder="149" value={form.price} onChange={e=>upd('price',+e.target.value)} disabled={loading}/>
             </div>
           </FormGroup>
@@ -185,7 +185,7 @@ export default function Membership() {
       'User': h.user,
       'Plan': h.plan,
       'Category': h.category_name || 'All Categories',
-      'Amount': `₹${Math.round(h.amount)}`,
+      'Amount': `₱${Math.round(h.amount)}`,
       'Start Date': h.startDate ? new Date(h.startDate).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' }) : new Date(h.date).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' }),
       'End Date': h.is_lifetime ? 'Lifetime' : (h.endDate ? new Date(h.endDate).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' }) : '—'),
       'Status': h.status === 'ACTIVE' ? 'Active' : 'Expired',
@@ -309,7 +309,7 @@ export default function Membership() {
       <div className="metrics-grid" style={{ gridTemplateColumns:'repeat(3,1fr)', marginBottom:16 }}>
         {[
           { label:'Total Subscribers', value:(stats?.totalSubscribers || 0).toLocaleString(), sub:'across all plans' },
-          { label:'Monthly Revenue', value:stats ? `₹${Math.round(stats.monthlyRevenue).toLocaleString()}` : '₹0', sub:'this month' },
+          { label:'Monthly Revenue', value:stats ? `₱${Math.round(stats.monthlyRevenue).toLocaleString()}` : '₱0', sub:'this month' },
           { label:'Active Plans', value:stats ? `${stats.activePlans}` : '0', sub:stats ? `of ${stats.totalPlans} plans` : 'of 0 plans' },
         ].map(m => (
           <div className="metric-card" key={m.label}>
@@ -361,7 +361,7 @@ export default function Membership() {
                       </div>
                       <div className="plan-name">{p.name} plan</div>
                       <div className="plan-price">
-                        {p.currency === 'INR' ? '₹' : '$'}{p.price}
+                        ₱{p.price}
                         <span>/{formatPlanPeriod(p)}</span>
                       </div>
                       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
@@ -425,7 +425,7 @@ export default function Membership() {
                           <td style={{ fontWeight:500 }}>{h.user}</td>
                           <td><span style={{ background:pc.bg, color:pc.color, padding:'2px 10px', borderRadius:99, fontSize:11, fontWeight:600, letterSpacing:'0.03em', display:'inline-block' }}>{h.plan}</span></td>
                           <td style={{ fontSize:12, color:'var(--text3)' }}>{h.category_name || 'All Categories'}</td>
-                          <td style={{ fontFamily:'var(--mono)' }}>₹{Math.round(h.amount).toLocaleString()}</td>
+                          <td style={{ fontFamily:'var(--mono)' }}>₱{Math.round(h.amount).toLocaleString()}</td>
                           <td style={{ color:'var(--text3)', fontSize:12 }}>{h.startDate ? new Date(h.startDate).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' }) : new Date(h.date).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' })}</td>
                           <td style={{ color:'var(--text3)', fontSize:12 }}>{h.is_lifetime ? 'Lifetime' : (h.endDate ? new Date(h.endDate).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' }) : '—')}</td>
                           <td><span className={`badge ${h.status==='ACTIVE'?'badge-green':'badge-red'}`}>{h.status === 'ACTIVE' ? 'Active' : 'Expired'}</span></td>

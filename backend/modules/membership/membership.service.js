@@ -118,7 +118,7 @@ export async function getPlanById(planId) {
  */
 export async function createPlan(data) {
   try {
-    const { name, duration, price, currency = 'INR', category_id = null } = data;
+    const { name, duration, price, currency = 'PHP', category_id = null } = data;
 
     if (!name || !duration || price === undefined || price === null || price === '') {
       throw new AppError('Missing required fields: name, duration, price', 400);
@@ -329,7 +329,7 @@ export async function getMembershipStats() {
       monthlyRevenue: parseFloat(monthlyRevenue),
       activePlans: activePlansCount,
       totalPlans: totalPlansCount,
-      currency: 'INR',
+      currency: 'PHP',
     };
   } catch (error) {
     throw error;

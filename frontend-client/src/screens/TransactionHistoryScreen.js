@@ -19,7 +19,7 @@ import { theme } from '../constants/theme';
 
 function formatInr(paise) {
   if (paise == null || Number.isNaN(paise)) return null;
-  return `₹${(paise / 100).toFixed(paise % 100 === 0 ? 0 : 2)}`;
+  return `₱${(paise / 100).toFixed(paise % 100 === 0 ? 0 : 2)}`;
 }
 
 function formatDateLabel(iso) {

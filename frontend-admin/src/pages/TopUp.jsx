@@ -6,7 +6,7 @@ import { topupApi } from '../services/api.js'
 
 function TopUpPlanModal({ open, onClose, onSave, initial, loading }) {
   const isEdit = !!initial?.id
-  const [form, setForm] = useState(initial || { name:'', price:'', coins_amount:'', currency:'INR', isActive:true })
+  const [form, setForm] = useState(initial || { name:'', price:'', coins_amount:'', currency:'PHP', isActive:true })
   const upd = (k,v) => setForm(p=>({...p,[k]:v}))
   
   useEffect(() => {
@@ -15,7 +15,7 @@ function TopUpPlanModal({ open, onClose, onSave, initial, loading }) {
         name: initial.name || '',
         price: initial.price || '',
         coins_amount: initial.coins_amount || '',
-        currency: initial.currency || 'INR',
+        currency: initial.currency || 'PHP',
         isActive: initial.isActive !== undefined ? initial.isActive : true,
       })
     }
@@ -32,7 +32,7 @@ function TopUpPlanModal({ open, onClose, onSave, initial, loading }) {
           <FormGroup label="Plan name *"><input className="input" placeholder="e.g. Starter Pack" value={form.name} onChange={e=>upd('name',e.target.value)} disabled={loading}/></FormGroup>
           <FormGroup label="Price *">
             <div style={{ display:'flex', gap:4 }}>
-              <select className="select" value={form.currency} onChange={e=>upd('currency',e.target.value)} style={{ width:60 }} disabled={loading}><option value="INR">₹</option><option value="USD">$</option></select>
+              <select className="select" value={form.currency} onChange={e=>upd('currency',e.target.value)} style={{ width:60 }} disabled={loading}><option value="PHP">₱</option></select>
               <input className="input" type="number" placeholder="99" value={form.price} onChange={e=>upd('price',+e.target.value)} disabled={loading}/>
             </div>
           </FormGroup>
@@ -214,7 +214,7 @@ export default function TopUp() {
                 plans.map(p => (
                   <tr key={p.id} style={{ borderBottom:'1px solid var(--border)', '&:hover': { background:'var(--bg2)' } }}>
                     <td style={{ padding:'12px 16px', fontSize:13, fontWeight:500 }}>{p.name}</td>
-                    <td style={{ padding:'12px 16px', fontSize:13, textAlign:'right', fontFamily:'var(--mono)' }}>₹{p.price.toFixed(2)}</td>
+                    <td style={{ padding:'12px 16px', fontSize:13, textAlign:'right', fontFamily:'var(--mono)' }}>₱{p.price.toFixed(2)}</td>
                     <td style={{ padding:'12px 16px', fontSize:13, textAlign:'right', fontFamily:'var(--mono)', color:'var(--accent)' }}>{p.coins_amount}</td>
                     <td style={{ padding:'12px 16px', textAlign:'center' }}>
                       <span className={`badge ${p.isActive?'badge-green':'badge-red'}`} style={{ fontSize:11 }}>
@@ -252,12 +252,12 @@ export default function TopUp() {
       {/* Confirm Delete Dialog */}
       {confirm && (
         <ConfirmDialog
+          open={!!confirm}
+          danger
           title="Delete Top-Up Plan"
           message={`Are you sure you want to delete "${confirm.name}"?`}
-          destructive
           onConfirm={() => deletePlan(confirm.id)}
           onCancel={() => setConfirm(null)}
-          confirmText="Delete"
         />
       )}
     </div>

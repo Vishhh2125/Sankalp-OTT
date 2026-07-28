@@ -14,7 +14,7 @@ export const NAV_CONFIG = [
       { id: 'categories', label: 'Categories & Tags',  badge: null },
       { id: 'banners',       label: 'Banners & Popups',   badge: null },
       { id: 'hero_banners',  label: 'Hero Section',       badge: null },
-      { id: 'live',          label: 'Live Streaming',     badge: null },
+      // { id: 'live',          label: 'Live Streaming',     badge: null }, // Out of scope for now
     ],
   },
   {

@@ -378,7 +378,7 @@ export async function fulfillWalletPayment(paymentRecord) {
         ref_id: topupPlan.id,
         payment_id: lockedPayment.id,
         title: 'Coin top-up',
-        description: `${topupPlan.name} - ₹${parseFloat(topupPlan.price).toFixed(2)} → ${coinsToAdd} coins`,
+        description: `${topupPlan.name} - ₱${parseFloat(topupPlan.price).toFixed(2)} → ${coinsToAdd} coins`,
         fiat_paise: Math.round(parseFloat(topupPlan.price) * 100),
         status: 'completed',
       },
