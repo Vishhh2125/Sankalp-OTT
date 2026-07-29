@@ -93,7 +93,7 @@ export default function DeleteAccountScreen({ navigation }) {
         <Text style={styles.warningText}>
           Deleting your account is permanent. All your personal profile information, watch history, bookmarks, and progress will be permanently erased.
         </Text>
-        {(isPaid || hasCoins) && (
+        {Boolean(isPaid || hasCoins) && (
           <View style={styles.forfeitureCard}>
             <Ionicons name="alert-circle" size={18} color="#FF9500" />
             <Text style={styles.forfeitureText}>
@@ -175,7 +175,7 @@ export default function DeleteAccountScreen({ navigation }) {
               Are you sure you want to delete your account? This action cannot be undone.
             </Text>
 
-            {(isPaid || hasCoins) && (
+            {Boolean(isPaid || hasCoins) && (
               <Text style={styles.modalWarningText}>
                 ⚠️ Your active membership or unused coin balance will be permanently forfeited.
               </Text>
