@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, Eye, Coins, Download, AlertCircle } from 'lucide-react'
+import { Search, Eye, Coins, Download, AlertCircle, Ban, Unlock } from 'lucide-react'
 import Modal, { ModalSection, FormGroup } from '../components/ui/Modal.jsx'
 import { ConfirmDialog } from '../components/ui/Controls.jsx'
 import { usersApi } from '../services/api.js'
@@ -251,6 +251,23 @@ export default function Users() {
     }
   }
 
+  const handleToggleBlock = async (user) => {
+    try {
+      const response = await usersApi.toggleStatus(user.id)
+      const isBlocked = response.data?.data?.isBlocked
+      setUsers(prev => prev.map(u => u.id === user.id ? {
+        ...u,
+        isBlocked,
+        status: isBlocked ? 'Blocked' : 'Active'
+      } : u))
+      setModal(null)
+      setSelected(null)
+    } catch (err) {
+      console.error('Failed to toggle block status:', err)
+      alert('Failed to update account status: ' + (err.response?.data?.message || err.message))
+    }
+  }
+
   const open = (m, u=null) => { setModal(m); setSelected(u) }
 
   const exportToExcel = () => {
@@ -365,12 +382,29 @@ export default function Users() {
                   <td style={{ fontSize:11, color:'var(--text3)' }}>{u.subscription}</td>
                   <td>{isAdmin ? <span style={{ color:'var(--text3)', fontSize:12 }}>—</span> : <span className="coin-pill">₵ {u.coins.toLocaleString()}</span>}</td>
                   <td style={{ color:'var(--text3)', fontSize:12 }}>{u.joined}</td>
-                  <td>{isAdmin ? <span style={{ color:'var(--text3)', fontSize:12 }}>—</span> : <span className={`badge ${u.status==='Active'?'badge-green':u.status==='Inactive'?'badge-red':'badge-gray'}`}>{u.status}</span>}</td>
+                  <td>
+                    {isAdmin ? <span style={{ color:'var(--text3)', fontSize:12 }}>—</span> : (
+                      <span className={`badge ${u.status==='Blocked' || u.isBlocked ? 'badge-red' : u.status==='Active' ? 'badge-green' : 'badge-amber'}`}>
+                        {u.status==='Blocked' || u.isBlocked ? 'Blocked' : u.status}
+                      </span>
+                    )}
+                  </td>
                   <td>
                     {isAdmin ? <span style={{ color:'var(--text3)', fontSize:12 }}>—</span> : (
                     <div style={{ display:'flex', gap:5 }}>
                       <button className="btn btn-ghost btn-sm" onClick={() => open('profile', u)}><Eye size={11}/> View</button>
                       <button className="btn btn-ghost btn-sm" onClick={() => open('coins', u)}><Coins size={11}/> Coins</button>
+                      {u.role === 'user' && (
+                        u.isBlocked || u.status === 'Blocked' ? (
+                          <button className="btn btn-ghost btn-sm" style={{ color: 'var(--green)' }} onClick={() => open('unblock', u)}>
+                            <Unlock size={11}/> Unblock
+                          </button>
+                        ) : (
+                          <button className="btn btn-ghost btn-sm" style={{ color: 'var(--red)' }} onClick={() => open('block', u)}>
+                            <Ban size={11}/> Block
+                          </button>
+                        )
+                      )}
                     </div>
                     )}
                   </td>
@@ -384,6 +418,26 @@ export default function Users() {
 
       <UserProfileModal open={modal==='profile'} onClose={() => setModal(null)} user={selected}/>
       <CoinsModal open={modal==='coins'} onClose={() => setModal(null)} user={selected} onUpdate={adjustCoins}/>
+      
+      <ConfirmDialog
+        open={modal==='block'}
+        title={`Block Account — ${selected?.name || ''}`}
+        message="Are you sure you want to block this account? The user will be signed out and will not be able to log in until unblocked."
+        danger={true}
+        confirmText="Block Account"
+        onConfirm={() => selected && handleToggleBlock(selected)}
+        onCancel={() => { setModal(null); setSelected(null); }}
+      />
+
+      <ConfirmDialog
+        open={modal==='unblock'}
+        title={`Unblock Account — ${selected?.name || ''}`}
+        message="Restore this user's access?"
+        danger={false}
+        confirmText="Unblock Account"
+        onConfirm={() => selected && handleToggleBlock(selected)}
+        onCancel={() => { setModal(null); setSelected(null); }}
+      />
         </>
       )}
     </div>

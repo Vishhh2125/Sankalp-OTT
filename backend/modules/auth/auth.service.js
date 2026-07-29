@@ -213,7 +213,7 @@ export const loginUser = async (userData) => {
 
     // Check if user is blocked
     if (user.isBlocked) {
-      throw new ApiError(403, 'Your account has been blocked');
+      throw new ApiError(403, 'Your account has been blocked by the admin. Please contact support.');
     }
 
     // Compare passwords
@@ -700,7 +700,7 @@ export const requestForgotPassword = async (email) => {
     }
 
     if (user.isBlocked) {
-      throw new ApiError(403, 'Your account has been blocked');
+      throw new ApiError(403, 'Your account has been blocked by the admin. Please contact support.');
     }
 
     const existingSession = await prisma.passwordResetSession.findUnique({
@@ -922,7 +922,7 @@ export const googleOAuthLogin = async (idToken) => {
     });
 
     if (user.isBlocked) {
-      throw new ApiError(403, 'Your account has been blocked');
+      throw new ApiError(403, 'Your account has been blocked by the admin. Please contact support.');
     }
 
     // 3. Generate your standard tokens

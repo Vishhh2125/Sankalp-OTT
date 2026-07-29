@@ -46,7 +46,7 @@ const baseAuth = async (req, allowGuest = false) => {
   });
 
   if (!user) throw new ApiError(401, 'User not found');
-  if (user.isBlocked) throw new ApiError(403, 'User blocked');
+  if (user.isBlocked) throw new ApiError(403, 'Your account has been blocked by the admin. Please contact support.');
 
   req.user = user;
   req.isGuest = false;
