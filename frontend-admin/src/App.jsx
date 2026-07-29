@@ -30,12 +30,14 @@ import Submissions   from './pages/Submissions.jsx'
 import Packages      from './pages/Packages.jsx'
 import StudentOnboarding from './pages/StudentOnboarding.jsx'
 import AssignCourses     from './pages/AssignCourses.jsx'
+import AccountDeletions  from './pages/AccountDeletions.jsx'
 
 const ROUTES = {
   dashboard:          Dashboard,
   users:              Users,
   student_onboarding: StudentOnboarding,
   assign_courses:     AssignCourses,
+  account_deletions:  AccountDeletions,
   dramas:             Dramas,
   categories:         Categories,
   banners:            Banners,

@@ -11,6 +11,7 @@ import { getAllActiveTopUpPlans } from '../topup/topup.service.js';
 import { recordView } from './view-count.service.js';
 import { getMyCoursesForUser } from './my-courses.service.js';
 import { evaluateCertificateCompletion } from '../certificate/certificate.service.js';
+import { deleteUserAccount, DELETION_REASONS } from './user-deletion.service.js';
 
 const router = express.Router();
 
@@ -676,5 +677,43 @@ router.post('/shows/:showId/view', requireAuth, async (req, res, next) => {
     return res.json(new ApiResponse(200, { counted: result.counted }, result.reason));
   } catch (e) { next(e); }
 });
+
+// ─────────────────────────────────────────────────────────────────
+// ACCOUNT DELETION
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/v1/user/delete-reasons
+ * Get list of valid account deletion reasons for UI dropdown.
+ */
+router.get('/delete-reasons', (req, res) => {
+  return res.json(new ApiResponse(200, { reasons: DELETION_REASONS }, 'Deletion reasons retrieved'));
+});
+
+/**
+ * DELETE /api/v1/user/account
+ * POST /api/v1/user/delete-account
+ * Self-service account deletion.
+ */
+const handleAccountDeletion = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { reason, feedback } = req.body;
+
+    const result = await deleteUserAccount(userId, reason, feedback);
+
+    res.clearCookie('refreshToken');
+
+    return res.status(200).json(new ApiResponse(200, result, 'Account deleted successfully.'));
+  } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json(new ApiResponse(error.statusCode, null, error.message));
+    }
+    next(error);
+  }
+};
+
+router.delete('/account', requireAuth, handleAccountDeletion);
+router.post('/delete-account', requireAuth, handleAccountDeletion);
 
 export default router;

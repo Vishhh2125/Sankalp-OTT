@@ -383,6 +383,12 @@ export default function ProfileScreen({ navigation }) {
           }
         />
         <MenuItem icon="log-out-outline" label="Log out" onPress={handleLogout} />
+        <MenuItem
+          icon="trash-outline"
+          label="Delete Account"
+          labelStyle={{ color: '#FF3B30', fontWeight: '600' }}
+          onPress={() => navigation.navigate(ROUTES.DELETE_ACCOUNT)}
+        />
         {logoutState.error ? (
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>Error: {logoutState.error}</Text>

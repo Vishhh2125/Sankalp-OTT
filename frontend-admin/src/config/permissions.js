@@ -18,6 +18,7 @@ export const ADMIN_SECTIONS = [
   'packages',
   'student_onboarding',
   'assign_courses',
+  'account_deletions',
 ]
 
 export const SECTION_LABELS = {
@@ -41,6 +42,7 @@ export const SECTION_LABELS = {
   packages: 'Packages',
   student_onboarding: 'Student Onboarding',
   assign_courses: 'Assign Courses',
+  account_deletions: 'Account Deletions',
 }
 
 /** Sub-admin assignable sections (roles management is main-admin only) */
@@ -61,7 +63,7 @@ export function canAccessPage(user, pageId) {
     if (user.is_profile_complete === false) return false
     return ['dashboard', 'dramas', 'live', 'submissions'].includes(pageId)
   }
-  return Array.isArray(user.sections) && user.sections.includes(pageId)
+  return Array.isArray(user.sections) && (user.sections.includes(pageId) || (pageId === 'account_deletions' && user.sections.includes('users')))
 }
 
 export function getFirstAllowedPage(user) {
@@ -107,7 +109,7 @@ export function filterNavByPermissions(navConfig, user) {
     .map((group) => ({
       ...group,
       items: group.items.filter(
-        (item) => item.id !== 'roles' && item.id !== 'profile' && user.sections?.includes(item.id)
+        (item) => item.id !== 'roles' && item.id !== 'profile' && (user.sections?.includes(item.id) || (item.id === 'account_deletions' && user.sections?.includes('users')))
       ),
     }))
     .filter((group) => group.items.length > 0)

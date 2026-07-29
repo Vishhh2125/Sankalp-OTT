@@ -8,6 +8,7 @@ import { displayedViewCount } from '../user/view-count.service.js';
 import { hashPassword } from '../auth/auth.service.js';
 import { sendTeacherCredentialsEmail, sendStudentCredentialsEmail } from '../../config/email.js';
 import crypto from 'crypto';
+import { fetchAccountDeletions, exportAccountDeletionsCSV } from './admin-deletions.service.js';
 
 // --- Teacher management & approvals ---
 export async function listTeachers(req, res, next) {
@@ -2419,6 +2420,33 @@ export async function revokeCourseFromStudent(req, res, next) {
     return res.status(200).json(
       new ApiResponse(200, { userId, showId }, 'Course access revoked successfully')
     );
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ──────────────────────────────────────
+// ACCOUNT DELETIONS (ADMIN)
+// ──────────────────────────────────────
+
+export async function getAccountDeletionsController(req, res, next) {
+  try {
+    const { page, limit, search, reason, startDate, endDate } = req.query;
+    const result = await fetchAccountDeletions({ page, limit, search, reason, startDate, endDate });
+    return res.json(new ApiResponse(200, result, 'Account deletion records retrieved successfully'));
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function exportAccountDeletionsController(req, res, next) {
+  try {
+    const { search, reason, startDate, endDate } = req.query;
+    const csvContent = await exportAccountDeletionsCSV({ search, reason, startDate, endDate });
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=account_deletions_${Date.now()}.csv`);
+    return res.status(200).send(csvContent);
   } catch (err) {
     next(err);
   }
