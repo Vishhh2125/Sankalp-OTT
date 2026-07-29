@@ -9,6 +9,7 @@ import TransactionHistoryScreen from '../screens/TransactionHistoryScreen';
 import EarnRewardsScreen from '../screens/EarnRewardsScreen';
 import MyDetailsScreen from '../screens/MyDetailsScreen';
 import CmsViewerScreen from '../screens/CmsViewerScreen';
+import DeleteAccountScreen from '../screens/DeleteAccountScreen';
 import { ROUTES } from '../constants/routes';
 import { useTheme } from '../context/ThemeContext';
 
@@ -68,6 +69,11 @@ export default function ProfileStackNavigator() {
         name={ROUTES.CMS_VIEWER}
         component={CmsViewerScreen}
         options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name={ROUTES.DELETE_ACCOUNT}
+        component={DeleteAccountScreen}
+        options={{ ...dynamicHeader, title: 'Delete Account' }}
       />
     </Stack.Navigator>
   );

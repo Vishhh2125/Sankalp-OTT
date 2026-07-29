@@ -23,4 +23,5 @@ export const ROUTES = {
   MY_DETAILS: 'MyDetails',
   CMS_VIEWER: 'CmsViewer',
   MY_CERTIFICATES: 'MyCertificates',
+  DELETE_ACCOUNT: 'DeleteAccount',
 };

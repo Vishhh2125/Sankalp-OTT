@@ -206,7 +206,7 @@ model UserMembership {
 
 model PaymentTransaction {
   id                  String   @id @default(uuid()) @db.Uuid
-  user_id             String   @db.Uuid
+  user_id             String?  @db.Uuid
   type                String   @db.VarChar(20)
   amount              Decimal  @db.Decimal(10, 2)
   currency            String   @default("INR") @db.VarChar(10)
@@ -224,7 +224,7 @@ model PaymentTransaction {
   created_at          DateTime @default(now())
   updated_at          DateTime @updatedAt
 
-  user        User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user        User?            @relation(fields: [user_id], references: [id], onDelete: SetNull)
   memberships UserMembership[]
   coin_topups CoinTransaction[]
 
@@ -638,6 +638,23 @@ model AdminActivityLog {
 }
 
 // ──────────────────────────────────────
+// ACCOUNT DELETION AUDIT TRAIL
+// ──────────────────────────────────────
+
+model AccountDeletionAudit {
+  id          String   @id @default(uuid()) @db.Uuid
+  original_id String?  @db.Uuid
+  user_name   String   @db.VarChar(100)
+  user_email  String   @db.VarChar(255)
+  reason      String   @db.VarChar(255)
+  feedback    String?  @db.Text
+  deleted_at  DateTime @default(now())
+
+  @@index([deleted_at(sort: Desc)], name: "idx_ada_deleted_at")
+  @@map("account_deletion_audits")
+}
+
+// ──────────────────────────────────────
 // SETTINGS (key-value for coin rules, app config)
 // ──────────────────────────────────────
 
@@ -854,14 +871,14 @@ model QuizAttempt {
 
 model Certificate {
   id               String   @id @default(uuid()) @db.Uuid
-  user_id          String   @db.Uuid
+  user_id          String?  @db.Uuid
   show_id          String   @db.Uuid
   certificate_code String   @unique @db.VarChar(50)
   issued_at        DateTime @default(now())
   snapshot_data    Json
   pdf_url          String?  @db.VarChar(500)
 
-  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [user_id], references: [id], onDelete: SetNull)
   show Show @relation(fields: [show_id], references: [id], onDelete: Cascade)
 
   @@unique([user_id, show_id], name: "idx_cert_user_show")

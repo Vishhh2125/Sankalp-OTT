@@ -9,6 +9,7 @@ export const NAV_CONFIG = [
       { id: 'users',              label: 'User Management',     badge: null },
       { id: 'student_onboarding', label: 'Student Onboarding', badge: null },
       { id: 'assign_courses',     label: 'Assign Courses',     badge: null },
+      { id: 'account_deletions',  label: 'Account Deletions',  badge: null },
     ],
   },
   {
@@ -67,4 +68,5 @@ export const PAGE_META = {
   submissions:   { title: 'Submissions',          subtitle: 'Grade student assignment submissions' },
   approvals:     { title: 'Approvals',             subtitle: 'Pending shows & lectures' },
   profile:       { title: 'Complete Profile',      subtitle: 'Complete your teacher profile' },
+  account_deletions: { title: 'Account Deletions', subtitle: 'Audit log of user-initiated account deletions' },
 }

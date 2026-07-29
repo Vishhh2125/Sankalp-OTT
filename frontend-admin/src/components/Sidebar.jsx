@@ -35,6 +35,12 @@ const NAV_ICONS = {
       <path d="M6 5h4M6 7.5h3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity=".8"/>
     </>
   ),
+  account_deletions: (
+    <>
+      <path d="M3 4h10M6 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4M5 4v10a1 1 0 001 1h4a1 1 0 001-1V4" stroke="currentColor" strokeWidth="1.3" fill="none" opacity=".9"/>
+      <path d="M7 7v5M9 7v5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity=".6"/>
+    </>
+  ),
   dramas: (
     <>
       <rect x="1" y="3" width="14" height="10" rx="1.5" fill="currentColor" opacity=".3"/>

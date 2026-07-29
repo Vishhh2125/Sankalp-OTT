@@ -39,6 +39,8 @@ import {
   listStudents,
   assignCoursesToStudent,
   revokeCourseFromStudent,
+  getAccountDeletionsController,
+  exportAccountDeletionsController,
 } from './admin.controller.js';
 import {
   getAdminMe,
@@ -71,6 +73,8 @@ router.get('/users', requireAuth, requireAdmin('users'), getAllUsers);
 router.get('/users/:userId/profile', requireAuth, requireAdmin('users'), getUserProfile);
 router.patch('/users/:userId/status', requireAuth, requireAdmin('users'), toggleUserStatus);
 router.patch('/users/:userId/coins', requireAuth, requireAdmin('users'), adjustUserCoins);
+router.get('/account-deletions', requireAuth, requireAdmin('users'), getAccountDeletionsController);
+router.get('/account-deletions/export', requireAuth, requireAdmin('users'), exportAccountDeletionsController);
 
 // ── Coins ──
 router.get('/coins/rules', requireAuth, requireAdmin('coins'), getCoinRules);

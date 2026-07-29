@@ -450,3 +450,17 @@ export const cmsApi = {
   updateStatus: (id, status) => api.patch(`/v1/admin/cms/${id}/status`, { status }),
   delete: (id) => api.delete(`/v1/admin/cms/${id}`),
 };
+
+// ── Account Deletions API ──
+export const accountDeletionsApi = {
+  list: (params) => api.get('/v1/admin/account-deletions', { params }),
+  exportCSVUrl: (params) => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, val]) => {
+        if (val) searchParams.append(key, val);
+      });
+    }
+    return `/api/v1/admin/account-deletions/export?${searchParams.toString()}`;
+  },
+};

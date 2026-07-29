@@ -404,6 +404,29 @@ export const logoutUser = createAsyncThunk(
   }
 );
 
+/**
+ * Delete user account permanently
+ */
+export const deleteAccountUser = createAsyncThunk(
+  'auth/deleteAccountUser',
+  async ({ reason, feedback }, { rejectWithValue }) => {
+    try {
+      const response = await api.delete('/user/account', {
+        data: { reason, feedback },
+      });
+      await authService.clearTokens();
+      return response.data?.message || 'Account deleted successfully.';
+    } catch (err) {
+      const message =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        'Failed to delete account';
+      return rejectWithValue(message);
+    }
+  }
+);
+
 const authSlice = createSlice({
   name: 'auth',
   initialState,
@@ -735,6 +758,26 @@ const authSlice = createSlice({
         state.logout.error = action.payload || 'Logout failed';
         state.logout.status = 'failed';
         state.logout.isLoading = false;
+      })
+      // DELETE ACCOUNT FLOW
+      .addCase(deleteAccountUser.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(deleteAccountUser.fulfilled, (state) => {
+        state.userId = null;
+        state.name = null;
+        state.email = null;
+        state.role = null;
+        state.plan = null;
+        state.coins = null;
+        state.accessToken = null;
+        state.isLoading = false;
+        state.status = 'idle';
+      })
+      .addCase(deleteAccountUser.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload || 'Failed to delete account';
       });
   },
 });
