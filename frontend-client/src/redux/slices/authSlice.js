@@ -411,7 +411,7 @@ export const deleteAccountUser = createAsyncThunk(
   'auth/deleteAccountUser',
   async ({ reason, feedback }, { rejectWithValue }) => {
     try {
-      const response = await api.delete('/v1/user/account', {
+      const response = await api.delete('/user/account', {
         data: { reason, feedback },
       });
       await authService.clearTokens();
