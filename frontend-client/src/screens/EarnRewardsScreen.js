@@ -24,6 +24,7 @@ import { theme } from '../constants/theme';
 import { ROUTES } from '../constants/routes';
 import { setCoins } from '../redux/slices/authSlice';
 import * as authService from '../services/authService';
+import { customAlert } from '../context/CustomAlertContext';
 
 function dayState(day, streakDay, claimedToday) {
   if (streakDay == null) {
@@ -157,13 +158,13 @@ export default function EarnRewardsScreen({ navigation }) {
       const data = await claimDailyCheckin(accessToken);
       dispatch(setCoins(data.coins));
       await authService.patchUserDataInStore({ coins: data.coins });
-      Alert.alert(
+      customAlert(
         'Reward claimed',
         `You received ${data.coins_awarded} coins for Day ${data.streak_day}!`
       );
       await loadStatus(true);
     } catch (err) {
-      Alert.alert('Check-in failed', walletApiErrorMessage(err, 'Could not claim reward'));
+      customAlert('Check-in failed', walletApiErrorMessage(err, 'Could not claim reward'));
     } finally {
       setClaiming(false);
     }

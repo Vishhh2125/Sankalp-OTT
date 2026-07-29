@@ -26,6 +26,7 @@ import CoinIcon from '../components/CoinIcon';
 import { ROUTES } from '../constants/routes';
 import { setCoins } from '../redux/slices/authSlice';
 import * as authService from '../services/authService';
+import { customAlert } from '../context/CustomAlertContext';
 
 const WalletScreen = () => {
   const navigation = useNavigation();
@@ -84,8 +85,7 @@ const WalletScreen = () => {
   }, [accessToken]);
 
   const openTopUpList = () => {
-    setListOpen(true);
-    loadTopUpOptions();
+    navigation.navigate(ROUTES.TOP_UP);
   };
 
   const closeList = () => {
@@ -129,7 +129,7 @@ const WalletScreen = () => {
       setListOpen(false);
       setSelectedPack(null);
 
-      Alert.alert('Success', 'Coins have been added to your wallet.');
+      customAlert('Success', 'Coins have been added to your wallet.');
       loadRecentTransactions();
     } catch (err) {
       const msg =

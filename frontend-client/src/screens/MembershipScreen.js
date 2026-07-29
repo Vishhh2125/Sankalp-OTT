@@ -38,6 +38,7 @@ import { theme } from '../constants/theme';
 import { ROUTES } from '../constants/routes';
 import { patchUserProfile } from '../redux/slices/authSlice';
 import * as authService from '../services/authService';
+import { customAlert } from '../context/CustomAlertContext';
 
 const BENEFITS = [
 
@@ -47,9 +48,15 @@ const BENEFITS = [
 
 ];
 
+// Commented out Cashfree & Paystack for future use
+/*
 const PAYMENT_GATEWAYS = [
   { id: 'cashfree', label: 'Cashfree' },
   { id: 'paystack', label: 'Paystack' },
+];
+*/
+const PAYMENT_GATEWAYS = [
+  { id: 'nationlink', label: 'Nationlink' },
 ];
 
 export default function MembershipScreen({ navigation }) {
@@ -63,7 +70,7 @@ export default function MembershipScreen({ navigation }) {
   const [plans, setPlans] = useState([]);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [activeCategoryTab, setActiveCategoryTab] = useState('__all__');
-  const [selectedGateway, setSelectedGateway] = useState('cashfree');
+  const [selectedGateway, setSelectedGateway] = useState('nationlink');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -209,14 +216,14 @@ export default function MembershipScreen({ navigation }) {
       return;
     }
     setPurchaseError(null);
-    setSelectedGateway('cashfree');
+    setSelectedGateway('nationlink');
     setConfirmOpen(true);
   };
 
   const closeConfirm = () => {
     setConfirmOpen(false);
     setPurchaseError(null);
-    setSelectedGateway('cashfree');
+    setSelectedGateway('nationlink');
   };
 
   const applyMembershipResult = async (data) => {
@@ -234,7 +241,7 @@ export default function MembershipScreen({ navigation }) {
       ? purchased.category_name
       : getPlanUnlockScopeLabel(selectedPlanData);
     setTimeout(() => {
-      Alert.alert(
+      customAlert(
         'Membership active',
         purchased?.end_date
           ? `${scope} dramas are unlocked until ${formatMembershipEnd(purchased.end_date)}.`
@@ -254,6 +261,16 @@ export default function MembershipScreen({ navigation }) {
   const onConfirmPurchase = async () => {
     if (!selectedPlan) return;
     setPurchaseError(null);
+
+    if (selectedGateway === 'nationlink') {
+      setConfirmOpen(false);
+      customAlert(
+        'Under development',
+        'Nationlink payment gateway is currently under development. Coming soon.'
+      );
+      return;
+    }
+
     setPurchasing(true);
     try {
       const orderData = await createSubscriptionPaymentOrder(selectedPlan, selectedGateway);
@@ -565,10 +582,18 @@ export default function MembershipScreen({ navigation }) {
       >
         <View style={styles.confirmBackdrop}>
           <View style={styles.confirmCard}>
-            <Text style={styles.confirmTitle}>Confirm purchase</Text>
+            <View style={styles.confirmHeader}>
+              <Text style={styles.confirmTitle}>Confirm purchase</Text>
+              <Pressable onPress={closeConfirm} hitSlop={12} style={styles.closeBtn}>
+                <Ionicons name="close" size={20} color={theme.gray} />
+              </Pressable>
+            </View>
+
             {selectedPlanData ? (
               <View style={styles.confirmPlanBox}>
-                <Ionicons name="star" size={22} color="#FFD700" />
+                <View style={styles.planStarBadge}>
+                  <Ionicons name="star" size={22} color="#FFD700" />
+                </View>
                 <View style={{ marginLeft: 12, flex: 1 }}>
                   <Text style={styles.confirmPlanName}>
                     {selectedPlanData.name} Membership
@@ -596,24 +621,32 @@ export default function MembershipScreen({ navigation }) {
             ) : null}
             <View style={styles.gatewayWrap}>
               <Text style={styles.gatewayLabel}>Choose payment gateway</Text>
-              <View style={styles.gatewayRow}>
+              <View style={styles.gatewayList}>
                 {PAYMENT_GATEWAYS.map((gateway) => (
                   <Pressable
                     key={gateway.id}
                     style={[
-                      styles.gatewayChip,
-                      selectedGateway === gateway.id && styles.gatewayChipActive,
+                      styles.gatewayCard,
+                      selectedGateway === gateway.id && styles.gatewayCardActive,
                     ]}
                     onPress={() => setSelectedGateway(gateway.id)}
                   >
-                    <Text
-                      style={[
-                        styles.gatewayChipText,
-                        selectedGateway === gateway.id && styles.gatewayChipTextActive,
-                      ]}
-                    >
-                      {gateway.label}
-                    </Text>
+                    <View style={styles.gatewayCardLeft}>
+                      <Ionicons name="card-outline" size={20} color={theme.crimson} />
+                      <Text
+                        style={[
+                          styles.gatewayCardText,
+                          selectedGateway === gateway.id && styles.gatewayCardTextActive,
+                        ]}
+                      >
+                        {gateway.label}
+                      </Text>
+                    </View>
+                    {selectedGateway === gateway.id ? (
+                      <Ionicons name="checkmark-circle" size={22} color={theme.crimson} />
+                    ) : (
+                      <View style={styles.gatewayRadioEmpty} />
+                    )}
                   </Pressable>
                 ))}
               </View>
@@ -828,75 +861,128 @@ const styles = StyleSheet.create({
   retryBtnText: { color: theme.white, fontWeight: '600' },
   confirmBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.72)',
+    backgroundColor: 'rgba(0,0,0,0.78)',
     justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
   },
   confirmCard: {
-    backgroundColor: theme.surface,
-    borderRadius: 20,
-    padding: 22,
+    backgroundColor: '#16131c',
+    borderRadius: 24,
+    padding: 20,
     borderWidth: 1,
-    borderColor: theme.border,
+    borderColor: 'rgba(255,255,255,0.08)',
+    elevation: 12,
   },
-  confirmTitle: { color: theme.white, fontSize: 20, fontWeight: '700', marginBottom: 16 },
+  confirmHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  confirmTitle: { color: theme.white, fontSize: 20, fontWeight: '700' },
+  closeBtn: {
+    padding: 6,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
   confirmPlanBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.deepBlack,
+    backgroundColor: '#0d0b12',
     padding: 14,
-    borderRadius: 12,
-    marginBottom: 16,
+    borderRadius: 16,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  planStarBadge: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(255,215,0,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   confirmPlanName: { color: theme.white, fontSize: 16, fontWeight: '700' },
-  confirmPlanPrice: { color: theme.gray, fontSize: 14, marginTop: 4 },
-  confirmPlanHint: { color: theme.darkGray, fontSize: 12, marginTop: 6 },
+  confirmPlanPrice: { color: theme.gray, fontSize: 13, marginTop: 3 },
+  confirmPlanHint: { color: theme.darkGray, fontSize: 12, marginTop: 4 },
   purchaseError: { color: '#ff6b6b', fontSize: 13, marginBottom: 12 },
   gatewayWrap: {
-    marginBottom: 12,
+    marginTop: 4,
+    marginBottom: 20,
   },
   gatewayLabel: {
     color: theme.gray,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
-    marginBottom: 8,
+    marginBottom: 10,
   },
-  gatewayRow: {
-    flexDirection: 'row',
+  gatewayList: {
     gap: 10,
   },
-  gatewayChip: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: theme.border,
-    backgroundColor: theme.deepBlack,
+  gatewayCard: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    height: 52,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: theme.border,
+    backgroundColor: '#0d0b12',
   },
-  gatewayChipActive: {
+  gatewayCardActive: {
     borderColor: theme.crimson,
-    backgroundColor: 'rgba(255,45,85,0.12)',
+    backgroundColor: 'rgba(255,45,85,0.08)',
   },
-  gatewayChipText: {
+  gatewayCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  gatewayCardText: {
     color: theme.gray,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  gatewayCardTextActive: {
+    color: theme.white,
     fontWeight: '700',
   },
-  gatewayChipTextActive: {
-    color: theme.white,
+  gatewayRadioEmpty: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: theme.border,
   },
-  confirmActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12 },
-  btnSecondary: { paddingVertical: 12, paddingHorizontal: 16 },
-  btnSecondaryText: { color: theme.gray, fontSize: 16, fontWeight: '600' },
+  confirmActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 6,
+  },
+  btnSecondary: {
+    flex: 1,
+    height: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnSecondaryText: { color: theme.white, fontSize: 15, fontWeight: '600' },
   planDetail: { color: theme.gray, fontSize: 11, marginTop: 4, lineHeight: 16 },
   btnPrimaryDisabled: { opacity: 0.45 },
   btnPrimary: {
+    flex: 1,
+    height: 48,
     backgroundColor: theme.crimson,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    minWidth: 110,
+    borderRadius: 14,
     alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
   },
   btnPrimaryText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });

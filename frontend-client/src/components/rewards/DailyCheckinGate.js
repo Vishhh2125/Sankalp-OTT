@@ -15,6 +15,7 @@ import {
 } from './dailyCheckinStorage';
 import { setCoins } from '../../redux/slices/authSlice';
 import * as authService from '../../services/authService';
+import { customAlert } from '../../context/CustomAlertContext';
 
 /**
  * Shows daily check-in popup on first app open of the day (logged-in users only).
@@ -95,12 +96,13 @@ export default function DailyCheckinGate({ children }) {
       await clearCheckinPopupDismissed();
       setVisible(false);
       setStatus((s) => (s ? { ...s, claimed_today: true, coins: data.coins } : s));
-      Alert.alert(
+
+      customAlert(
         'Reward claimed',
         `You received ${data.coins_awarded} coins for Day ${data.streak_day}!`
       );
     } catch (err) {
-      Alert.alert(
+      customAlert(
         'Check-in failed',
         walletApiErrorMessage(err, 'Could not claim reward')
       );

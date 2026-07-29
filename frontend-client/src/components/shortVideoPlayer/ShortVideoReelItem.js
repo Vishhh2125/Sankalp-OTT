@@ -43,6 +43,7 @@ import { unlockEpisode } from '../../redux/slices/showPlayerSlice';
 import { usePlaybackSpeed } from '../../context/PlaybackSpeedContext';
 import { usePlaybackVolume } from '../../context/PlaybackVolumeContext';
 import { useVideoQuality } from '../../context/VideoQualityContext';
+import { customAlert } from '../../context/CustomAlertContext';
 import { useGuestAuth } from '../../context/GuestAuthContext';
 import { isDownloaded, startDownload, removeDownload } from '../../services/downloadManager';
 
@@ -170,14 +171,13 @@ export default function ShortVideoReelItem({
     }
     
     if (downloadState === 'downloaded') {
-      Alert.alert(
+      customAlert(
         'Remove Download',
         'Do you want to remove this episode from your device?',
         [
           { text: 'Cancel', style: 'cancel' },
           { 
             text: 'Remove', 
-            style: 'destructive',
             onPress: async () => {
               console.log(`[Download] Removing downloaded episode: ${item.episode_id}`);
               await removeDownload(item.episode_id);
@@ -200,7 +200,7 @@ export default function ShortVideoReelItem({
         console.error('[Download] Error during download process:', e);
         setDownloadState('none');
         if (!e.isOfflineError) {
-          Alert.alert('Download Failed', e?.response?.data?.message || e.message || 'Something went wrong');
+          customAlert('Download Failed', e?.response?.data?.message || e.message || 'Something went wrong');
         }
       }
     }

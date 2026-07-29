@@ -20,6 +20,7 @@ import { useGuestAuth } from '../context/GuestAuthContext';
 import { fetchCheckinStatus } from '../components/rewards/dailyCheckinApi';
 import { formatMembershipEnd } from '../components/membership/membershipApi';
 import { logoutUser, clearLogoutError } from '../redux/slices/authSlice';
+import { customAlert } from '../context/CustomAlertContext';
 
 const FEATURE_ICONS = [
   { icon: 'infinite-outline', label: 'Unlimited Access' },
@@ -125,6 +126,7 @@ export default function ProfileScreen({ navigation }) {
   const dispatch = useDispatch();
   const { logout: logoutState } = useSelector((state) => state.auth);
   const [earnRewardsBadge, setEarnRewardsBadge] = useState(null);
+  const [membershipsDropdownOpen, setMembershipsDropdownOpen] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -154,9 +156,9 @@ export default function ProfileScreen({ navigation }) {
 
   useEffect(() => {
     if (logoutState.error && !logoutState.isLoading) {
-      Alert.alert('Logout Failed', logoutState.error, [
+      customAlert('Logout Failed', logoutState.error, [
+        { text: 'Dismiss', style: 'cancel', onPress: () => dispatch(clearLogoutError()) },
         { text: 'Retry', onPress: () => dispatch(logoutUser()) },
-        { text: 'Dismiss', onPress: () => dispatch(clearLogoutError()) },
       ]);
     }
   }, [logoutState.error, logoutState.isLoading, dispatch]);
@@ -188,14 +190,13 @@ export default function ProfileScreen({ navigation }) {
   }
 
   function handleLogout() {
-    Alert.alert(
+    customAlert(
       'Log out',
       'Are you sure you want to log out?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Log out',
-          style: 'destructive',
           onPress: () => dispatch(logoutUser()),
         },
       ]
@@ -222,16 +223,33 @@ export default function ProfileScreen({ navigation }) {
           <View>
             <View style={styles.loginRow}>
               <Text style={styles.loginText}>{name || 'User'}</Text>
-              <Ionicons name="chevron-forward" size={16} color={theme.white} />
             </View>
             {isPaid && memberships.length > 0 ? (
-              <Text style={styles.membershipEndText}>
-                {memberships.map((m) => {
-                  const scope = m.category_name ? ` · ${m.category_name}` : '';
-                  if (!m.end_date) return `Lifetime${scope}`;
-                  return `Until ${formatMembershipEnd(m.end_date)}${scope}`;
-                }).join('  ·  ')}
-              </Text>
+              memberships.length === 1 ? (
+                <Text style={styles.membershipEndText}>
+                  {(() => {
+                    const m = memberships[0];
+                    const scope = m.category_name ? ` · ${m.category_name}` : '';
+                    if (!m.end_date) return `Member · Lifetime${scope}`;
+                    return `Member until ${formatMembershipEnd(m.end_date)}${scope}`;
+                  })()}
+                </Text>
+              ) : (
+                <Pressable
+                  style={styles.membershipsDropdownTrigger}
+                  onPress={() => setMembershipsDropdownOpen((prev) => !prev)}
+                  hitSlop={8}
+                >
+                  <Text style={styles.membershipEndText}>
+                    {memberships.length} Active Memberships
+                  </Text>
+                  <Ionicons
+                    name={membershipsDropdownOpen ? 'chevron-up' : 'chevron-down'}
+                    size={14}
+                    color={theme.gold}
+                  />
+                </Pressable>
+              )
             ) : null}
           </View>
         </View>
@@ -239,6 +257,23 @@ export default function ProfileScreen({ navigation }) {
           <FontAwesome6 name="coins" size={14} color={theme.gold} />
           <Text style={styles.coinsText}>{coins ?? 0}</Text>
         </Pressable>
+
+        {isPaid && memberships.length > 1 && membershipsDropdownOpen ? (
+          <View style={styles.floatingDropdownCard}>
+            {memberships.map((m, index) => {
+              const scope = m.category_name ? m.category_name : 'All Categories';
+              const text = !m.end_date
+                ? `Member · Lifetime · ${scope}`
+                : `Member until ${formatMembershipEnd(m.end_date)} · ${scope}`;
+              return (
+                <View key={index} style={styles.membershipDropdownRow}>
+                  <Ionicons name="star" size={12} color={theme.gold} />
+                  <Text style={styles.membershipDropdownText}>{text}</Text>
+                </View>
+              );
+            })}
+          </View>
+        ) : null}
       </View>
 
       {!isPaid && (
@@ -312,14 +347,17 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingBottom: 20,
+    position: 'relative',
+    zIndex: 100,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
+    flex: 1,
   },
   avatar: {
     width: 50,
@@ -364,7 +402,42 @@ const styles = StyleSheet.create({
     color: theme.gold,
     fontSize: 12,
     fontWeight: '700',
-    marginTop: 4,
+    marginTop: 2,
+  },
+  membershipsDropdownTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  floatingDropdownCard: {
+    position: 'absolute',
+    top: 56,
+    left: 84,
+    right: 16,
+    backgroundColor: '#1b1424',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 214, 10, 0.3)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.6,
+    shadowRadius: 10,
+    elevation: 12,
+    zIndex: 999,
+    gap: 8,
+  },
+  membershipDropdownRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  membershipDropdownText: {
+    color: theme.gold,
+    fontSize: 11,
+    fontWeight: '600',
   },
   memberLabelActive: {
     color: '#4CAF50',

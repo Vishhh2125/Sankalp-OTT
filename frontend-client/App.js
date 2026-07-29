@@ -16,6 +16,8 @@ import { setFeedStore } from './src/redux/slices/reelsSlice';
 import { setShowPlayerStore } from './src/redux/slices/showPlayerSlice';
 import { NetworkProvider } from './src/context/NetworkContext';
 
+import { CustomAlertProvider } from './src/context/CustomAlertContext';
+
 // Pass Redux store to API interceptors (auth + feed)
 setStore(store);
 
@@ -35,19 +37,21 @@ export default function App() {
     <NetworkProvider>
       <CaptureProtectionProvider>
         <Provider store={store}>
-        <PlaybackSpeedProvider>
-          <PlaybackVolumeProvider>
-            <VideoQualityProvider>
-              <LandscapePlaybackProvider>
-              {/* "light" keeps status bar text/icons white on the dark app background */}
-              <StatusBar style="light" />
-              <RootStackNavigator />
-              </LandscapePlaybackProvider>
-            </VideoQualityProvider>
-          </PlaybackVolumeProvider>
-        </PlaybackSpeedProvider>
-      </Provider>
-    </CaptureProtectionProvider>
+          <CustomAlertProvider>
+            <PlaybackSpeedProvider>
+              <PlaybackVolumeProvider>
+                <VideoQualityProvider>
+                  <LandscapePlaybackProvider>
+                  {/* "light" keeps status bar text/icons white on the dark app background */}
+                  <StatusBar style="light" />
+                  <RootStackNavigator />
+                  </LandscapePlaybackProvider>
+                </VideoQualityProvider>
+              </PlaybackVolumeProvider>
+            </PlaybackSpeedProvider>
+          </CustomAlertProvider>
+        </Provider>
+      </CaptureProtectionProvider>
     </NetworkProvider>
   );
 }

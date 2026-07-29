@@ -38,6 +38,7 @@ import { setPendingHomeBanner } from '../../redux/slices/promoFlowSlice';
 import { patchUserProfile, setCoins } from '../../redux/slices/authSlice';
 import { ROUTES } from '../../constants/routes';
 import * as authService from '../../services/authService';
+import { customAlert } from '../../context/CustomAlertContext';
 
 const MODAL_SETTLE_MS = 120;
 
@@ -272,13 +273,14 @@ export default function PromoFlowGate({ children }) {
       setCheckinStatus((s) =>
         s ? { ...s, claimed_today: true, coins: data.coins } : s
       );
-      Alert.alert(
+
+      customAlert(
         'Reward claimed',
         `You received ${data.coins_awarded} coins for Day ${data.streak_day}!`
       );
       advance();
     } catch (err) {
-      Alert.alert(
+      customAlert(
         'Check-in failed',
         walletApiErrorMessage(err, 'Could not claim reward')
       );
