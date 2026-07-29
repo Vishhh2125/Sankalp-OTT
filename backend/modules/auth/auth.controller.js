@@ -374,6 +374,11 @@ export const refreshToken = asyncHandler(async (req, res) => {
       throw new ApiError(401, 'User not found');
     }
 
+    if (user.isBlocked) {
+      logger.warn(`[refreshToken] User is blocked: ${user.email}`);
+      throw new ApiError(403, 'Your account has been blocked by the admin. Please contact support.');
+    }
+
     logger.debug(`[refreshToken] User found: ${user.email}`);
 
     if (!user.refreshToken) {

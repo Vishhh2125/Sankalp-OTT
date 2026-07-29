@@ -186,7 +186,7 @@ const useStyles = (theme) => StyleSheet.create({
     marginLeft: 3,
   },
   heroShowName: {
-    color: theme.white,
+    color: '#FFFFFF',
     fontSize: 30,
     lineHeight: 34,
     fontWeight: '900',

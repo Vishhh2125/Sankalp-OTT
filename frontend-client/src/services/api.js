@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { API_BASE_URL } from '../constants/config';
 import * as authService from './authService';
+import { showAlert } from './alertService';
 
 let authActions = null;
 
@@ -98,6 +99,26 @@ function attachAuthInterceptors(client) {
       }
 
       const originalRequest = error.config;
+
+      // Handle 403 Account Blocked mid-session
+      if (error.response?.status === 403) {
+        const errorMsg = String(error.response?.data?.message || error.response?.data?.error || '').toLowerCase();
+        if (errorMsg.includes('blocked')) {
+          console.log('[API Interceptor] Account blocked mid-session. Clearing tokens & logging out.');
+          await authService.clearTokens();
+          if (store) {
+            if (authActions) {
+              store.dispatch(authActions.logout());
+            } else {
+              store.dispatch({ type: 'auth/logout' });
+            }
+          }
+          try {
+            showAlert('Account Blocked', error.response?.data?.message || 'Your account has been blocked by the admin. Please contact support.');
+          } catch (_) {}
+          return Promise.reject(error);
+        }
+      }
 
       if (error.response?.status !== 401) {
         return Promise.reject(error);

@@ -252,7 +252,7 @@ export default function PopularScreen() {
           setActiveTab(null);
         }
       } catch (e) {
-        console.error("Category Load Error:", e);
+        console.warn("Category Load Error:", e);
         if (!cancelled) {
           setTabs([{ id: null, name: 'All' }]);
           setActiveTab(null);
@@ -278,7 +278,7 @@ export default function PopularScreen() {
           );
         }
       } catch (e) {
-        console.error('Tags Load Error:', e);
+        console.warn('Tags Load Error:', e);
         if (!cancelled) setAllTags([]);
       }
     }
@@ -416,7 +416,7 @@ export default function PopularScreen() {
       setShows(items.filter((s) => s.status === 'Published'));
     } catch (e) {
       setShows([]);
-      console.error('Shows Load Error:', e);
+      console.warn('Shows Load Error:', e);
     } finally {
       setLoading(false);
     }
@@ -441,7 +441,7 @@ export default function PopularScreen() {
           setPackages(res.data?.data || res.data || []);
         })
         .catch((e) => {
-          console.error("Failed to load active packages:", e);
+          console.warn("Failed to load active packages:", e);
           setPackages([]);
         });
     }, [loadShows, accessToken, dispatch])
@@ -462,7 +462,7 @@ export default function PopularScreen() {
         setPackages(res.data?.data || res.data || []);
       })
       .catch((e) => {
-        console.error("Failed to load active packages:", e);
+        console.warn("Failed to load active packages:", e);
         setPackages([]);
       })
       .finally(() => {
@@ -905,7 +905,7 @@ export default function PopularScreen() {
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.homeScrollContent}
+          contentContainerStyle={[styles.homeScrollContent, { paddingBottom: insets.bottom + 70 }]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={appTheme.primary} />}
         >
           <HomeHeroSlider banners={heroBanners} onBannerPress={handleBannerPress} />

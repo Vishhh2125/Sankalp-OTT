@@ -287,6 +287,7 @@ export async function getAllUsers(req, res, next) {
           day: 'numeric',
         }),
         status,
+        isBlocked: u.isBlocked,
         subscription: u.memberships.length > 0
           ? (u.memberships[0].end_date
               ? new Date(u.memberships[0].end_date).toLocaleDateString('en-US', {
@@ -320,9 +321,22 @@ export async function toggleUserStatus(req, res, next) {
       throw new AppError('User not found', 404);
     }
 
+    if (user.role !== 'USER') {
+      throw new AppError('Block/Unblock action is only available for learner accounts', 403);
+    }
+
     const updated = await prisma.user.update({
       where: { id: userId },
       data: { isBlocked: !user.isBlocked },
+    });
+
+    // Log admin activity for audit trail
+    await logAdminActivity({
+      userId: req.user?.id,
+      action: updated.isBlocked ? 'BLOCK_USER' : 'UNBLOCK_USER',
+      entityType: 'USER',
+      entityId: userId,
+      details: { email: user.email, name: user.name, isBlocked: updated.isBlocked },
     });
 
     return res.json(

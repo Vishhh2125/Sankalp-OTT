@@ -6,13 +6,14 @@ import logger from '../config/logger.js';
  */
 export async function logAdminActivity({ userId, action, entityType = null, entityId = null, details = null }) {
   try {
+    const detailsStr = details && typeof details === 'object' ? JSON.stringify(details) : details;
     await prisma.adminActivityLog.create({
       data: {
         user_id: userId,
         action,
         entity_type: entityType,
         entity_id: entityId,
-        details,
+        details: detailsStr,
       },
     });
   } catch (err) {

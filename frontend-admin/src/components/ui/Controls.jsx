@@ -78,7 +78,7 @@ export function SortableRow({ children, onMoveUp, onMoveDown, disableUp, disable
   )
 }
 
-export function ConfirmDialog({ open, title, message, onConfirm, onCancel, danger }) {
+export function ConfirmDialog({ open, title, message, onConfirm, onCancel, danger, confirmText }) {
   if (!open) return null
   return (
     <div style={{
@@ -96,7 +96,7 @@ export function ConfirmDialog({ open, title, message, onConfirm, onCancel, dange
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button className="btn btn-ghost" onClick={onCancel}>Cancel</button>
           <button className={`btn ${danger ? 'btn-danger' : 'btn-primary'}`} onClick={onConfirm}>
-            {danger ? 'Delete' : 'Confirm'}
+            {confirmText || (danger ? 'Delete' : 'Confirm')}
           </button>
         </div>
       </div>
