@@ -42,6 +42,7 @@ export default function BottomTabNavigator() {
           ROUTES.TOP_UP,
           ROUTES.TRANSACTION_HISTORY,
           ROUTES.EARN_REWARDS,
+          ROUTES.DELETE_ACCOUNT,
         ];
         const shouldHide = routeName && hideOnScreens.includes(routeName);
 

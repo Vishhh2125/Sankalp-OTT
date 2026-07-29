@@ -168,7 +168,7 @@ export default function LiveScreen() {
   // Main Screen
   // ───────────────────────────────────────────────────────────────
   return (
-    <View style={[styles.screen, { paddingTop: insets.top }]}>
+    <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: insets.bottom + 70 }]}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Live</Text>

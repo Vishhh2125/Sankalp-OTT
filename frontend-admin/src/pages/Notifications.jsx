@@ -222,7 +222,7 @@ export default function Notifications() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                 <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>{getIcon(notifType)}</div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>OTT Admin</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>Alpha-Minds Admin</div>
                   <div style={{ fontSize: 10, color: 'var(--text3)' }}>now</div>
                 </div>
               </div>

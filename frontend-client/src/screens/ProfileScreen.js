@@ -81,7 +81,7 @@ function GuestProfileScreen({ insets }) {
       style={styles.screen}
       contentContainerStyle={[
         styles.container,
-        { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 100 },
+        { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 70 },
       ]}
     >
       <View style={styles.header}>

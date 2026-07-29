@@ -755,7 +755,7 @@ export default function MyListScreen() {
     (watchHistoryLoading && !watchHistoryLoaded);
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top + 12, backgroundColor: appTheme.screenBg }]}>
+    <View style={[styles.screen, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 70, backgroundColor: appTheme.screenBg }]}>
       {/* ── Header ── */}
       {selectionMode ? (
         <View style={styles.selectionHeader}>
@@ -1084,6 +1084,7 @@ const useStyles = (appTheme) => StyleSheet.create({
     padding: 4,
   },
   tab: {
+    minWidth: 150,
     paddingVertical: 8,
     paddingHorizontal: 14,
     alignItems: 'center',

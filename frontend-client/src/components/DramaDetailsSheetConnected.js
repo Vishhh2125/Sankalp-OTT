@@ -89,7 +89,7 @@ function TeacherProfileCard({ profile }) {
 
   const bodyHeight = animation.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 180], // Approximate height
+    outputRange: [0, 240],
   });
 
   const arrowRotation = animation.interpolate({
@@ -100,38 +100,96 @@ function TeacherProfileCard({ profile }) {
   return (
     <View style={styles.teacherCardRoot}>
       <Text style={styles.teacherCardTitle}>About Teacher</Text>
+
       <Pressable style={styles.teacherCardHeader} onPress={toggleExpand}>
         {profile.profile_photo_url ? (
-          <Image source={{ uri: resolveThumbnailUrl(profile.profile_photo_url) }} style={styles.teacherAvatar} />
+          <Image
+            source={{ uri: resolveThumbnailUrl(profile.profile_photo_url) }}
+            style={styles.teacherAvatar}
+          />
         ) : (
           <View style={styles.teacherAvatarPlaceholder}>
-            <Ionicons name="person" size={24} color={theme.textMuted} />
+            <Ionicons
+              name="person"
+              size={24}
+              color={theme.textMuted}
+            />
           </View>
         )}
+
         <View style={styles.teacherCardHeaderRight}>
           <View style={styles.teacherNameRow}>
-            <Text style={styles.teacherName}>{profile.full_name}</Text>
-            <Animated.View style={{ transform: [{ rotate: arrowRotation }] }}>
-              <Ionicons name="chevron-down" size={20} color={theme.textMuted} />
+            <Text style={styles.teacherName}>
+              {profile.full_name}
+            </Text>
+
+            <Animated.View
+              style={{
+                transform: [{ rotate: arrowRotation }],
+              }}
+            >
+              <Ionicons
+                name="chevron-down"
+                size={20}
+                color={theme.textMuted}
+              />
             </Animated.View>
           </View>
-          <Text style={styles.teacherHeadline} numberOfLines={2}>{profile.professional_headline}</Text>
+
+          <Text
+            style={styles.teacherHeadline}
+            numberOfLines={2}
+          >
+            {profile.professional_headline}
+          </Text>
         </View>
       </Pressable>
 
-      <Animated.View style={[styles.teacherCardBody, { height: bodyHeight }]}>
-        <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+      <Animated.View
+        style={[
+          styles.teacherCardBody,
+          {
+            height: bodyHeight,
+            overflow: 'hidden',
+          },
+        ]}
+      >
+        <ScrollView
+          nestedScrollEnabled={true}
+          showsVerticalScrollIndicator={true}
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            paddingBottom: 16,
+            paddingRight: 4,
+          }}
+        >
           <Text style={styles.teacherBioTitle}>Bio</Text>
-          <Text style={styles.teacherBioText}>{profile.bio}</Text>
 
-          <View style={styles.teacherInfoRow}>
-            <Text style={styles.teacherInfoLabel}>Years of experience:</Text>
-            <Text style={styles.teacherInfoValue}>{profile.experience_years}</Text>
-          </View>
-          <View style={styles.teacherInfoRow}>
-            <Text style={styles.teacherInfoLabel}>Qualification:</Text>
-            <Text style={styles.teacherInfoValue}>{profile.qualification}</Text>
-          </View>
+          <Text style={styles.teacherBioText}>
+            {profile.bio || 'N/A'}
+          </Text>
+
+          {profile.experience_years != null && (
+            <View style={styles.teacherInfoRow}>
+              <Text style={styles.teacherInfoLabel}>
+                Years of experience:
+              </Text>
+              <Text style={styles.teacherInfoValue}>
+                {profile.experience_years}
+              </Text>
+            </View>
+          )}
+
+          {Boolean(profile.qualification) && (
+            <View style={styles.teacherInfoRow}>
+              <Text style={styles.teacherInfoLabel}>
+                Qualification:
+              </Text>
+              <Text style={styles.teacherInfoValue}>
+                {profile.qualification}
+              </Text>
+            </View>
+          )}
         </ScrollView>
       </Animated.View>
     </View>
@@ -283,8 +341,8 @@ function EpisodeRow({ episode, isCurrentEpisode, onPress }) {
   const iconCircleStyle = locked
     ? styles.episodeIconCircleLocked
     : (isCompleted || isInProgress || isCurrentEpisode)
-    ? styles.episodeIconCircleActive
-    : styles.episodeIconCircleUnstarted;
+      ? styles.episodeIconCircleActive
+      : styles.episodeIconCircleUnstarted;
 
   const isTitleOrange = isCompleted;
 
@@ -541,7 +599,7 @@ export default function DramaDetailsSheetConnected({
       if (!url) return null;
       if (url.startsWith('http')) return url; // already absolute
       const separator = url.startsWith('/') ? '' : '/';
-  return `${API_BASE_URL}${separator}${url}`; // make it absolute
+      return `${API_BASE_URL}${separator}${url}`; // make it absolute
     };
 
     if (details?.show_id === item.show_id && details?.thumbnail_url) {
