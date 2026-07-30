@@ -90,17 +90,22 @@ export function filterNavByPermissions(navConfig, user) {
   }
   
   if (user.role === 'teacher') {
-    const allowedTeacherSections = []
-    if (user.is_profile_complete === false) {
-      allowedTeacherSections.push('profile')
-    } else {
-      allowedTeacherSections.push('dashboard', 'dramas', 'live', 'submissions', 'profile')
-    }
+    const allowedTeacherSections = ['dashboard', 'dramas', 'live', 'submissions', 'profile']
     
     return navConfig
       .map((group) => ({
         ...group,
-        items: group.items.filter((item) => allowedTeacherSections.includes(item.id)),
+        items: group.items
+          .filter((item) => allowedTeacherSections.includes(item.id))
+          .map((item) => {
+            if (item.id === 'profile') {
+              return {
+                ...item,
+                label: user.is_profile_complete ? 'Teacher Profile' : 'Complete Profile',
+              }
+            }
+            return item
+          }),
       }))
       .filter((group) => group.items.length > 0)
   }

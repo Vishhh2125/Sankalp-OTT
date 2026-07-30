@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { useSelector } from 'react-redux'
-import { selectUser } from '../store/authSlice'
+import { useSelector, useDispatch } from 'react-redux'
+import { selectUser, setUser } from '../store/authSlice'
 import { authApi, mediaApi } from '../services/api'
 import { FileDropzone } from '../components/ui/Controls.jsx'
 
 export default function Profile() {
+  const dispatch = useDispatch()
   const user = useSelector(selectUser)
   const [form, setForm] = useState({
     profile_photo_url: user?.teacher_profile?.profile_photo_url || '',
@@ -74,8 +75,14 @@ export default function Profile() {
     setSaving(true)
     try {
       await authApi.updateTeacherProfile(form)
-      alert('Profile saved. You will be redirected to the Dashboard.')
-      window.location.href = '/admin/'
+      try {
+        const me = await authApi.getAdminProfile()
+        if (me.data?.data) {
+          localStorage.setItem('admin_user', JSON.stringify(me.data.data))
+          dispatch(setUser(me.data.data))
+        }
+      } catch { /* fallback */ }
+      alert('Profile saved successfully.')
     } catch (err) {
       alert('Failed to save profile: ' + (err.response?.data?.message || err.message))
     } finally { setSaving(false) }

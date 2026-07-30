@@ -1,5 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit'
-import { getFirstAllowedPage } from '../config/permissions.js'
+import { getFirstAllowedPage, canAccessPage } from '../config/permissions.js'
 import { normalizeAdminUser, isMainAdmin } from '../utils/adminUser.js'
 
 const storedToken = localStorage.getItem('admin_token')
@@ -42,9 +42,6 @@ export const selectToken           = (state) => state.auth.token
 export const selectIsMainAdmin     = (state) => isMainAdmin(state.auth.user)
 export const selectSections        = (state) => state.auth.user?.sections ?? []
 export const selectCanAccess       = (pageId) => (state) => {
-  const user = state.auth.user
-  if (!user) return false
-  if (isMainAdmin(user)) return true
-  return user.sections?.includes(pageId) ?? false
+  return canAccessPage(state.auth.user, pageId)
 }
 export const selectDefaultPage     = (state) => getFirstAllowedPage(state.auth.user)
