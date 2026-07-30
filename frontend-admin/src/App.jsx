@@ -130,10 +130,64 @@ export default function App() {
     return <Login />
   }
 
+  const isTeacherPortal = typeof window !== 'undefined' && window.location.pathname.includes('/teacher')
+
   // Hold render until the initial token refresh completes — prevents pages from firing
   // API requests with a stale/expired access token
   if (!authReady) {
     return null
+  }
+
+  // Portal vs Role Mismatch Gating for Authenticated Users
+  if (isAuthenticated && user) {
+    const isTeacher = user.role === 'teacher'
+    if (isTeacherPortal && !isTeacher) {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg)', padding: '20px' }}>
+          <div className="card" style={{ maxWidth: 450, padding: 40, textAlign: 'center', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
+            <h2 style={{ marginBottom: 12, color: 'var(--text)' }}>Portal Mismatch</h2>
+            <p style={{ color: 'var(--text2)', fontSize: 14, marginBottom: 24, lineHeight: 1.5 }}>
+              You are signed in as an Administrator. Please access your account through the Admin Portal.
+            </p>
+            <button
+              onClick={() => {
+                localStorage.removeItem('admin_token')
+                localStorage.removeItem('admin_user')
+                dispatch(logout())
+                window.location.href = '/admin/'
+              }}
+              style={{ padding: '10px 20px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}
+            >
+              Switch to Admin Portal
+            </button>
+          </div>
+        </div>
+      )
+    }
+
+    if (!isTeacherPortal && isTeacher) {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg)', padding: '20px' }}>
+          <div className="card" style={{ maxWidth: 450, padding: 40, textAlign: 'center', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
+            <h2 style={{ marginBottom: 12, color: 'var(--text)' }}>Portal Mismatch</h2>
+            <p style={{ color: 'var(--text2)', fontSize: 14, marginBottom: 24, lineHeight: 1.5 }}>
+              You are signed in as a Teacher. Please access your account through the Teacher Portal.
+            </p>
+            <button
+              onClick={() => {
+                localStorage.removeItem('admin_token')
+                localStorage.removeItem('admin_user')
+                dispatch(logout())
+                window.location.href = '/teacher/'
+              }}
+              style={{ padding: '10px 20px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}
+            >
+              Switch to Teacher Portal
+            </button>
+          </div>
+        </div>
+      )
+    }
   }
 
   const Page = ROUTES[activePage] || Dashboard

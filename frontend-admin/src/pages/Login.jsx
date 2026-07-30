@@ -36,19 +36,38 @@ export default function Login() {
       const response = await authApi.login(email, password, { adminPanel: true })
       const { data } = response.data
 
-      // Write to localStorage FIRST so axios interceptor picks it up immediately
-      localStorage.setItem('admin_token', data.accessToken)
-      localStorage.setItem('admin_user', JSON.stringify(data.user))
-      dispatch(loginSuccess({ token: data.accessToken, user: data.user }))
       let user = data.user
       try {
+        // Temporarily store token for getAdminProfile call
+        localStorage.setItem('admin_token', data.accessToken)
         const me = await authApi.getAdminProfile()
         if (me.data?.data) {
           user = me.data.data
-          localStorage.setItem('admin_user', JSON.stringify(user))
-          dispatch(loginSuccess({ token: data.accessToken, user }))
         }
       } catch { /* use login payload */ }
+
+      // Portal vs Role gating check
+      const isTeacher = user.role === 'teacher'
+      if (isTeacherPortal && !isTeacher) {
+        localStorage.removeItem('admin_token')
+        localStorage.removeItem('admin_user')
+        setError('Admin accounts must log in via the Admin Portal (/admin/).')
+        setLoading(false)
+        return
+      }
+
+      if (!isTeacherPortal && isTeacher) {
+        localStorage.removeItem('admin_token')
+        localStorage.removeItem('admin_user')
+        setError('Teacher accounts must log in via the Teacher Portal (/teacher/).')
+        setLoading(false)
+        return
+      }
+
+      // Write to localStorage & Redux after role verification
+      localStorage.setItem('admin_token', data.accessToken)
+      localStorage.setItem('admin_user', JSON.stringify(user))
+      dispatch(loginSuccess({ token: data.accessToken, user }))
       dispatch(setActivePage(getFirstAllowedPage(user)))
     } catch (err) {
       const message = err.response?.data?.message || 'Login failed. Please check credentials.'
