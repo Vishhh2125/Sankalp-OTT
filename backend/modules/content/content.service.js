@@ -498,10 +498,25 @@ async function updateShow(id, data) {
 async function deleteShow(id) {
   const show = await prisma.show.findUnique({
     where: { id },
-    select: { id: true, feed_position: true },
+    select: {
+      id: true,
+      feed_position: true,
+      episodes: { select: { id: true } },
+    },
   });
 
   if (!show) throw new AppError('Show not found', 404);
+
+  // ── MinIO cleanup (best-effort, never blocks DB delete) ──
+  // 1. Delete raw source video for each episode: raw/{episodeId}/video.mp4
+  if (show.episodes && show.episodes.length > 0) {
+    for (const ep of show.episodes) {
+      await deleteMinioObject(`raw/${ep.id}/video.mp4`);
+    }
+  }
+
+  // 2. Delete all files under dramas/{showId}/ (thumbnails, banners, episode HLS streams)
+  await deleteMinioPrefix(`dramas/${id}/`);
 
   // If show was in the feed, shift higher feed_positions down to fill gap
   if (show.feed_position > 0) {
