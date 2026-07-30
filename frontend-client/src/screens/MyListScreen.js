@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -662,6 +662,56 @@ export default function MyListScreen() {
     setSelectedItems(new Set());
   }, []);
 
+  const tabScrollViewRef = useRef(null);
+  const contentScrollViewRef = useRef(null);
+  const tabLayouts = useRef({});
+  const containerWidth = width - 32;
+
+  const TABS = [
+    { key: TAB_MY_COURSES, label: 'My Courses', count: myCourses.length },
+    { key: TAB_SAVED, label: 'Saved', count: bookmarks.length },
+    { key: TAB_CONTINUE, label: 'Continue Learning', count: watchHistory.length },
+    { key: TAB_DOWNLOADS, label: 'Downloads', count: downloads.length },
+  ];
+
+  const handleSelectTab = useCallback((tabKey) => {
+    setActiveTab(tabKey);
+    cancelSelection();
+    const tabIndex = TABS.findIndex((t) => t.key === tabKey);
+    if (tabIndex !== -1 && contentScrollViewRef.current) {
+      contentScrollViewRef.current.scrollTo({ x: tabIndex * containerWidth, animated: true });
+    }
+    const layout = tabLayouts.current[tabKey];
+    if (layout && tabScrollViewRef.current) {
+      const tabCenterX = layout.x + layout.width / 2;
+      const scrollToX = Math.max(0, tabCenterX - containerWidth / 2);
+      tabScrollViewRef.current.scrollTo({ x: scrollToX, animated: true });
+    }
+  }, [cancelSelection, containerWidth]);
+
+  const handleContentScrollEnd = useCallback((e) => {
+    const offsetX = e.nativeEvent.contentOffset.x;
+    const pageIndex = Math.round(offsetX / containerWidth);
+    const targetTab = TABS[pageIndex]?.key;
+    if (targetTab && targetTab !== activeTab) {
+      setActiveTab(targetTab);
+      cancelSelection();
+    }
+  }, [activeTab, cancelSelection, containerWidth]);
+
+  useEffect(() => {
+    const tabIndex = TABS.findIndex((t) => t.key === activeTab);
+    if (tabIndex !== -1 && contentScrollViewRef.current) {
+      contentScrollViewRef.current.scrollTo({ x: tabIndex * containerWidth, animated: false });
+    }
+    const layout = tabLayouts.current[activeTab];
+    if (layout && tabScrollViewRef.current) {
+      const tabCenterX = layout.x + layout.width / 2;
+      const scrollToX = Math.max(0, tabCenterX - containerWidth / 2);
+      tabScrollViewRef.current.scrollTo({ x: scrollToX, animated: true });
+    }
+  }, [activeTab, containerWidth]);
+
   const confirmDeleteSelected = useCallback(async () => {
     if (deleteTarget) {
       const { item, tab } = deleteTarget;
@@ -779,217 +829,224 @@ export default function MyListScreen() {
         </>
       )}
 
-      {/* ── Tab bar ── */}
+      {/* ── Tab bar & Scroll Progress Dots ── */}
       <View style={styles.tabBarScrollWrap}>
         <ScrollView
+          ref={tabScrollViewRef}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.tabBarContainer}
         >
-          <TouchableOpacity
-            style={[styles.tab, activeTab === TAB_MY_COURSES && styles.tabActive]}
-            onPress={() => {
-              setActiveTab(TAB_MY_COURSES);
-              cancelSelection();
-            }}
-          >
-            <Text style={[styles.tabText, activeTab === TAB_MY_COURSES && styles.tabTextActive]}>My Courses</Text>
-            <Text style={[styles.tabText, activeTab === TAB_MY_COURSES && styles.tabTextActive, { marginTop: 2, fontSize: 11 }]}>
-              ({myCourses.length})
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.tab, activeTab === TAB_SAVED && styles.tabActive]}
-            onPress={() => {
-              setActiveTab(TAB_SAVED);
-              cancelSelection();
-            }}
-          >
-            <Text style={[styles.tabText, activeTab === TAB_SAVED && styles.tabTextActive]}>Saved</Text>
-            <Text style={[styles.tabText, activeTab === TAB_SAVED && styles.tabTextActive, { marginTop: 2, fontSize: 11 }]}>
-              ({bookmarks.length})
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.tab, activeTab === TAB_CONTINUE && styles.tabActive]}
-            onPress={() => {
-              setActiveTab(TAB_CONTINUE);
-              cancelSelection();
-            }}
-          >
-            <Text style={[styles.tabText, activeTab === TAB_CONTINUE && styles.tabTextActive]}>Continue Learning</Text>
-            <Text style={[styles.tabText, activeTab === TAB_CONTINUE && styles.tabTextActive, { marginTop: 2, fontSize: 11 }]}>
-              ({watchHistory.length})
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.tab, activeTab === TAB_DOWNLOADS && styles.tabActive]}
-            onPress={() => {
-              setActiveTab(TAB_DOWNLOADS);
-              cancelSelection();
-            }}
-          >
-            <Text style={[styles.tabText, activeTab === TAB_DOWNLOADS && styles.tabTextActive]}>Downloads</Text>
-            <Text style={[styles.tabText, activeTab === TAB_DOWNLOADS && styles.tabTextActive, { marginTop: 2, fontSize: 11 }]}>
-              ({downloads.length})
-            </Text>
-          </TouchableOpacity>
+          {TABS.map((tab) => {
+            const isActive = activeTab === tab.key;
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                style={[styles.tab, isActive && styles.tabActive]}
+                onLayout={(e) => {
+                  tabLayouts.current[tab.key] = e.nativeEvent.layout;
+                }}
+                onPress={() => handleSelectTab(tab.key)}
+              >
+                <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
+                  {tab.label}
+                </Text>
+                <Text style={[styles.tabText, isActive && styles.tabTextActive, { marginTop: 2, fontSize: 11 }]}>
+                  ({tab.count})
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
+
+        {/* ── Scroll progress dots ── */}
+        <View style={styles.tabDotsContainer}>
+          {TABS.map((tab) => {
+            const isActive = activeTab === tab.key;
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                activeOpacity={0.7}
+                onPress={() => handleSelectTab(tab.key)}
+                hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                style={[
+                  styles.tabDot,
+                  isActive && styles.tabDotActive,
+                ]}
+              />
+            );
+          })}
+        </View>
       </View>
 
-      {/* ── Content ── */}
+      {/* ── Content (Horizontal Paging) ── */}
       {isLoading ? (
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="large" color={appTheme.primary} />
         </View>
-      ) : activeTab === TAB_MY_COURSES ? (
-        // ── My Courses tab ─────────────────────────────────────
-        myCourses.length === 0 ? (
-          <EmptyState
-            icon="school-outline"
-            title="No enrolled courses yet"
-            subtitle="Explore available courses or purchase a membership to start learning"
-          />
-        ) : (
-          <FlatList
-            data={myCourses}
-            keyExtractor={(item) => item.show_id}
-            contentContainerStyle={styles.list}
-            showsVerticalScrollIndicator={false}
-            renderItem={({ item }) => (
-              <CourseCard
-                item={item}
-                onPress={() => openCourseSheet(item)}
-              />
-            )}
-          />
-        )
-      ) : activeTab === TAB_SAVED ? (
-        // ── Saved / Bookmarks tab ──────────────────────────────
-        bookmarks.length === 0 ? (
-          <EmptyState
-            icon="bookmark-outline"
-            title="No saved courses yet"
-            subtitle="Tap the bookmark icon while learning to save a course"
-          />
-        ) : (
-          <FlatList
-            data={bookmarks}
-            keyExtractor={(item) => item.bookmark_id}
-            contentContainerStyle={styles.list}
-            showsVerticalScrollIndicator={false}
-            renderItem={({ item }) => {
-              const displayEntry = getDisplayEntry(item);
-              return (
-                <ShowCard
-                  item={{
-                    show_id: displayEntry.show_id,
-                    show_title: displayEntry.show_title,
-                    thumbnail_url: displayEntry.thumbnail_url,
-                    category: displayEntry.category,
-                    episode_id: displayEntry.episode_id,
-                    episode_num: displayEntry.episode_num,
-                    duration_sec: displayEntry.duration_sec,
-                    progress_sec: displayEntry.progress_sec,
-                    total_episodes: displayEntry.total_episodes || null,
-                    tags: displayEntry.tags,
-                  }}
-                  selectionMode={selectionMode}
-                  selected={selectedItems.has(item.bookmark_id)}
-                  onDelete={() => handleDeleteDirect(item, TAB_SAVED)}
-                  onPress={() => handleCardPressAction({
-                    show_id: displayEntry.show_id,
-                    show_title: displayEntry.show_title,
-                    thumbnail_url: displayEntry.thumbnail_url,
-                    episode_id: displayEntry.episode_id,
-                    episode_num: displayEntry.episode_num,
-                    duration_sec: displayEntry.duration_sec,
-                    progress_sec: displayEntry.progress_sec,
-                    total_episodes: displayEntry.total_episodes || null,
-                    bookmark_id: item.bookmark_id,
-                  })}
-                  onLongPress={() => handleCardLongPress(item)}
-                />
-              );
-            }}
-          />
-        )
-      ) : activeTab === TAB_CONTINUE ? (
-        // ── Continue Learning tab ──────────────────────────────
-        watchHistory.length === 0 ? (
-          <EmptyState
-            icon="play-circle-outline"
-            title="No watch progress"
-            subtitle="Start watching courses to track your progress here"
-          />
-        ) : (
-          <FlatList
-            data={watchHistory}
-            keyExtractor={(item) => item.history_id || item.episode_id}
-            contentContainerStyle={styles.list}
-            showsVerticalScrollIndicator={false}
-            renderItem={({ item }) => (
-              <ShowCard
-                item={{
-                  show_id: item.show_id,
-                  show_title: item.show_title,
-                  thumbnail_url: item.thumbnail_url,
-                  category: item.category,
-                  episode_id: item.episode_id,
-                  episode_num: item.episode_num,
-                  duration_sec: item.duration_sec,
-                  progress_sec: item.progress_sec,
-                  total_episodes: item.total_episodes || null,
-                }}
-                selectionMode={selectionMode}
-                selected={selectedItems.has(item.history_id)}
-                onDelete={() => handleDeleteDirect(item, TAB_CONTINUE)}
-                onPress={() => handleCardPressAction(item)}
-                onLongPress={() => handleCardLongPress(item)}
-              />
-            )}
-          />
-        )
       ) : (
-        // ── Downloads tab ──────────────────────────────────────
-        downloads.length === 0 ? (
-          <EmptyState
-            icon="download-outline"
-            title="No downloaded videos"
-            subtitle="Download episodes to watch offline anytime"
-          />
-        ) : (
-          <FlatList
-            data={downloads}
-            keyExtractor={(item) => item.episodeId}
-            contentContainerStyle={styles.list}
-            showsVerticalScrollIndicator={false}
-            renderItem={({ item }) => (
-              <ShowCard
-                item={{
-                  show_id: item.showId || item.episodeId,
-                  show_title: item.showName || item.show_title || item.showTitle || item.title || 'Downloaded Video',
-                  thumbnail_url: item.localImagePath || item.thumbnailUrl || item.thumbnail_url || null,
-                  category: 'Offline',
-                  episode_id: item.episodeId,
-                  episode_num: item.episodeNum || 1,
-                  duration_sec: item.duration || item.durationSec || 0,
-                  progress_sec: item.progressSec || 0,
-                  total_episodes: item.totalEpisodes || 1,
-                  localVideoPath: item.localVideoPath,
-                }}
-                selectionMode={selectionMode}
-                selected={selectedItems.has(item.episodeId)}
-                onDelete={() => handleDeleteDirect(item, TAB_DOWNLOADS)}
-                onPress={() => handleCardPressAction(item)}
-                onLongPress={() => handleCardLongPress(item)}
+        <ScrollView
+          ref={contentScrollViewRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={handleContentScrollEnd}
+          scrollEventThrottle={16}
+          style={{ flex: 1 }}
+        >
+          {/* ── Page 1: My Courses ── */}
+          <View style={{ width: containerWidth, flex: 1 }}>
+            {myCourses.length === 0 ? (
+              <EmptyState
+                icon="school-outline"
+                title="No enrolled courses yet"
+                subtitle="Explore available courses or purchase a membership to start learning"
+              />
+            ) : (
+              <FlatList
+                data={myCourses}
+                keyExtractor={(item) => item.show_id}
+                contentContainerStyle={styles.list}
+                showsVerticalScrollIndicator={false}
+                renderItem={({ item }) => (
+                  <CourseCard
+                    item={item}
+                    onPress={() => openCourseSheet(item)}
+                  />
+                )}
               />
             )}
-          />
-        )
+          </View>
+
+          {/* ── Page 2: Saved / Bookmarks ── */}
+          <View style={{ width: containerWidth, flex: 1 }}>
+            {bookmarks.length === 0 ? (
+              <EmptyState
+                icon="bookmark-outline"
+                title="No saved courses yet"
+                subtitle="Tap the bookmark icon while learning to save a course"
+              />
+            ) : (
+              <FlatList
+                data={bookmarks}
+                keyExtractor={(item) => item.bookmark_id}
+                contentContainerStyle={styles.list}
+                showsVerticalScrollIndicator={false}
+                renderItem={({ item }) => {
+                  const displayEntry = getDisplayEntry(item);
+                  return (
+                    <ShowCard
+                      item={{
+                        show_id: displayEntry.show_id,
+                        show_title: displayEntry.show_title,
+                        thumbnail_url: displayEntry.thumbnail_url,
+                        category: displayEntry.category,
+                        episode_id: displayEntry.episode_id,
+                        episode_num: displayEntry.episode_num,
+                        duration_sec: displayEntry.duration_sec,
+                        progress_sec: displayEntry.progress_sec,
+                        total_episodes: displayEntry.total_episodes || null,
+                        tags: displayEntry.tags,
+                      }}
+                      selectionMode={selectionMode}
+                      selected={selectedItems.has(item.bookmark_id)}
+                      onDelete={() => handleDeleteDirect(item, TAB_SAVED)}
+                      onPress={() => handleCardPressAction({
+                        show_id: displayEntry.show_id,
+                        show_title: displayEntry.show_title,
+                        thumbnail_url: displayEntry.thumbnail_url,
+                        episode_id: displayEntry.episode_id,
+                        episode_num: displayEntry.episode_num,
+                        duration_sec: displayEntry.duration_sec,
+                        progress_sec: displayEntry.progress_sec,
+                        total_episodes: displayEntry.total_episodes || null,
+                        bookmark_id: item.bookmark_id,
+                      })}
+                      onLongPress={() => handleCardLongPress(item)}
+                    />
+                  );
+                }}
+              />
+            )}
+          </View>
+
+          {/* ── Page 3: Continue Learning ── */}
+          <View style={{ width: containerWidth, flex: 1 }}>
+            {watchHistory.length === 0 ? (
+              <EmptyState
+                icon="play-circle-outline"
+                title="No watch progress"
+                subtitle="Start watching courses to track your progress here"
+              />
+            ) : (
+              <FlatList
+                data={watchHistory}
+                keyExtractor={(item) => item.history_id || item.episode_id}
+                contentContainerStyle={styles.list}
+                showsVerticalScrollIndicator={false}
+                renderItem={({ item }) => (
+                  <ShowCard
+                    item={{
+                      show_id: item.show_id,
+                      show_title: item.show_title,
+                      thumbnail_url: item.thumbnail_url,
+                      category: item.category,
+                      episode_id: item.episode_id,
+                      episode_num: item.episode_num,
+                      duration_sec: item.duration_sec,
+                      progress_sec: item.progress_sec,
+                      total_episodes: item.total_episodes || null,
+                    }}
+                    selectionMode={selectionMode}
+                    selected={selectedItems.has(item.history_id)}
+                    onDelete={() => handleDeleteDirect(item, TAB_CONTINUE)}
+                    onPress={() => handleCardPressAction(item)}
+                    onLongPress={() => handleCardLongPress(item)}
+                  />
+                )}
+              />
+            )}
+          </View>
+
+          {/* ── Page 4: Downloads ── */}
+          <View style={{ width: containerWidth, flex: 1 }}>
+            {downloads.length === 0 ? (
+              <EmptyState
+                icon="download-outline"
+                title="No downloaded videos"
+                subtitle="Download episodes to watch offline anytime"
+              />
+            ) : (
+              <FlatList
+                data={downloads}
+                keyExtractor={(item) => item.episodeId}
+                contentContainerStyle={styles.list}
+                showsVerticalScrollIndicator={false}
+                renderItem={({ item }) => (
+                  <ShowCard
+                    item={{
+                      show_id: item.showId || item.episodeId,
+                      show_title: item.showName || item.show_title || item.showTitle || item.title || 'Downloaded Video',
+                      thumbnail_url: item.localImagePath || item.thumbnailUrl || item.thumbnail_url || null,
+                      category: 'Offline',
+                      episode_id: item.episodeId,
+                      episode_num: item.episodeNum || 1,
+                      duration_sec: item.duration || item.durationSec || 0,
+                      progress_sec: item.progressSec || 0,
+                      total_episodes: item.totalEpisodes || 1,
+                      localVideoPath: item.localVideoPath,
+                    }}
+                    selectionMode={selectionMode}
+                    selected={selectedItems.has(item.episodeId)}
+                    onDelete={() => handleDeleteDirect(item, TAB_DOWNLOADS)}
+                    onPress={() => handleCardPressAction(item)}
+                    onLongPress={() => handleCardLongPress(item)}
+                  />
+                )}
+              />
+            )}
+          </View>
+        </ScrollView>
       )}
 
       {/* Course Detail Sheet overlay for My Courses */}
@@ -1058,7 +1115,7 @@ const useStyles = (appTheme) => StyleSheet.create({
     fontWeight: '800',
   },
   countBadge: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: appTheme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
@@ -1079,29 +1136,53 @@ const useStyles = (appTheme) => StyleSheet.create({
   },
   tabBarContainer: {
     flexDirection: 'row',
-    backgroundColor: appTheme.surface,
-    borderRadius: 12,
+    backgroundColor: appTheme.isDark ? '#0F1117' : '#F5F5F5',
+    borderRadius: 18,
     padding: 4,
+    borderWidth: 1,
+    borderColor: appTheme.isDark ? 'rgba(255, 255, 255, 0.08)' : '#EAEAEA',
   },
   tab: {
-    minWidth: 150,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
+    width: 155,
+    paddingVertical: 9,
+    paddingHorizontal: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 10,
+    borderRadius: 14,
+    backgroundColor: appTheme.isDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.05)',
+    marginHorizontal: 3,
   },
   tabActive: {
     backgroundColor: appTheme.primary,
   },
   tabText: {
-    color: appTheme.gray,
-    fontSize: 12,
+    color: appTheme.isDark ? '#A7ADBB' : '#555555',
+    fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
   },
   tabTextActive: {
-    color: appTheme.white,
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  tabDotsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    gap: 6,
+  },
+  tabDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: appTheme.isDark ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.25)',
+  },
+  tabDotActive: {
+    width: 18,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: appTheme.primary,
   },
   list: {
     paddingBottom: 100,

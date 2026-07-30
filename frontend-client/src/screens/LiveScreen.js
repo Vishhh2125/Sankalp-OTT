@@ -168,14 +168,14 @@ export default function LiveScreen() {
   // Main Screen
   // ───────────────────────────────────────────────────────────────
   return (
-    <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: insets.bottom + 70 }]}>
+    <View style={[styles.screen, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 70 }]}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Live</Text>
-        <Text style={styles.headerSub}>
-          Watch streams happening now
-        </Text>
       </View>
+      <Text style={styles.headerSub}>
+        Watch streams happening now
+      </Text>
 
       {/* Tab Bar — same style as My Learning */}
       <View style={styles.tabBar}>
@@ -479,6 +479,7 @@ const useStyles = (theme, insets = {}) =>
     screen: {
       flex: 1,
       backgroundColor: theme.deepBlack,
+      paddingHorizontal: 16,
     },
 
     centered: {
@@ -487,14 +488,14 @@ const useStyles = (theme, insets = {}) =>
     },
 
     header: {
-      paddingHorizontal: 20,
-      paddingTop: 16,
-      paddingBottom: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
     },
 
     headerTitle: {
       color: theme.text,
-      fontSize: 26,
+      fontSize: 28,
       fontWeight: '800',
     },
 
@@ -512,9 +513,7 @@ const useStyles = (theme, insets = {}) =>
     },
 
     list: {
-      paddingHorizontal: 16,
-      paddingBottom:
-        16 + (insets.bottom || 0),
+      paddingBottom: 100,
       gap: 14,
     },
 
@@ -660,30 +659,34 @@ const useStyles = (theme, insets = {}) =>
     // Tab bar — same style as My Learning
     tabBar: {
       flexDirection: 'row',
-      backgroundColor: theme.surface,
-      borderRadius: 12,
+      backgroundColor: theme.isDark ? '#0F1117' : '#F5F5F5',
+      borderRadius: 18,
       padding: 4,
-      marginHorizontal: 16,
-      marginBottom: 12,
+      marginBottom: 20,
+      borderWidth: 1,
+      borderColor: theme.isDark ? 'rgba(255, 255, 255, 0.08)' : '#EAEAEA',
     },
     tab: {
       flex: 1,
-      paddingVertical: 8,
-      paddingHorizontal: 4,
+      paddingVertical: 9,
+      paddingHorizontal: 8,
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: 10,
+      borderRadius: 14,
+      backgroundColor: theme.isDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.05)',
+      marginHorizontal: 3,
     },
     tabActive: {
       backgroundColor: theme.primary,
     },
     tabText: {
-      color: theme.gray,
-      fontSize: 12,
+      color: theme.isDark ? '#A7ADBB' : '#555555',
+      fontSize: 13,
       fontWeight: '600',
       textAlign: 'center',
     },
     tabTextActive: {
-      color: theme.white || '#fff',
+      color: '#FFFFFF',
+      fontWeight: '700',
     },
   });

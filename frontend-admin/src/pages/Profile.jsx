@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { selectUser, setUser } from '../store/authSlice'
 import { authApi, mediaApi } from '../services/api'
@@ -19,14 +19,33 @@ export default function Profile() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [photoPreview, setPhotoPreview] = useState(user?.teacher_profile?.profile_photo_url || '')
 
+  useEffect(() => {
+    if (user?.teacher_profile) {
+      setForm(prev => ({
+        profile_photo_url: prev.profile_photo_url || user.teacher_profile.profile_photo_url || '',
+        full_name: prev.full_name || user.teacher_profile.full_name || user?.name || '',
+        professional_headline: prev.professional_headline || user.teacher_profile.professional_headline || '',
+        bio: prev.bio || user.teacher_profile.bio || '',
+        experience_years: prev.experience_years || user.teacher_profile.experience_years || 0,
+        qualification: prev.qualification || user.teacher_profile.qualification || '',
+      }))
+      if (!photoPreview && user.teacher_profile.profile_photo_url) {
+        setPhotoPreview(user.teacher_profile.profile_photo_url)
+      }
+    }
+  }, [user])
+
   const upd = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
   const handlePhotoChange = async (file) => {
     if (!file) return
+    const localUrl = URL.createObjectURL(file)
+    setPhotoPreview(localUrl)
     setUploadingPhoto(true)
     const userId = user?.id || user?.user_id || user?._id
     if (!userId) {
       alert('User ID missing. Please log in again.')
+      setUploadingPhoto(false)
       return
     }
     try {
@@ -35,7 +54,7 @@ export default function Profile() {
       const publicUrl = dataPayload?.public_url
       if (publicUrl) {
         upd('profile_photo_url', publicUrl)
-        setPhotoPreview(publicUrl)
+        setPhotoPreview(`${publicUrl}?t=${Date.now()}`)
       } else {
         alert('Upload succeeded but no public URL was returned.')
       }

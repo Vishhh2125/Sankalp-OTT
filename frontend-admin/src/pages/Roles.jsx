@@ -841,6 +841,8 @@ function TeacherProfileEditModal({ open, onClose, teacher, onSave, saving }) {
 
   const handlePhotoChange = async (file) => {
     if (!file) return
+    const localUrl = URL.createObjectURL(file)
+    setPhotoPreview(localUrl)
     setUploadingPhoto(true)
     setError('')
     try {
@@ -849,7 +851,7 @@ function TeacherProfileEditModal({ open, onClose, teacher, onSave, saving }) {
       const publicUrl = dataPayload?.public_url
       if (publicUrl) {
         upd('profile_photo_url', publicUrl)
-        setPhotoPreview(publicUrl)
+        setPhotoPreview(`${publicUrl}?t=${Date.now()}`)
       } else {
         setError('Upload succeeded but no public URL was returned.')
       }

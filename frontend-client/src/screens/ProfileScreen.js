@@ -9,7 +9,10 @@ import {
   Alert,
   Switch,
   Linking,
+  Dimensions,
 } from 'react-native';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 import { FontAwesome6, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -150,6 +153,7 @@ export default function ProfileScreen({ navigation }) {
   const { logout: logoutState } = useSelector((state) => state.auth);
   const [earnRewardsBadge, setEarnRewardsBadge] = useState(null);
   const [cmsPages, setCmsPages] = useState([]);
+  const [isMembershipDropdownOpen, setIsMembershipDropdownOpen] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -252,7 +256,7 @@ export default function ProfileScreen({ navigation }) {
       style={styles.screen}
       contentContainerStyle={[
         styles.container,
-        { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 100 },
+        { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 140 },
       ]}
     >
       <View style={styles.header}>
@@ -274,13 +278,68 @@ export default function ProfileScreen({ navigation }) {
                 <Ionicons name="chevron-forward" size={16} color={appTheme.white} />
               </View>
               {isPaid && memberships.length > 0 ? (
-                <Text style={styles.membershipEndText}>
-                  {memberships.map((m) => {
-                    const scope = m.category_name ? ` · ${m.category_name}` : '';
-                    if (!m.end_date) return `Lifetime${scope}`;
-                    return `Until ${formatMembershipEnd(m.end_date)}${scope}`;
-                  }).join('  ·  ')}
-                </Text>
+                memberships.length === 1 ? (
+                  <Text style={styles.membershipEndText}>
+                    {(() => {
+                      const m = memberships[0];
+                      const scope = m.category_name ? ` · ${m.category_name}` : '';
+                      if (!m.end_date) return `Lifetime${scope}`;
+                      return `Until ${formatMembershipEnd(m.end_date)}${scope}`;
+                    })()}
+                  </Text>
+                ) : (
+                  <View style={{ marginTop: 4, position: 'relative', zIndex: 9999 }}>
+                    <Pressable
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        setIsMembershipDropdownOpen((prev) => !prev);
+                      }}
+                      style={({ pressed }) => [
+                        styles.membershipDropdownPill,
+                        pressed && { opacity: 0.8 },
+                      ]}
+                    >
+                      <Ionicons name="star" size={12} color={appTheme.gold || '#FFD700'} />
+                      <Text style={styles.membershipDropdownPillText}>
+                        {memberships.length} Active Memberships
+                      </Text>
+                      <Ionicons
+                        name={isMembershipDropdownOpen ? 'chevron-up' : 'chevron-down'}
+                        size={14}
+                        color={appTheme.gold || '#FFD700'}
+                      />
+                    </Pressable>
+
+                    {isMembershipDropdownOpen && (
+                      <View
+                        style={styles.membershipDropdownContainer}
+                        onStartShouldSetResponder={() => true}
+                      >
+                        {memberships.map((m, idx) => {
+                          const title = m.plan_name || m.category_name || `Membership ${idx + 1}`;
+                          const scope = m.category_name ? m.category_name : null;
+                          const validText = !m.end_date
+                            ? 'Lifetime Access'
+                            : `Valid until ${formatMembershipEnd(m.end_date)}`;
+
+                          return (
+                            <View key={m.membership_id || m.plan_id || idx} style={styles.membershipDropdownRow}>
+                              <Ionicons name="star" size={13} color={appTheme.gold || '#FFD700'} />
+                              <View style={{ flex: 1 }}>
+                                <Text style={styles.membershipRowTitle}>
+                                  {title}
+                                </Text>
+                                <Text style={styles.membershipRowSubtitle}>
+                                  {validText}{scope && scope !== title ? ` (${scope})` : ''}
+                                </Text>
+                              </View>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    )}
+                  </View>
+                )
               ) : null}
             </View>
           </Pressable>
@@ -415,6 +474,8 @@ const useStyles = (appTheme) => StyleSheet.create({
     alignItems: 'flex-start',
     paddingHorizontal: 20,
     paddingBottom: 20,
+    zIndex: 999,
+    elevation: 20,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -465,6 +526,62 @@ const useStyles = (appTheme) => StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     marginTop: 4,
+  },
+  membershipDropdownPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255, 214, 0, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 214, 0, 0.35)',
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    alignSelf: 'flex-start',
+  },
+  membershipDropdownPillText: {
+    color: appTheme.gold || '#FFD700',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  membershipDropdownContainer: {
+    position: 'absolute',
+    top: 30,
+    left: 0,
+    zIndex: 9999,
+    elevation: 25,
+    backgroundColor: appTheme.surface || '#1E1E1E',
+    borderWidth: 1,
+    borderColor: appTheme.border || 'rgba(255,255,255,0.15)',
+    borderRadius: 14,
+    padding: 12,
+    gap: 10,
+    width: SCREEN_WIDTH - 100,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.45,
+    shadowRadius: 12,
+  },
+  membershipDropdownRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  membershipRowDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: appTheme.gold || '#FFD700',
+  },
+  membershipRowTitle: {
+    color: appTheme.text || appTheme.white || '#FFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  membershipRowSubtitle: {
+    color: appTheme.textMuted || appTheme.gray || '#AAA',
+    fontSize: 11,
+    marginTop: 1,
   },
   memberLabelActive: {
     color: '#4CAF50',
