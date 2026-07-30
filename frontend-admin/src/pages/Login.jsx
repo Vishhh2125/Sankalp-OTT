@@ -13,6 +13,14 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  const isTeacherPortal = typeof window !== 'undefined' && window.location.pathname.includes('/teacher')
+  const portalBadge = isTeacherPortal ? 'TEACHER PORTAL' : 'ADMIN PANEL'
+  const portalTitle = isTeacherPortal ? 'Teacher Login' : 'Admin Login'
+  const portalSubtitle = isTeacherPortal ? 'Sign in to access your teacher portal' : 'Sign in to access the dashboard'
+  const portalFooter = isTeacherPortal
+    ? 'For teacher/faculty access only.'
+    : 'For admin/subadmin access only.\nContact support for access credentials.'
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
@@ -92,7 +100,7 @@ export default function Login() {
           </div>
           <div>
             <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text)' }}>Sankalp OTT</div>
-            <div style={{ fontSize: '11px', color: 'var(--text3)', letterSpacing: '0.3px' }}>ADMIN PANEL</div>
+            <div style={{ fontSize: '11px', color: 'var(--text3)', letterSpacing: '0.3px' }}>{portalBadge}</div>
           </div>
         </div>
 
@@ -104,7 +112,7 @@ export default function Login() {
           marginBottom: '8px',
           textAlign: 'center'
         }}>
-          Admin Login
+          {portalTitle}
         </h1>
         <p style={{
           fontSize: '13px',
@@ -112,7 +120,7 @@ export default function Login() {
           textAlign: 'center',
           marginBottom: '30px'
         }}>
-          Sign in to access the dashboard
+          {portalSubtitle}
         </p>
 
         {/* Error Alert */}
@@ -262,10 +270,10 @@ export default function Login() {
           <p style={{
             fontSize: '11px',
             color: 'var(--text3)',
-            lineHeight: '1.6'
+            lineHeight: '1.6',
+            whiteSpace: 'pre-line'
           }}>
-            For admin/subadmin access only.<br />
-            Contact support for access credentials.
+            {portalFooter}
           </p>
         </div>
       </div>

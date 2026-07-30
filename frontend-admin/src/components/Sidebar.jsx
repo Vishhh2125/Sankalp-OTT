@@ -148,14 +148,16 @@ export default function Sidebar() {
   const user = useSelector(selectUser)
   const navItems = filterNavByPermissions(NAV_CONFIG, user)
 
-  const roleLabel = user?.role === 'admin' ? 'admin' : user?.role === 'sub_admin' ? 'sub-admin' : 'user'
+  const isTeacher = user?.role === 'teacher'
+  const logoTitle = isTeacher ? 'Alpha-Minds Teacher' : 'Alpha-Minds Admin'
+  const roleLabel = user?.role === 'admin' ? 'admin' : isTeacher ? 'teacher' : user?.role === 'sub_admin' ? 'sub-admin' : 'user'
 
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
-        <div className="logo-mark">AM</div>
+        <div className="logo-mark">{isTeacher ? 'TP' : 'AM'}</div>
         <div>
-          <div className="logo-text">Alpha-Minds Admin</div>
+          <div className="logo-text">{logoTitle}</div>
         </div>
       </div>
 
