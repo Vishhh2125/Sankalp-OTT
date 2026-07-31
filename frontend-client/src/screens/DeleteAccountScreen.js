@@ -37,7 +37,7 @@ export default function DeleteAccountScreen({ navigation }) {
   const plan = useSelector((state) => state.auth?.plan);
   const coins = useSelector((state) => state.auth?.coins);
   const memberships = useSelector((state) => state.auth?.memberships) || [];
-  
+
   const isPaid = (plan && plan !== 'FREE') || memberships.length > 0;
   const hasCoins = coins && coins > 0;
 
@@ -346,7 +346,7 @@ const useStyles = (appTheme) =>
     },
     modalContent: {
       width: '100%',
-      backgroundColor: appTheme.surface || '#1E1E24',
+      backgroundColor: appTheme.surface || '#140018',
       borderRadius: 20,
       padding: 24,
       alignItems: 'center',

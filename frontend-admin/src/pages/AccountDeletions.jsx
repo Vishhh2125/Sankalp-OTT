@@ -16,6 +16,7 @@ export default function AccountDeletions() {
   const [items, setItems] = useState([]);
   const [reasonStats, setReasonStats] = useState({});
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState(null);
 
   // Filters
@@ -61,15 +62,33 @@ export default function AccountDeletions() {
   const topReasonEntry = Object.entries(reasonStats).sort((a, b) => b[1] - a[1])[0];
   const topReason = topReasonEntry ? `${topReasonEntry[0]} (${topReasonEntry[1]})` : 'N/A';
 
-  const handleExport = () => {
-    const params = {
-      search: search.trim() || undefined,
-      reason: reason || undefined,
-      startDate: startDate || undefined,
-      endDate: endDate || undefined,
-    };
-    const exportUrl = accountDeletionsApi.exportCSVUrl(params);
-    window.open(exportUrl, '_blank');
+  const handleExport = async () => {
+    if (exporting) return;
+    setExporting(true);
+    setError(null);
+    try {
+      const params = {
+        search: search.trim() || undefined,
+        reason: reason || undefined,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+      };
+      const response = await accountDeletionsApi.exportCSV(params);
+      const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `account_deletions_${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to export account deletions:', err);
+      setError(err.response?.data?.message || 'Failed to export account deletion audit logs');
+    } finally {
+      setExporting(false);
+    }
   };
 
   const handleResetFilters = () => {
@@ -84,12 +103,12 @@ export default function AccountDeletions() {
     <div className="account-deletions-page" style={{ padding: '24px' }}>
       {/* Header & Metrics Summary Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-        <div className="card" style={{ padding: '20px', borderRadius: '12px', background: 'var(--surface, #1e1e24)', border: '1px solid var(--border, #2a2a32)' }}>
+        <div className="card" style={{ padding: '20px', borderRadius: '12px', background: 'var(--surface, #140018)', border: '1px solid var(--border, #2a2a32)' }}>
           <div style={{ fontSize: '13px', color: 'var(--textMuted, #8a8a9e)', marginBottom: '4px' }}>Total Account Deletions</div>
           <div style={{ fontSize: '28px', fontWeight: '700', color: 'var(--text, #fff)' }}>{pagination.total}</div>
         </div>
 
-        <div className="card" style={{ padding: '20px', borderRadius: '12px', background: 'var(--surface, #1e1e24)', border: '1px solid var(--border, #2a2a32)' }}>
+        <div className="card" style={{ padding: '20px', borderRadius: '12px', background: 'var(--surface, #140018)', border: '1px solid var(--border, #2a2a32)' }}>
           <div style={{ fontSize: '13px', color: 'var(--textMuted, #8a8a9e)', marginBottom: '4px' }}>Most Common Reason</div>
           <div style={{ fontSize: '16px', fontWeight: '600', color: '#ff4d4f', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {topReason}
@@ -98,7 +117,7 @@ export default function AccountDeletions() {
       </div>
 
       {/* Filter & Action Bar */}
-      <div className="card" style={{ padding: '16px 20px', borderRadius: '12px', background: 'var(--surface, #1e1e24)', border: '1px solid var(--border, #2a2a32)', marginBottom: '24px' }}>
+      <div className="card" style={{ padding: '16px 20px', borderRadius: '12px', background: 'var(--surface, #140018)', border: '1px solid var(--border, #2a2a32)', marginBottom: '24px' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center', flex: 1 }}>
             {/* Search Input */}
@@ -189,6 +208,7 @@ export default function AccountDeletions() {
           {/* Export to CSV / Excel Button */}
           <button
             onClick={handleExport}
+            disabled={exporting}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -196,20 +216,21 @@ export default function AccountDeletions() {
               padding: '9px 18px',
               borderRadius: '8px',
               border: 'none',
-              background: '#4CAF50',
+              background: exporting ? '#2e7d32' : '#4CAF50',
               color: '#fff',
               fontWeight: '600',
               fontSize: '14px',
-              cursor: 'pointer',
+              cursor: exporting ? 'not-allowed' : 'pointer',
+              opacity: exporting ? 0.7 : 1,
               boxShadow: '0 2px 6px rgba(76,175,80,0.3)',
             }}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="7 10 12 15 17 10"/>
-              <line x1="12" y1="15" x2="12" y2="3"/>
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
-            Export to CSV / Excel
+            {exporting ? 'Exporting...' : 'Export to CSV / Excel'}
           </button>
         </div>
       </div>
@@ -222,7 +243,7 @@ export default function AccountDeletions() {
       )}
 
       {/* Audit Log Table */}
-      <div className="card" style={{ borderRadius: '12px', background: 'var(--surface, #1e1e24)', border: '1px solid var(--border, #2a2a32)', overflow: 'hidden' }}>
+      <div className="card" style={{ borderRadius: '12px', background: 'var(--surface, #140018)', border: '1px solid var(--border, #2a2a32)', overflow: 'hidden' }}>
         {loading ? (
           <div style={{ padding: '40px', textAlign: 'center', color: 'var(--textMuted, #8a8a9e)' }}>Loading account deletion records...</div>
         ) : items.length === 0 ? (

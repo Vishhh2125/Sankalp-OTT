@@ -11,7 +11,10 @@ const prisma = getPrismaClient();
  * - supports DB user fetch
  */
 const baseAuth = async (req, allowGuest = false) => {
-  const header = req.headers.authorization;
+  let header = req.headers.authorization;
+  if (!header && req.query?.token) {
+    header = `Bearer ${req.query.token}`;
+  }
 
   // No token case
   if (!header || !header.startsWith('Bearer ')) {
