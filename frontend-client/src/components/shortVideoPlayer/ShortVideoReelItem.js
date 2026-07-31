@@ -1272,7 +1272,7 @@ function LockOverlay({ item, accessToken, navigation, dispatch, walletReturnPara
           <ActivityIndicator color="#fff" />
         ) : (
           <Text style={styles.lockButtonText}>
-            {canUnlock ? (isShowLock ? 'Buy Full Show' : 'Unlock') : 'Not enough coins'}
+            {canUnlock ? (isShowLock ? 'Buy Full Course' : 'Unlock') : 'Not enough coins'}
           </Text>
         )}
       </TouchableOpacity>

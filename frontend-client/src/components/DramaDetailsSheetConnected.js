@@ -800,7 +800,7 @@ export default function DramaDetailsSheetConnected({
                             <>
                               <Ionicons name="cart" size={18} color={theme.white} />
                               <Text style={styles.buyShowText}>
-                                Buy Full Show · {showDetails?.show_coin_cost} Coins
+                                Buy Full Course · {showDetails?.show_coin_cost} Coins
                               </Text>
                             </>
                           )}

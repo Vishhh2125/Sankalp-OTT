@@ -54,10 +54,7 @@ function selectPendingHomeBanner(state) {
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COLUMN_WIDTH = (SCREEN_WIDTH - 32) / 3;
-const TAG_GRID_GAP = 8;
-const TAG_GRID_WIDTH = SCREEN_WIDTH - 32;
-const TAG_GRID_ITEM_WIDTH = (TAG_GRID_WIDTH - TAG_GRID_GAP * 2) / 3;
-const TAG_FILTER_ITEM_HEIGHT = 34;
+const TAG_FILTER_ITEM_HEIGHT = 38;
 const TAG_FILTER_ROW_GAP = 8;
 const TAG_FILTER_VISIBLE_ROWS = 4;
 const TAG_FILTER_MAX_HEIGHT =
@@ -729,136 +726,138 @@ export default function PopularScreen() {
         style={styles.header}
         onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
       >
-        <View style={styles.searchColumn}>
-          <View style={styles.searchRow}>
-            <View style={[styles.searchBar, showFilterButton && styles.searchBarWithFilter]}>
-              <Ionicons name="search" size={18} color="#666" style={styles.searchIcon} />
-              {selectedTags.length > 0 ? (
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  keyboardShouldPersistTaps="handled"
-                  contentContainerStyle={styles.selectedFilterScrollContent}
-                  style={styles.selectedFilterScroll}
+        <View style={styles.headerTopRow}>
+          <View style={styles.searchColumn}>
+            <View style={styles.searchRow}>
+              <View style={[styles.searchBar, showFilterButton && styles.searchBarWithFilter]}>
+                <Ionicons name="search" size={18} color="#666" style={styles.searchIcon} />
+                {selectedTags.length > 0 ? (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                    contentContainerStyle={styles.selectedFilterScrollContent}
+                    style={styles.selectedFilterScroll}
+                  >
+                    {selectedTags.map((tag) => (
+                      <View key={tag} style={styles.selectedFilterChip}>
+                        <Text style={styles.selectedFilterText} numberOfLines={1}>
+                          {tag}
+                        </Text>
+                        <TouchableOpacity
+                          onPress={() => removeSelectedTag(tag)}
+                          hitSlop={8}
+                          style={styles.selectedFilterRemove}
+                        >
+                          <Ionicons name="close" size={12} color={appTheme.gray} />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </ScrollView>
+                ) : (
+                  <TextInput
+                    ref={searchInputRef}
+                    style={styles.searchInput}
+                    placeholder="Search courses or tags..."
+                    placeholderTextColor="#666"
+                    value={searchQuery}
+                    onChangeText={handleSearchTextChange}
+                    onFocus={handleSearchFocus}
+                    onBlur={handleSearchBlur}
+                  />
+                )}
+                {(selectedTags.length > 0 || searchQuery.length > 0) && (
+                  <TouchableOpacity onPress={clearSearch} hitSlop={8}>
+                    <Ionicons name="close-circle" size={18} color="#666" />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {showFilterButton && (
+                <TouchableOpacity
+                  style={[
+                    styles.filterButton,
+                    (filterPanelOpen || selectedTags.length > 0) && styles.filterButtonActive,
+                  ]}
+                  onPress={handleFilterPress}
+                  hitSlop={6}
                 >
-                  {selectedTags.map((tag) => (
-                    <View key={tag} style={styles.selectedFilterChip}>
-                      <Text style={styles.selectedFilterText} numberOfLines={1}>
-                        {tag}
-                      </Text>
-                      <TouchableOpacity
-                        onPress={() => removeSelectedTag(tag)}
-                        hitSlop={8}
-                        style={styles.selectedFilterRemove}
-                      >
-                        <Ionicons name="close" size={12} color={appTheme.gray} />
-                      </TouchableOpacity>
+                  <Ionicons
+                    name="funnel-outline"
+                    size={18}
+                    color={selectedTags.length > 0 || filterPanelOpen ? appTheme.crimson : '#AAA'}
+                  />
+                  {selectedTags.length > 0 && (
+                    <View style={styles.filterBadge}>
+                      <Text style={styles.filterBadgeText}>{selectedTags.length}</Text>
                     </View>
-                  ))}
-                </ScrollView>
-              ) : (
-                <TextInput
-                  ref={searchInputRef}
-                  style={styles.searchInput}
-                  placeholder="Search courses or tags..."
-                  placeholderTextColor="#666"
-                  value={searchQuery}
-                  onChangeText={handleSearchTextChange}
-                  onFocus={handleSearchFocus}
-                  onBlur={handleSearchBlur}
-                />
-              )}
-              {(selectedTags.length > 0 || searchQuery.length > 0) && (
-                <TouchableOpacity onPress={clearSearch} hitSlop={8}>
-                  <Ionicons name="close-circle" size={18} color="#666" />
+                  )}
                 </TouchableOpacity>
               )}
             </View>
-
-            {showFilterButton && (
-              <TouchableOpacity
-                style={[
-                  styles.filterButton,
-                  (filterPanelOpen || selectedTags.length > 0) && styles.filterButtonActive,
-                ]}
-                onPress={handleFilterPress}
-                hitSlop={6}
-              >
-                <Ionicons
-                  name="funnel-outline"
-                  size={18}
-                  color={selectedTags.length > 0 || filterPanelOpen ? appTheme.crimson : '#AAA'}
-                />
-                {selectedTags.length > 0 && (
-                  <View style={styles.filterBadge}>
-                    <Text style={styles.filterBadgeText}>{selectedTags.length}</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            )}
           </View>
 
-          {filterPanelOpen && (
-            <View style={styles.tagFilterPanel}>
-              <ScrollView
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
-                nestedScrollEnabled
-                style={styles.tagFilterScroll}
-              >
-                <View style={styles.tagSearchWrap}>
-                  {allTags.length === 0 ? (
-                    <Text style={styles.tagSearchEmpty}>No tags available</Text>
-                  ) : (
-                    allTags.map((tag, index) => {
-                      const isSelected = selectedTags.includes(tag.name);
-                      const isThirdColumn = (index + 1) % 3 === 0;
-                      return (
-                        <TouchableOpacity
-                          key={`${tag.id || tag.name || 'tag'}-${index}`}
-                          style={[
-                            styles.tagSearchItem,
-                            isThirdColumn && styles.tagSearchItemLastInRow,
-                            isSelected && styles.tagSearchItemActive,
-                          ]}
-                          onPress={() => toggleTag(tag.name)}
-                        >
-                          <Text
-                            style={[
-                              styles.tagSearchItemText,
-                              isSelected && styles.tagSearchItemTextActive,
-                            ]}
-                            numberOfLines={1}
-                            adjustsFontSizeToFit
-                            minimumFontScale={0.78}
-                          >
-                            {tag.name}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })
-                  )}
-                </View>
-              </ScrollView>
-            </View>
-          )}
+          <View style={styles.headerIcons}>
+            <TouchableOpacity
+              onPress={() =>
+                navigation.navigate(ROUTES.PROFILE, {
+                  screen: ROUTES.MEMBERSHIP,
+                  params: { backToHome: true },
+                })
+              }
+            >
+              <FontAwesome6 name="crown" size={22} color="#f4753fff" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={goToEarnRewards} hitSlop={8}>
+              <Ionicons name="gift" size={24} color="#f4753fff" />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <View style={styles.headerIcons}>
-          <TouchableOpacity
-            onPress={() =>
-              navigation.navigate(ROUTES.PROFILE, {
-                screen: ROUTES.MEMBERSHIP,
-                params: { backToHome: true },
-              })
-            }
-          >
-            <FontAwesome6 name="crown" size={22} color="#f4753fff" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={goToEarnRewards} hitSlop={8}>
-            <Ionicons name="gift" size={24} color="#f4753fff" />
-          </TouchableOpacity>
-        </View>
+        {filterPanelOpen && (
+          <View style={styles.tagFilterPanel}>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator
+              indicatorStyle={appTheme.isDark ? 'white' : 'black'}
+              persistentScrollbar
+              nestedScrollEnabled
+              style={styles.tagFilterScroll}
+            >
+              <View style={styles.tagSearchWrap}>
+                {allTags.length === 0 ? (
+                  <Text style={styles.tagSearchEmpty}>No tags available</Text>
+                ) : (
+                  allTags.map((tag, index) => {
+                    const isSelected = selectedTags.includes(tag.name);
+                    return (
+                      <TouchableOpacity
+                        key={`${tag.id || tag.name || 'tag'}-${index}`}
+                        style={[
+                          styles.tagSearchItem,
+                          isSelected && styles.tagSearchItemActive,
+                        ]}
+                        onPress={() => toggleTag(tag.name)}
+                      >
+                        <Text
+                          style={[
+                            styles.tagSearchItemText,
+                            isSelected && styles.tagSearchItemTextActive,
+                          ]}
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          minimumFontScale={0.78}
+                        >
+                          {tag.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })
+                )}
+              </View>
+            </ScrollView>
+          </View>
+        )}
       </View>
 
       {filterPanelOpen && (
@@ -1081,12 +1080,16 @@ export default function PopularScreen() {
 const useStyles = (appTheme) => StyleSheet.create({
   container: { flex: 1, backgroundColor: appTheme.background },
   header: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: 'column',
     paddingHorizontal: 16,
     paddingVertical: 10,
-    gap: 12,
     zIndex: 110,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    width: '100%',
   },
   searchColumn: {
     flex: 1,
@@ -1189,10 +1192,10 @@ const useStyles = (appTheme) => StyleSheet.create({
     fontWeight: '800',
   },
   tagFilterPanel: {
-    marginTop: 8,
-    padding: 10,
+    marginTop: 10,
+    padding: 12,
 
-    width: TAG_GRID_WIDTH,
+    width: '100%',
 
     backgroundColor: appTheme.surface,
 
@@ -1221,16 +1224,14 @@ const useStyles = (appTheme) => StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     width: '100%',
+    gap: 8,
   },
 
   tagSearchItem: {
-    width: `31.8%`,
+    width: '31.4%',
     height: TAG_FILTER_ITEM_HEIGHT,
 
-    paddingHorizontal: 8,
-
-    marginRight: TAG_GRID_GAP,
-    marginBottom: TAG_FILTER_ROW_GAP,
+    paddingHorizontal: 6,
 
     borderRadius: 8,
 
@@ -1245,9 +1246,7 @@ const useStyles = (appTheme) => StyleSheet.create({
     justifyContent: 'center',
   },
 
-  tagSearchItemLastInRow: {
-    marginRight: 0,
-  },
+  tagSearchItemLastInRow: {},
 
   tagSearchItemActive: {
     backgroundColor: appTheme.primary,
@@ -1256,7 +1255,7 @@ const useStyles = (appTheme) => StyleSheet.create({
 
   tagSearchItemText: {
     color: appTheme.text,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
   },
