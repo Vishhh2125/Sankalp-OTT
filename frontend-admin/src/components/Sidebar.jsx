@@ -132,6 +132,18 @@ const NAV_ICONS = {
       <circle cx="11" cy="9" r="1.5" fill="currentColor" opacity=".9" />
     </>
   ),
+  approvals: (
+    <>
+      <rect x="2" y="2" width="12" height="12" rx="2" fill="currentColor" opacity=".25" />
+      <path d="M4.8 8.2l2.2 2.2 4.2-4.2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" opacity=".95" />
+    </>
+  ),
+  packages: (
+    <>
+      <path d="M2.5 5.5L8 2.5l5.5 3v5L8 13.5l-5.5-3v-5z" fill="currentColor" opacity=".3" />
+      <path d="M8 2.5v11M2.5 5.5l5.5 3.5 5.5-3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" opacity=".8" />
+    </>
+  ),
 }
 
 function NavIcon({ id }) {

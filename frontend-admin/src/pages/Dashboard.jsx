@@ -258,7 +258,7 @@ export default function Dashboard() {
 
           {/* Top 5 shows by views — vertical bar chart */}
           <div className="metric-card" style={{ padding:'16px 18px' }}>
-            <div style={{ fontWeight:600, fontSize:13, marginBottom:16, color:'var(--text)' }}>Top shows by views</div>
+            <div style={{ fontWeight:600, fontSize:13, marginBottom:16, color:'var(--text)' }}>Top courses by views</div>
             {chartsLoading ? (
               <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:220, color:'var(--text3)', fontSize:12 }}>Loading...</div>
             ) : topShows.length === 0 ? (

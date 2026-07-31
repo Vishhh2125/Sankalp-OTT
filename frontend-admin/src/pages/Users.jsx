@@ -122,8 +122,8 @@ function UserProfileModal({ open, onClose, user }) {
             profileData.watch_history.map((w,i) => (
               <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 0', borderBottom:'1px solid var(--border)' }}>
                 <div>
-                  <div style={{ fontWeight:500, fontSize:13 }}>{w.episode?.show?.title || 'Unknown Show'}</div>
-                  <div style={{ fontSize:11, color:'var(--text3)' }}>Episode {w.episode?.episode_num || 1}</div>
+                  <div style={{ fontWeight:500, fontSize:13 }}>{w.episode?.show?.title || 'Unknown Course'}</div>
+                  <div style={{ fontSize:11, color:'var(--text3)' }}>Lecture {w.episode?.episode_num || 1}</div>
                 </div>
                 <span style={{ fontSize:12, color:'var(--text3)' }}>{new Date(w.last_watched).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' })}</span>
               </div>

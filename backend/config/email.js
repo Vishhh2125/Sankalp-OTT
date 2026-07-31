@@ -87,18 +87,18 @@ const getTransporter = async () => {
 export const sendOtpEmail = async (email, otp) => {
   try {
     const transporter = await getTransporter();
-    
+
     const mailOptions = {
       from: process.env.SMTP_FROM || 'vishnu1234@gmail.com',
       to: email,
-      subject: 'Sankalp OTT - Verify Your Email Address',
+      subject: 'ALpha Minds - Verify Your Email Address',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px;">
             <h2 style="color: #333; text-align: center;">Verify Your Email</h2>
             
             <p style="color: #666; font-size: 16px; line-height: 1.6;">
-              Welcome to Sankalp OTT! To complete your registration, please verify your email address using the code below.
+              Welcome to ALpha Minds! To complete your registration, please verify your email address using the code below.
             </p>
             
             <div style="background-color: #007bff; color: white; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
@@ -115,12 +115,12 @@ export const sendOtpEmail = async (email, otp) => {
             <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
             
             <footer style="text-align: center; color: #999; font-size: 12px;">
-              <p>© 2026 Sankalp OTT. All rights reserved.</p>
+              <p>© 2026 ALpha Minds. All rights reserved.</p>
             </footer>
           </div>
         </div>
       `,
-      text: `Your Sankalp OTT verification code is: ${otp}\n\nThis code expires in 10 minutes.\n\nIf you didn't request this, please ignore this email.`
+      text: `Your ALpha Minds verification code is: ${otp}\n\nThis code expires in 10 minutes.\n\nIf you didn't request this, please ignore this email.`
     };
 
     const result = await transporter.sendMail(mailOptions);
@@ -148,14 +148,14 @@ export const sendTeacherCredentialsEmail = async (email, name, temporaryPassword
     const mailOptions = {
       from: process.env.SMTP_FROM || 'vishnu1234@gmail.com',
       to: email,
-      subject: 'Sankalp OTT - Teacher Account Credentials',
+      subject: 'ALpha Minds - Teacher Account Credentials',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px;">
             <h2 style="color: #333; text-align: center;">Your Teacher Account Is Ready</h2>
 
             <p style="color: #666; font-size: 16px; line-height: 1.6;">
-              Hello ${name || 'Teacher'}, your Sankalp OTT teacher account has been created.
+              Hello ${name || 'Teacher'}, your ALpha Minds teacher account has been created.
             </p>
 
             <div style="background-color: #007bff; color: white; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
@@ -172,12 +172,12 @@ export const sendTeacherCredentialsEmail = async (email, name, temporaryPassword
             <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
 
             <footer style="text-align: center; color: #999; font-size: 12px;">
-              <p>© 2026 Sankalp OTT. All rights reserved.</p>
+              <p>© 2026 ALpha Minds. All rights reserved.</p>
             </footer>
           </div>
         </div>
       `,
-      text: `Hello ${name || 'Teacher'},\n\nYour Sankalp OTT teacher account has been created.\n\nLogin email: ${email}\nTemporary password: ${temporaryPassword}\n\nPlease sign in and change your password after the first login if supported.`
+      text: `Hello ${name || 'Teacher'},\n\nYour ALpha Minds- teacher account has been created.\n\nLogin email: ${email}\nTemporary password: ${temporaryPassword}\n\nPlease sign in and change your password after the first login if supported.`
     };
 
     const result = await transporter.sendMail(mailOptions);

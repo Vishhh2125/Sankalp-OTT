@@ -1215,7 +1215,7 @@ export async function getDashboardMetrics(req, res, next) {
 
       const metrics = [
         {
-          label: 'Total Dramas',
+          label: 'Total Courses',
           value: formatNumber(dramasCount),
           sub: 'your courses',
           trend: null,
@@ -1415,7 +1415,7 @@ export async function getDashboardMetrics(req, res, next) {
         up: period !== 'All' ? true : null,
       },
       {
-        label: 'Dramas Uploaded',
+        label: 'Courses Uploaded',
         value: formatNumber(dramasCount),
         sub: 'total on platform',
         trend: null,
@@ -1632,7 +1632,7 @@ export async function getAnalyticsReport(req, res, next) {
       }
 
       reportData = [
-        { lbl: 'Episodes unlocked', val: formatNumber(unlockedEpisodes), color: 'var(--accent2)' },
+        { lbl: 'Lectures unlocked', val: formatNumber(unlockedEpisodes), color: 'var(--accent2)' },
         { lbl: 'Coins spent', val: formatCoins(coinsSpent._sum.coins_spent || 0), color: 'var(--amber)' },
         { lbl: 'Top unlock ep.', val: topEpisodeName, color: 'var(--text)' },
       ];

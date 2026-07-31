@@ -235,7 +235,7 @@ export default function LiveStreaming() {
       return
     }
     if (!showId) {
-      alert('Please select a linked show/course')
+      alert('Please select a linked course')
       return
     }
 
@@ -836,7 +836,7 @@ export default function LiveStreaming() {
             style={{ width: '100%', padding: '8px 12px', background: 'var(--bg2)', color: 'var(--text1)', border: '1px solid var(--border)', borderRadius: 6 }}
           />
         </FormGroup>
-        <FormGroup label="Linked Course / Show *">
+        <FormGroup label="Linked Course *">
           {showsLoading ? (
             <div style={{ fontSize: 13, color: 'var(--text3)', padding: '8px 0' }}>Loading courses…</div>
           ) : (

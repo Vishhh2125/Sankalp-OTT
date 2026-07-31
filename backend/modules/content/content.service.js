@@ -636,10 +636,10 @@ async function getEpisodesByShow(showId, requesting_user = null) {
 
 async function createEpisode(data, admin) {
   const show = await prisma.show.findUnique({ where: { id: data.show_id } });
-  if (!show) throw new AppError('Show not found', 404);
+  if (!show) throw new AppError('Course not found', 404);
 
   if (data.is_show_only === true && show.is_free) {
-    throw new AppError('Show-only episodes are not allowed on free shows', 400);
+    throw new AppError('Course-only episodes are not allowed on free courses', 400);
   }
 
   // Auto-assign episode number if not provided or if it conflicts
@@ -679,14 +679,14 @@ async function createEpisode(data, admin) {
 
 async function updateEpisode(id, data, admin) {
   const ep = await prisma.episode.findUnique({ where: { id } });
-  if (!ep) throw new AppError('Episode not found', 404);
+  if (!ep) throw new AppError('Lecture not found', 404);
 
   const updateData = { ...data };
 
   if (updateData.is_show_only === true) {
     const show = await prisma.show.findUnique({ where: { id: ep.show_id } });
     if (show && show.is_free) {
-      throw new AppError('Show-only episodes are not allowed on free shows', 400);
+      throw new AppError('Show-only Lectures are not allowed on free shows', 400);
     }
   }
 
@@ -719,7 +719,7 @@ async function updateEpisode(id, data, admin) {
 
 async function deleteEpisode(id) {
   const ep = await prisma.episode.findUnique({ where: { id } });
-  if (!ep) throw new AppError('Episode not found', 404);
+  if (!ep) throw new AppError('Lecture not found', 404);
 
   // ── MinIO cleanup (best-effort, never blocks DB delete) ──
   // 1. Delete all transcoded HLS files: dramas/{showId}/episodes/{episodeId}/

@@ -195,18 +195,18 @@ function DramaModal({ open, onClose, onSave, initial, initialStep = 0, autoAddEp
     } finally { setSaving(false) }
   }
 
-  const STEPS = ['Basic Info', 'Tags', 'Episodes', 'Review']
+  const STEPS = ['Basic Info', 'Tags', 'Lectures', 'Review']
   if (!open) return null
 
   return (
-    <Modal open={open} onClose={() => { onClose(); setStep(initialStep) }} title={isEdit ? `Edit Drama — ${initial.title}` : 'Add New Drama'} width={720}
+    <Modal open={open} onClose={() => { onClose(); setStep(initialStep) }} title={isEdit ? `Edit Course — ${initial.title}` : 'Add New Course'} width={720}
       footer={
         <>
           {step > 0 && <button className="btn btn-ghost" onClick={() => setStep(s => s-1)}>← Back</button>}
           {isEdit && step !== 2 && (
             <button className="btn btn-ghost" style={{ color: 'var(--accent2)', borderColor: 'var(--accent-border)' }}
               onClick={() => { setStep(2); setAddingEp(true) }}>
-              <Plus size={13}/> Add Episode
+              <Plus size={13}/> Add Lecture
             </button>
           )}
           {step < 3
@@ -215,7 +215,7 @@ function DramaModal({ open, onClose, onSave, initial, initialStep = 0, autoAddEp
                 if (step === 0 && !form.category) { alert('Category is required'); return }
                 setStep(s => s+1)
               }}>Next →</button>
-            : <button className="btn btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Drama'}</button>
+            : <button className="btn btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Course'}</button>
           }
         </>
       }
@@ -224,7 +224,7 @@ function DramaModal({ open, onClose, onSave, initial, initialStep = 0, autoAddEp
 
       {step === 0 && (
         <>
-          <ModalSection title="Drama details">
+          <ModalSection title="Course details">
             <FormGroup label="Title *">
               <input className="input" style={{ width:'100%' }} placeholder="e.g. Secret Marriage" value={form.title} onChange={e => upd('title', e.target.value)} />
             </FormGroup>
@@ -247,14 +247,14 @@ function DramaModal({ open, onClose, onSave, initial, initialStep = 0, autoAddEp
               </FormGroup>
             )}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
-              <FormGroup label="Show Price Model">
+              <FormGroup label="Course Price Model">
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button type="button" className={`chip ${form.is_free ? 'chip-active' : ''}`} style={{ flex: 1 }} onClick={() => setForm(p => ({ ...p, is_free: true, coin_cost: 0 }))}>Free Show</button>
-                  <button type="button" className={`chip ${!form.is_free ? 'chip-active' : ''}`} style={{ flex: 1 }} onClick={() => upd('is_free', false)}>Paid Show</button>
+                  <button type="button" className={`chip ${form.is_free ? 'chip-active' : ''}`} style={{ flex: 1 }} onClick={() => setForm(p => ({ ...p, is_free: true, coin_cost: 0 }))}>Free Course</button>
+                  <button type="button" className={`chip ${!form.is_free ? 'chip-active' : ''}`} style={{ flex: 1 }} onClick={() => upd('is_free', false)}>Paid Course</button>
                 </div>
               </FormGroup>
               {!form.is_free && (
-                <FormGroup label="Show Coin Cost *">
+                <FormGroup label="Course Coin Cost *">
                   <input className="input" type="number" min="0" style={{ width: '100%' }} placeholder="200" value={form.coin_cost || ''} onChange={e => upd('coin_cost', parseInt(e.target.value) || 0)} />
                 </FormGroup>
               )}
@@ -316,7 +316,7 @@ function DramaModal({ open, onClose, onSave, initial, initialStep = 0, autoAddEp
       )}
 
       {step === 1 && (
-        <ModalSection title="Drama tags (select all that apply)">
+        <ModalSection title="Course tags (select all that apply)">
           <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
             {ALL_TAGS.map(t => (
               <button key={t} onClick={() => toggleTag(t)} className={`chip${form.tags.includes(t)?' chip-active':''}`}>{t}</button>
@@ -331,10 +331,10 @@ function DramaModal({ open, onClose, onSave, initial, initialStep = 0, autoAddEp
       )}
 
       {step === 2 && (
-        <ModalSection title={`Episodes (${episodes.length})`}>
+        <ModalSection title={`Lectures (${episodes.length})`}>
           {episodes.length === 0 && !addingEp && (
             <div style={{ textAlign:'center', padding:'32px 0', color:'var(--text3)', fontSize:13 }}>
-              No episodes yet. Add your first episode.
+              No lectures yet. Add your first lecture.
             </div>
           )}
           {episodes.map((ep, idx) => (
@@ -376,13 +376,13 @@ function DramaModal({ open, onClose, onSave, initial, initialStep = 0, autoAddEp
           ))}
           {addingEp ? (
             <div style={{ background:'var(--bg3)', border:'1px solid var(--accent-border)', borderRadius:8, padding:14, marginTop:8 }}>
-              <div style={{ fontSize:12, fontWeight:600, color:'var(--accent2)', marginBottom:12 }}>New Episode</div>
+              <div style={{ fontSize:12, fontWeight:600, color:'var(--accent2)', marginBottom:12 }}>New Lecture</div>
               <div style={{ display:'grid', gridTemplateColumns:'auto 1fr 1fr', gap:10, marginBottom:10 }}>
                 <FormGroup label="Ep #">
                   <input className="input" style={{ width:60 }} type="number" value={episodes.length+1} disabled/>
                 </FormGroup>
                 <FormGroup label="Title *">
-                  <input className="input" placeholder="Episode title" value={newEp.title} onChange={e => setNewEp(p=>({...p,title:e.target.value}))}/>
+                  <input className="input" placeholder="Lecture title" value={newEp.title} onChange={e => setNewEp(p=>({...p,title:e.target.value}))}/>
                 </FormGroup>
                 <FormGroup label={newEp.videoFile && newEp.duration ? "Duration (auto-detected)" : "Duration (mm:ss)"}>
                   <input className="input" placeholder="12:30" value={newEp.duration} onChange={e => setNewEp(p=>({...p,duration:e.target.value}))}
@@ -403,7 +403,7 @@ function DramaModal({ open, onClose, onSave, initial, initialStep = 0, autoAddEp
                         setNewEp(p => ({ ...p, is_free: false, is_show_only: false, coin_cost: 30 }));
                       } else if (val === 'show_only') {
                         if (form.is_free) {
-                          alert('Show-only episodes are not allowed on free shows!');
+                          alert('Course-only lectures are not allowed on free courses!');
                           return;
                         }
                         setNewEp(p => ({ ...p, is_free: false, is_show_only: true, coin_cost: 0 }));
@@ -412,7 +412,7 @@ function DramaModal({ open, onClose, onSave, initial, initialStep = 0, autoAddEp
                   >
                     <option value="free">Free</option>
                     <option value="paid">Paid (coin unlock)</option>
-                    <option value="show_only">Unlock via Show Purchase only</option>
+                    <option value="show_only">Unlock via Course Purchase only</option>
                   </select>
                 </FormGroup>
                 {!newEp.is_free && !newEp.is_show_only && (
@@ -464,7 +464,7 @@ function DramaModal({ open, onClose, onSave, initial, initialStep = 0, autoAddEp
               )}
               <div style={{ display:'flex', gap:8, marginTop:12 }}>
                 <button className="btn btn-primary" onClick={addEpisode} disabled={!newEp.title.trim()}>
-                  <Plus size={13}/> Add Episode
+                  <Plus size={13}/> Add Lecture
                 </button>
                 <button className="btn btn-ghost" onClick={() => { 
                   intervalsRef.current.forEach(i => clearInterval(i))
@@ -476,7 +476,7 @@ function DramaModal({ open, onClose, onSave, initial, initialStep = 0, autoAddEp
             </div>
           ) : (
             <button className="btn btn-ghost" style={{ width:'100%', marginTop:8, justifyContent:'center', border:'1px dashed var(--border)' }} onClick={() => setAddingEp(true)}>
-              <Plus size={14}/> Add Episode
+              <Plus size={14}/> Add Lecture
             </button>
           )}
         </ModalSection>
@@ -511,7 +511,7 @@ function DramaModal({ open, onClose, onSave, initial, initialStep = 0, autoAddEp
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
             <div style={{ background:'var(--bg3)', padding:12, borderRadius:8 }}>
-              <div style={{ color:'var(--text3)', fontSize:11, marginBottom:4 }}>EPISODES</div>
+              <div style={{ color:'var(--text3)', fontSize:11, marginBottom:4 }}>LECTURES</div>
               <div style={{ fontWeight:600, fontSize:16 }}>{episodes.length}</div>
               <div style={{ fontSize:11, color:'var(--text3)' }}>{episodes.filter(e=>e.is_free).length} free · {episodes.filter(e=>!e.is_free).length} paid</div>
             </div>
@@ -562,7 +562,7 @@ function StatsModal({ open, onClose, drama }) {
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:10, marginBottom:20 }}>
             {[
               { label:'Total Views',      value:(stats.totalViews||0).toLocaleString(),      color:'var(--accent2)' },
-              { label:'Episode Unlocks',  value:(stats.totalUnlocks||0).toLocaleString(),     color:'var(--amber)'  },
+              { label:'Lecture Unlocks',  value:(stats.totalUnlocks||0).toLocaleString(),     color:'var(--amber)'  },
               { label:'Coins Generated',  value:`₵ ${(stats.totalCoinsSpent||0).toLocaleString()}`, color:'var(--green)'  },
               { label:'Users Unlocked',   value:(stats.uniqueUnlockers||0).toLocaleString(),  color:'var(--blue)'   },
             ].map(m => (
@@ -573,15 +573,15 @@ function StatsModal({ open, onClose, drama }) {
             ))}
           </div>
 
-          <ModalSection title="Episode Performance">
+          <ModalSection title="Lecture Performance">
             {stats.episodes?.length === 0 && (
-              <div style={{ color:'var(--text3)', fontSize:13 }}>No episodes yet.</div>
+              <div style={{ color:'var(--text3)', fontSize:13 }}>No lectures yet.</div>
             )}
             {stats.episodes?.length > 0 && (
               <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
                 <thead>
                   <tr style={{ borderBottom:'1px solid var(--border)' }}>
-                    <th style={{ textAlign:'left', padding:'6px 8px', color:'var(--text3)', fontWeight:500 }}>Episode</th>
+                    <th style={{ textAlign:'left', padding:'6px 8px', color:'var(--text3)', fontWeight:500 }}>Lecture</th>
                     <th style={{ textAlign:'center', padding:'6px 8px', color:'var(--text3)', fontWeight:500 }}>Users Unlocked</th>
                     <th style={{ textAlign:'right', padding:'6px 8px', color:'var(--text3)', fontWeight:500 }}>Coins Spent</th>
                   </tr>
@@ -631,7 +631,7 @@ function EditEpisodeModal({ open, onClose, drama, onSave }) {
 
   const handleSave = async () => {
     if (!form.title.trim()) {
-      alert('Episode title is required')
+      alert('Lecture title is required')
       return
     }
     setSaving(true)
@@ -641,20 +641,20 @@ function EditEpisodeModal({ open, onClose, drama, onSave }) {
         ...form,
       })
     } catch (err) {
-      alert('Failed to save episode: ' + err.message)
+      alert('Failed to save lecture: ' + err.message)
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={`Edit Episode - ${form.title || ''}`} width={600}>
-      <ModalSection title="Episode Details">
+    <Modal open={open} onClose={onClose} title={`Edit Lecture - ${form.title || ''}`} width={600}>
+      <ModalSection title="Lecture Details">
         <FormGroup label="Title *">
           <input 
             className="input" 
             style={{ width: '100%' }} 
-            placeholder="Episode title"
+            placeholder="Lecture title"
             value={form.title || ''}
             onChange={e => upd('title', e.target.value)}
           />
@@ -680,7 +680,7 @@ function EditEpisodeModal({ open, onClose, drama, onSave }) {
                   setForm(p => ({ ...p, is_free: false, is_show_only: false, coin_cost: p.coin_cost || 30 }));
                 } else if (val === 'show_only') {
                   if (drama?.is_free) {
-                    alert('Show-only episodes are not allowed on free shows!');
+                    alert('Course-only lectures are not allowed on free courses!');
                     return;
                   }
                   setForm(p => ({ ...p, is_free: false, is_show_only: true, coin_cost: 0 }));
@@ -689,7 +689,7 @@ function EditEpisodeModal({ open, onClose, drama, onSave }) {
             >
               <option value="free">Free</option>
               <option value="paid">Paid (coin unlock)</option>
-              <option value="show_only">Unlock via Show Purchase only</option>
+              <option value="show_only">Unlock via Course Purchase only</option>
             </select>
           </FormGroup>
         </div>
@@ -790,7 +790,7 @@ function ViewCountModal({ open, onClose, drama, onSave }) {
         <FormGroup label="Reason / note *">
           <input
             className="input"
-            placeholder="e.g. Launch boost for featured show"
+            placeholder="e.g. Launch boost for featured course"
             value={note}
             onChange={e => setNote(e.target.value)}
             style={{ width: '100%' }}
@@ -1216,7 +1216,7 @@ export default function Dramas() {
     return (
       <div className="page-enter" style={{ display:'flex', justifyContent:'center', alignItems:'center', height:'50vh' }}>
         <Loader size={24} className="spin" style={{ color:'var(--accent2)' }}/>
-        <span style={{ marginLeft:10, color:'var(--text3)' }}>Loading dramas...</span>
+        <span style={{ marginLeft:10, color:'var(--text3)' }}>Loading courses...</span>
       </div>
     )
   }
@@ -1225,18 +1225,18 @@ export default function Dramas() {
     <div className="page-enter">
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
         <div>
-          <div style={{ fontWeight:600 }}>{dramas.length} dramas total</div>
+          <div style={{ fontWeight:600 }}>{dramas.length} courses total</div>
           <div style={{ fontSize:12, color:'var(--text3)' }}>{dramas.filter(d=>d.status==='Published').length} published · {dramas.filter(d=>d.status==='Draft').length} drafts</div>
         </div>
-        <button className="btn btn-primary" onClick={() => open('add')} disabled={!canCreate}><Plus size={14}/> Add Drama</button>
+        <button className="btn btn-primary" onClick={() => open('add')} disabled={!canCreate}><Plus size={14}/> Add Course</button>
       </div>
 
       <div className="metrics-grid" style={{ gridTemplateColumns:'repeat(4,1fr)', marginBottom:16 }}>
         {[
-          { label:'Total Dramas', value:dramas.length, sub:`${dramas.filter(d=>d.episodes.some(e=>!e.is_free)).length} with paid episodes`, color:'var(--accent2)' },
-          { label:'Total Episodes', value:dramas.reduce((a,d)=>a+d.episodes.length,0), sub:'across all dramas', color:'var(--text)' },
+          { label:'Total Courses', value:dramas.length, sub:`${dramas.filter(d=>d.episodes.some(e=>!e.is_free)).length} with paid lectures`, color:'var(--accent2)' },
+          { label:'Total Lectures', value:dramas.reduce((a,d)=>a+d.episodes.length,0), sub:'across all courses', color:'var(--text)' },
           { label:'Total Views', value: (() => { const t = dramas.reduce((a,d)=>a+(d.views||0),0); return t >= 1_000_000 ? `${(t/1_000_000).toFixed(1)}M` : t >= 1_000 ? `${(t/1_000).toFixed(1)}K` : t.toString() })(), sub:'all-time combined', color:'var(--green)' },
-          { label:'Coin Unlocks', value:dramas.reduce((a,d)=>a+(d.unlocks||0),0).toLocaleString(), sub:'episodes unlocked', color:'var(--amber)' },
+          { label:'Coin Unlocks', value:dramas.reduce((a,d)=>a+(d.unlocks||0),0).toLocaleString(), sub:'lectures unlocked', color:'var(--amber)' },
         ].map(m => (
           <div className="metric-card" key={m.label}>
             <div className="metric-label">{m.label}</div>
@@ -1249,7 +1249,7 @@ export default function Dramas() {
       <div className="search-row">
         <div className="search-wrap">
           <Search size={14} className="search-icon"/>
-          <input className="input" style={{ paddingLeft:32 }} placeholder="Search dramas, tags…" value={q} onChange={e=>setQ(e.target.value)}/>
+          <input className="input" style={{ paddingLeft:32 }} placeholder="Search courses, tags…" value={q} onChange={e=>setQ(e.target.value)}/>
         </div>
         <select className="select" value={catF} onChange={e=>setCatF(e.target.value)}>
           <option>All</option>{ALL_CATEGORIES.map(c=><option key={c}>{c}</option>)}
@@ -1262,7 +1262,7 @@ export default function Dramas() {
       <div className="card" style={{ padding:0 }}>
         <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
           {filtered.length === 0 ? (
-            <div style={{ textAlign:'center', color:'var(--text3)', padding:'40px 20px' }}>No dramas found</div>
+            <div style={{ textAlign:'center', color:'var(--text3)', padding:'40px 20px' }}>No courses found</div>
           ) : (
             filtered.map(d => {
               const isExpanded = expandedDramaId === d.id
@@ -1298,7 +1298,7 @@ export default function Dramas() {
                       </div>
                       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 11 }}>
                         <span className="badge badge-blue" style={{ fontSize: 10, overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '120px' }}>{d.category}</span>
-                        <div style={{ color: 'var(--text3)' }}>{d.episodes.length} episodes {d.episodes.filter(e=>!e.is_free).length > 0 && `· ${d.episodes.filter(e=>!e.is_free).length} paid`}</div>
+                        <div style={{ color: 'var(--text3)' }}>{d.episodes.length} lectures {d.episodes.filter(e=>!e.is_free).length > 0 && `· ${d.episodes.filter(e=>!e.is_free).length} paid`}</div>
                         {d.tags.slice(0, 2).map(t => <span key={t} className={`badge ${tagColor[t]||'badge-blue'}`} style={{ fontSize: 10, overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100px' }}>{t}</span>)}
                         {d.tags.length > 2 && <span className="badge badge-blue" style={{ fontSize: 10, flexShrink: 0 }}>+{d.tags.length-2}</span>}
                       </div>
@@ -1330,13 +1330,13 @@ export default function Dramas() {
 
                     {/* Drama Action Buttons */}
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, marginLeft: 16 }}>
-                      <button className="btn btn-ghost btn-sm" onClick={() => open('edit', d)} title="Edit drama details"><Edit2 size={11}/></button>
-                      <button className="btn btn-ghost btn-sm" onClick={() => open('add-ep', d)} style={{ color: 'var(--accent2)' }} title="Add new episode" disabled={!canCreate}><Plus size={11}/></button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => open('edit', d)} title="Edit course details"><Edit2 size={11}/></button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => open('add-ep', d)} style={{ color: 'var(--accent2)' }} title="Add new lecture" disabled={!canCreate}><Plus size={11}/></button>
                       <button className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); openCoursework(d) }} style={{ color: 'var(--amber)' }} title="Manage Coursework"><BookOpen size={11}/></button>
                       <button className="btn btn-ghost btn-sm" onClick={() => open('stats', d)} title="View analytics"><BarChart2 size={11}/></button>
                       <button className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); setVcDrama(d); setVcModal(true) }} title="Adjust view count" style={{ color: 'var(--green)' }}><TrendingUp size={11}/></button>
                       {user?.role !== 'teacher' && (
-                        <button className={`btn btn-sm ${d.status==='Published'?'btn-danger':'btn-primary'}`} onClick={() => togglePublish(d.id)} style={{ fontSize: 10, whiteSpace: 'nowrap' }} title={d.status==='Published' ? 'Unpublish drama' : 'Publish drama'}>
+                        <button className={`btn btn-sm ${d.status==='Published'?'btn-danger':'btn-primary'}`} onClick={() => togglePublish(d.id)} style={{ fontSize: 10, whiteSpace: 'nowrap' }} title={d.status==='Published' ? 'Unpublish course' : 'Publish course'}>
                           {d.status==='Published'?'Unpublish':'Publish'}
                         </button>
                       )}
@@ -1355,12 +1355,12 @@ export default function Dramas() {
                             } 
                           }} 
                           style={{ marginLeft: 6, fontSize: 10, background: 'var(--accent2)', color: 'white', whiteSpace: 'nowrap' }}
-                          title={(!d.episodes || d.episodes.length === 0) ? "Cannot submit for review with zero episodes" : "Submit Course for Review"}
+                          title={(!d.episodes || d.episodes.length === 0) ? "Cannot submit for review with zero lectures" : "Submit Course for Review"}
                         >
                           Submit Course for Review
                         </button>
                       )}
-                      <button className="btn btn-danger btn-sm" onClick={() => open('delete', d)} title="Delete drama"><Trash2 size={11}/></button>
+                      <button className="btn btn-danger btn-sm" onClick={() => open('delete', d)} title="Delete course"><Trash2 size={11}/></button>
                     </div>
                   </div>
 
@@ -1368,7 +1368,7 @@ export default function Dramas() {
                   {isExpanded && (
                     <div style={{ background: 'var(--bg3)', padding: '0 20px', borderBottom: '1px solid var(--border)' }}>
                       {d.episodes.length === 0 ? (
-                        <div style={{ padding: '20px', color: 'var(--text3)', textAlign: 'center', fontSize: 12 }}>No episodes yet</div>
+                        <div style={{ padding: '20px', color: 'var(--text3)', textAlign: 'center', fontSize: 12 }}>No lectures yet</div>
                       ) : (
                         <div style={{ 
                           display: 'flex', 
@@ -1443,10 +1443,10 @@ export default function Dramas() {
                                       e.stopPropagation();
                                       try {
                                         await episodesApi.update(ep.id, { approval_status: 'PENDING_REVIEW' });
-                                        alert('Episode submitted for review');
+                                        alert('Lecture submitted for review');
                                         await reload();
                                       } catch (err) {
-                                        alert('Failed to submit episode: ' + (err.response?.data?.error || err.message));
+                                        alert('Failed to submit Lecture: ' + (err.response?.data?.error || err.message));
                                       }
                                     }}
                                     style={{ fontSize: 10, padding: '2px 8px', height: 24, background: 'var(--accent2)', color: 'white' }}
@@ -1478,10 +1478,10 @@ export default function Dramas() {
                                     {ep.approval_status === 'PUBLISHED' ? 'Unpublish' : 'Publish'}
                                   </button>
                                 )}
-                                <button className="btn btn-ghost btn-sm" onClick={() => open('edit-ep', { ...d, selectedEpisode: ep })} title="Edit episode">
+                                 <button className="btn btn-ghost btn-sm" onClick={() => open('edit-ep', { ...d, selectedEpisode: ep })} title="Edit lecture">
                                   <Edit2 size={11}/>
                                 </button>
-                                <button className="btn btn-danger btn-sm" onClick={() => open('delete-ep', { ...d, selectedEpisode: ep })} title="Delete episode">
+                                <button className="btn btn-danger btn-sm" onClick={() => open('delete-ep', { ...d, selectedEpisode: ep })} title="Delete lecture">
                                   <Trash2 size={11}/>
                                 </button>
                               </div>
@@ -1503,7 +1503,7 @@ export default function Dramas() {
       <DramaModal open={modal==='add-ep'} onClose={() => setModal(null)} onSave={async (data) => {
         try {
           await updateDrama(selected.id, data)
-          alert('Episode(s) added successfully!')
+          alert('Lecture(s) added successfully!')
           await reload()
         } catch (err) {
           const errData = err.response?.data
@@ -1512,8 +1512,8 @@ export default function Dramas() {
         }
       }} initial={selected} initialStep={2} autoAddEp={true} categories={categories}/>
       <StatsModal open={modal==='stats'} onClose={() => setModal(null)} drama={selected}/>
-      <ConfirmDialog open={modal==='delete'} title="Delete Drama" danger
-        message={`Permanently delete "${selected?.title}"? This will remove all episodes. This cannot be undone.`}
+      <ConfirmDialog open={modal==='delete'} title="Delete Course" danger
+        message={`Permanently delete "${selected?.title}"? This will remove all lectures. This cannot be undone.`}
         onConfirm={() => handleDelete(selected?.id)} onCancel={() => setModal(null)}
       />
       
@@ -1528,11 +1528,11 @@ export default function Dramas() {
             is_show_only: episodeData.is_show_only,
             duration_sec: durationToSeconds(episodeData.duration),
           })
-          alert('Episode updated successfully!')
+          alert('Lecture updated successfully!')
           await reload()
           setModal(null)
         } catch (err) {
-          alert('Failed to update episode: ' + (err.response?.data?.error || err.message))
+          alert('Failed to update Lecture: ' + (err.response?.data?.error || err.message))
         }
       }} />
 
@@ -2036,17 +2036,17 @@ export default function Dramas() {
       {/* Delete Episode Confirmation */}
       <ConfirmDialog 
         open={modal==='delete-ep'} 
-        title="Delete Episode" 
+        title="Delete Lecture" 
         danger
-        message={`Permanently delete episode "${selected?.selectedEpisode?.title}"? This cannot be undone.`}
+        message={`Permanently delete lecture "${selected?.selectedEpisode?.title}"? This cannot be undone.`}
         onConfirm={async () => {
           try {
             await episodesApi.delete(selected?.selectedEpisode?.id)
-            alert('Episode deleted successfully!')
+            alert('Lecture deleted successfully!')
             await reload()
             setModal(null)
           } catch (err) {
-            alert('Failed to delete episode: ' + (err.response?.data?.error || err.message))
+            alert('Failed to delete lecture: ' + (err.response?.data?.error || err.message))
           }
         }}
         onCancel={() => setModal(null)}

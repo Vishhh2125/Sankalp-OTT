@@ -133,7 +133,7 @@ export default function Submissions() {
 
         {/* Show filter */}
         <select className="select" value={showFilter} onChange={handleShowFilterChange} style={{ minWidth: 180 }}>
-          <option value="All">All Courses/Dramas</option>
+          <option value="All">All Courses</option>
           {dramas.map(d => (
             <option key={d.id} value={d.id}>{d.title}</option>
           ))}
@@ -164,7 +164,7 @@ export default function Submissions() {
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border)', fontSize: 11, textTransform: 'uppercase', color: 'var(--text3)' }}>
                   <th style={{ padding: '12px 20px' }}>Student</th>
-                  <th style={{ padding: '12px 20px' }}>Assignment / Drama</th>
+                  <th style={{ padding: '12px 20px' }}>Assignment / Course</th>
                   <th style={{ padding: '12px 20px' }}>Submitted Date</th>
                   <th style={{ padding: '12px 20px' }}>Status</th>
                   <th style={{ padding: '12px 20px' }}>Score</th>

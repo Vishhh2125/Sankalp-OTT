@@ -103,9 +103,9 @@ function BannerModal({ open, onClose, onSave, initial, shows, showsLoading }) {
           />
         </FormGroup>
 
-        <FormGroup label="Linked show">
+        <FormGroup label="Linked course">
           {showsLoading ? (
-            <div style={{ fontSize: 13, color: 'var(--text3)', padding: '8px 0' }}>Loading shows…</div>
+            <div style={{ fontSize: 13, color: 'var(--text3)', padding: '8px 0' }}>Loading courses…</div>
           ) : (
             <select
               className="select"
@@ -113,7 +113,7 @@ function BannerModal({ open, onClose, onSave, initial, shows, showsLoading }) {
               value={form.show_id}
               onChange={e => { upd('show_id', e.target.value); setError(null) }}
             >
-              <option value="">Select a show…</option>
+              <option value="">Select a course…</option>
               {shows.map(s => (
                 <option key={s.id} value={s.id}>{s.title}</option>
               ))}

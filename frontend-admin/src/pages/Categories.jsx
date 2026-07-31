@@ -198,8 +198,8 @@ export default function Categories() {
           <div className="card" style={{ marginBottom:14 }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
               <div>
-                <div className="card-title" style={{ marginBottom:0 }}>Drama Tags</div>
-                <div style={{ fontSize:12, color:'var(--text3)', marginTop:2 }}>Genre/type labels for filtering (Romance, Werewolf, etc.)</div>
+                <div className="card-title" style={{ marginBottom:0 }}>Course Tags</div>
+                <div style={{ fontSize:12, color:'var(--text3)', marginTop:2 }}>Genre/type labels for filtering (AI, Data Science, etc.)</div>
               </div>
               <button className="btn btn-primary btn-sm" onClick={() => { setSelected(null); setModal('tag-add') }}><Plus size={12}/> New tag</button>
             </div>

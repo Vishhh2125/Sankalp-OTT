@@ -62,7 +62,7 @@ function PackageFormModal({ open, onClose, onSave, initial, allShows }) {
   const handleSave = async () => {
     if (!form.title.trim()) return alert('Package Title is required')
     if (!form.synopsis.trim()) return alert('Synopsis is required')
-    if (selectedShows.length === 0) return alert('Please add at least one show to the package')
+    if (selectedShows.length === 0) return alert('Please add at least one course to the package')
 
     setSaving(true)
     try {
@@ -189,8 +189,8 @@ function PackageFormModal({ open, onClose, onSave, initial, allShows }) {
         />
       </ModalSection>
 
-      <ModalSection title="Shows in this Package">
-        <FormGroup label="Select Show to Add">
+      <ModalSection title="Courses in this Package">
+        <FormGroup label="Select Course to Add">
           <select
             className="input"
             style={{ width: '100%' }}
@@ -204,7 +204,7 @@ function PackageFormModal({ open, onClose, onSave, initial, allShows }) {
               e.target.value = ''
             }}
           >
-            <option value="">-- Choose Show --</option>
+            <option value="">-- Choose Course --</option>
             {allShows
               .filter((s) => !selectedShows.some((ss) => ss.id === s.id))
               .map((s) => (
@@ -218,7 +218,7 @@ function PackageFormModal({ open, onClose, onSave, initial, allShows }) {
         <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
           {selectedShows.length === 0 ? (
             <div style={{ fontSize: 12, color: 'var(--text3)', textAlign: 'center', padding: '16px 0', border: '1px dashed var(--border)', borderRadius: 'var(--radius)' }}>
-              No shows added yet. Pick from list above.
+              No courses added yet. Pick from list above.
             </div>
           ) : (
             selectedShows.map((s, idx) => (
@@ -370,7 +370,7 @@ export default function Packages() {
               <tr>
                 <th>Thumbnail</th>
                 <th>Package Title</th>
-                <th>Shows Inside</th>
+                <th>Courses Inside</th>
                 <th>Display Order</th>
                 <th>Coin Price</th>
                 <th>Status</th>
@@ -407,7 +407,7 @@ export default function Packages() {
                       </div>
                     </td>
                     <td>
-                      <span className="badge badge-blue">{pkg.shows_count} shows</span>
+                      <span className="badge badge-blue">{pkg.shows_count} courses</span>
                     </td>
                     <td style={{ fontFamily: 'var(--mono)', fontSize: 12 }}>{pkg.display_order}</td>
                     <td style={{ fontWeight: 600, color: 'var(--accent)' }}>💰 {pkg.coin_price}</td>
@@ -449,7 +449,7 @@ export default function Packages() {
       <ConfirmDialog
         open={!!confirmDelete}
         title="Delete Package"
-        message="Are you sure you want to delete this package? Existing buyers will not lose their show accesses, but this bundle will be permanently removed from selection."
+        message="Are you sure you want to delete this package? Existing buyers will not lose their course accesses, but this bundle will be permanently removed from selection."
         danger
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(null)}

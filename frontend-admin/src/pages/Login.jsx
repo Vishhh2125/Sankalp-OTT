@@ -111,14 +111,14 @@ export default function Login() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '18px',
+            fontSize: '15px',
             fontWeight: '700',
             color: '#fff'
           }}>
-            S
+            {isTeacherPortal ? 'AM' : 'AM'}
           </div>
           <div>
-            <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text)' }}>Sankalp OTT</div>
+            <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text)' }}>Alpha Minds</div>
             <div style={{ fontSize: '11px', color: 'var(--text3)', letterSpacing: '0.3px' }}>{portalBadge}</div>
           </div>
         </div>
