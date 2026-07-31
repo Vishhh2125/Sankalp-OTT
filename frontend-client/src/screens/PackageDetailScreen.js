@@ -322,7 +322,7 @@ export default function PackageDetailScreen() {
         </View>
 
         <View style={styles.detailsBlock}>
-          <Text style={styles.synopsisTitle}>Synopsis</Text>
+          <Text style={styles.synopsisTitle}>About this package</Text>
           <Text style={styles.synopsis}>{pkg.synopsis}</Text>
 
           {!(pkg.is_owned || pkg.is_membership_covered) && (

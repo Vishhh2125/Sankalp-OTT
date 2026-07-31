@@ -31,7 +31,7 @@ export default function MaterialsTab({ materials, loading, hasAccess }) {
         <Ionicons name="lock-closed" size={36} color={theme.gray} />
         <Text style={styles.lockedTitle}>Content Locked</Text>
         <Text style={styles.lockedSub}>
-          Subscribe or unlock an episode to access course materials.
+          Subscribe or unlock an lecture to access course materials.
         </Text>
       </View>
     );
